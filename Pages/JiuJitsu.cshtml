@@ -1,0 +1,133 @@
+@page
+@model JiuJitsuModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
+    ViewData["Title"] = "Kimonos de Jiu-Jitsu Adulto e Infantil | Rashguards e Roupas de Luta";
+    ViewData["Description"] = "Na Morita Kimonos em Sorocaba, você encontra kimonos de jiu-jitsu para adultos e crianças, rashguards de compressão e faixas das melhores marcas: In The Guard, Venum, South Team e Naja. Oferecemos produtos de alta qualidade, leves e resistentes para treinos e competições. Retire na loja na Rua Coronel Nogueira Padilha ou receba em casa. Compre pelo WhatsApp!";
+    ViewData["OgTitle"] = "Kimonos e Rashguards Jiu-Jitsu | Sorocaba";
+    ViewData["OgDescription"] = "Kimonos de jiu-jitsu leves e resistentes e rashguards de compressão. Masculino, feminino e infantil. Retire no Nogueira Padilha ou receba em Sorocaba.";
+    ViewData["BodyClass"] = "category-page jiu-jitsu-page";
+}
+
+@section Header {
+  <meta name="keywords" content="morita kimonos, morita fitness, loja de artes marciais sorocaba, equipamentos de jiu jitsu sorocaba, morita jiu jitsu, loja de kimono, kimono sorocaba, rashguard sorocaba, kimono de jiu-jitsu sorocaba, kimono jiu-jitsu masculino sorocaba, kimono jiu-jitsu feminino sorocaba, kimono jiu-jitsu infantil sorocaba, comprar kimono jiu-jitsu sorocaba, kimono de jiu-jitsu em sorocaba, kimono trançado jiu-jitsu, kimono jiu-jitsu a1, kimono jiu-jitsu a2, kimono jiu-jitsu a3, kimono jiu-jitsu In The Guard, kimono jiu-jitsu Venum, kimono jiu-jitsu South Team, kimono jiu-jitsu Naja, rashguard jiu-jitsu sorocaba, rashguard masculina sorocaba, rashguard feminina sorocaba, rashguard manga longa jiu-jitsu, rashguard de compressão, rashguard In The Guard, rashguard Venum, rashguard South Team, rashguard Naja, faixa de jiu-jitsu sorocaba, faixa branca jiu-jitsu, faixa azul jiu-jitsu, faixa roxa jiu-jitsu, faixa marrom jiu-jitsu, faixa preta jiu-jitsu">
+  <script type="application/ld+json">
+    {
+      "@@context": "https://schema.org",
+      "@@type": "SportingGoodsStore",
+      "name": "Morita Kimonos Sorocaba",
+      "url": "@(canonicalBase)",
+      "image": "@($"{canonicalBase.TrimEnd('/')}/images/favicon.png")",
+      "logo": "@($"{canonicalBase.TrimEnd('/')}/images/favicon.png")",
+      "telephone": "+55-15-98107-9332",
+      "address": {
+        "@@type": "PostalAddress",
+        "streetAddress": "Rua Coronel Nogueira Padilha, 429",
+        "addressLocality": "Sorocaba",
+        "addressRegion": "SP",
+        "postalCode": "18020-000",
+        "addressCountry": "BR"
+      },
+      "openingHours": ["Mo-Fr 09:00-18:00", "Sa 09:00-13:00"],
+      "areaServed": "Sorocaba - Nogueira Padilha",
+      "priceRange": "$$",
+      "sameAs": [
+        "https://www.instagram.com/morita.fight"
+      ]
+    }
+  </script>
+}
+
+<header class="category-header">
+    <img class="logo" src="~/images/logo.png" alt="Morita Fitness">
+</header>
+
+<main class="category-main">
+    <section class="category-hero" aria-labelledby="category-title">
+      <div class="category-hero-copy">
+        <p class="eyebrow">Jiu-Jitsu em Sorocaba</p>
+        <h1 id="category-title">Kimonos e rashguards para treinar com confiança</h1>
+        <p class="category-lead">
+          Atendimento para escolher tamanho, faixa e modelo ideal para adulto, infantil, treino ou competição.
+        </p>
+        <div class="hero-actions">
+          <a class="button whatsapp primary-cta" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Abrir catálogo de Jiu-Jitsu da Morita Fitness no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="jiu-jitsu">
+            <i class="fas fa-phone"></i>
+            Falar no WhatsApp
+          </a>
+          <button class="button request-hero-cta" type="button" data-request-open data-track-event="customer_product_request_open" data-track-category="jiu-jitsu">
+            <i class="fas fa-magnifying-glass"></i>
+            Encontrar meu tamanho
+          </button>
+          <a class="button instagram secondary-cta" href="https://www.instagram.com/morita.fight/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Morita Fitness" data-track-event="instagram_click" data-track-category="jiu-jitsu">
+            <i class="fab fa-instagram"></i>
+            Instagram
+          </a>
+        </div>
+        <ul class="trust-list" aria-label="Diferenciais para Jiu-Jitsu">
+          <li>Loja física em Sorocaba</li>
+          <li>Ajuda no tamanho do kimono</li>
+          <li>Atendimento em Sorocaba e região</li>
+          <li>Retirada ou envio</li>
+        </ul>
+      </div>
+      <div class="category-hero-media" aria-hidden="true">
+        <img src="~/images/kimono/adulto/itg-branco.jpeg" alt="" class="category-hero-img category-hero-img-main">
+        <img src="~/images/faixas/1.jpg" alt="" class="category-hero-img category-hero-img-accent">
+      </div>
+    </section>
+
+    <section class="quick-nav" aria-label="Categorias de Jiu-Jitsu">
+      <span>Kimonos</span>
+      <span>Rashguards</span>
+      <span>Faixas</span>
+      <span>Infantil</span>
+    </section>
+
+    <section class="products-intro" aria-labelledby="products-title">
+      <p class="eyebrow">Catálogo</p>
+      <h2 id="products-title">Produtos de Jiu-Jitsu</h2>
+    </section>
+
+    <section id="products" class="products" data-track-category="jiu-jitsu">
+        @for (var index = 0; index < Model.Products.Count; index++)
+        {
+            var p = Model.Products[index];
+            var cleanName = System.Text.RegularExpressions.Regex.Replace(p.Nome.ToLower(), @"[^\w-]", "");
+            var carouselId = $"carousel-{cleanName}-{index}";
+            var shuffledImagens = p.Imagens.OrderBy(_ => Random.Shared.Next()).ToList();
+
+            <div class="product">
+                <div class="carousel" id="@carouselId">
+                    @if (shuffledImagens.Count == 0)
+                    {
+                        <img src="https://via.placeholder.com/300x300.png?text=Produto+sem+imagem" alt="@p.Alt" class="carousel-img active">
+                    }
+                    else
+                    {
+                        @for (var i = 0; i < shuffledImagens.Count; i++)
+                        {
+                            <img src="@Url.Content("~" + shuffledImagens[i])" alt="@p.Alt" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i">
+                        }
+                    }
+                    @if (shuffledImagens.Count > 1)
+                    {
+                        <button class="prev" onclick="getImage('@carouselId', false)">&#10094;</button>
+                        <button class="next" onclick="getImage('@carouselId', true)">&#10095;</button>
+                    }
+                </div>
+                <h3>@p.Nome</h3>
+                <p>@p.Descricao</p>
+                <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="jiu-jitsu" data-track-selected-category="@p.Nome">
+                    <i class="fas fa-magnifying-glass"></i>
+                    Consultar disponibilidade
+                </button>
+            </div>
+        }
+    </section>
+</main>
+
+@section Scripts {
+<script src="~/js/carousel.js" asp-append-version="true"></script>
+}

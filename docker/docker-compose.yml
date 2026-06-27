@@ -1,0 +1,13 @@
+name: morita-lp-razor
+
+services:
+  frontend:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+    volumes:
+      - ..:/src

@@ -1,0 +1,27 @@
+# Build outputs
+bin/
+obj/
+
+# User secrets
+appsettings.local.json
+appsettings.local.Development.json
+
+# Visual Studio & Rider IDE files
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code files
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/code-workspace
+
+# Operating System files
+.DS_Store
+Thumbs.db
