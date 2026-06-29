@@ -6,6 +6,13 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorPages();
 builder.Services.AddSingleton<ProductService>();
 
+builder.Services.AddHttpClient<PublicCatalogService>((serviceProvider, client) =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var apiBaseUrl = configuration["ApiBaseUrl"] ?? "https://morita-api-1nnj.onrender.com"; //TODO: change for new URL (fly.io)
+    client.BaseAddress = new Uri(apiBaseUrl.TrimEnd('/'));
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

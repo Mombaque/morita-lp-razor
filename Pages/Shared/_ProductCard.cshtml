@@ -1,0 +1,51 @@
+@model Morita.LP.Razor.Models.ProductCardViewModel
+@{
+    var product = Model.Product;
+    var carouselId = $"carousel-{System.Text.RegularExpressions.Regex.Replace(product.Name.ToLowerInvariant(), @"[^\w-]", "")}-{Model.Index}";
+    var images = product.PrimaryImages;
+    var colors = product.AvailableColors.Take(4).ToList();
+    var sizes = product.AvailableSizes.Take(6).ToList();
+}
+
+<div class="product">
+    <div class="carousel" id="@carouselId">
+        @if (images.Count == 0)
+        {
+            <div class="carousel-img active product-image-placeholder" role="img" aria-label="Imagem em breve para @product.Name">Imagem em breve</div>
+        }
+        else
+        {
+            @for (var i = 0; i < images.Count; i++)
+            {
+                <img src="@images[i]" alt="@product.Name" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i">
+            }
+        }
+        @if (images.Count > 1)
+        {
+            <button class="prev" onclick="getImage('@carouselId', false)">&#10094;</button>
+            <button class="next" onclick="getImage('@carouselId', true)">&#10095;</button>
+        }
+    </div>
+    <div class="product-meta">
+        <span>@product.Category</span>
+        @if (!string.IsNullOrWhiteSpace(product.Brand) || !string.IsNullOrWhiteSpace(product.Model))
+        {
+            <span>@string.Join(" · ", new[] { product.Brand, product.Model }.Where(value => !string.IsNullOrWhiteSpace(value)))</span>
+        }
+    </div>
+    <strong class="product-price">@product.DisplayPrice</strong>
+    @if (colors.Count > 0)
+    {
+        <p class="product-summary"><strong>Cores:</strong> @string.Join(", ", colors)@(product.AvailableColors.Count > 4 ? "..." : "")</p>
+    }
+    @if (sizes.Count > 0)
+    {
+        <p class="product-summary"><strong>Tamanhos:</strong> @string.Join(", ", sizes)@(product.AvailableSizes.Count > 6 ? "..." : "")</p>
+    }
+    <h3>@product.Name</h3>
+    <p>@product.Description</p>
+    <a class="product-cta" href="/Produto/@Uri.EscapeDataString(product.Slug)" aria-label="Ver detalhes de @product.Name" data-track-event="product_detail_click" data-track-category="@Model.TrackingCategory" data-track-selected-category="@product.Name">
+        <i class="fas fa-eye"></i>
+        Ver detalhes
+    </a>
+</div>

@@ -6,19 +6,41 @@ namespace Morita.LP.Razor.Pages;
 
 public class JiuJitsuModel : PageModel
 {
-    private readonly ProductService _productService;
+    private readonly PublicCatalogService _publicCatalogService;
 
-    public JiuJitsuModel(ProductService productService)
+    public JiuJitsuModel(PublicCatalogService publicCatalogService)
     {
-        _productService = productService;
+        _publicCatalogService = publicCatalogService;
     }
 
-    public List<Product> Products { get; set; } = new();
+    public List<PublicCatalogProduct> Products { get; set; } = [];
+    public string ActiveFilter { get; set; } = "all";
+    public bool IsCatalogUnavailable { get; set; }
 
-    public void OnGet()
+    public async Task OnGetAsync(string filter = "all")
     {
-        Products = _productService.GetJiuJitsuProducts()
-            .OrderBy(_ => Random.Shared.Next())
-            .ToList();
+        ActiveFilter = filter;
+        var (category, audience) = GetFilter(filter);
+
+        try
+        {
+            Products = await _publicCatalogService.GetProductsAsync("Jiu-Jitsu", category, audience);
+        }
+        catch
+        {
+            IsCatalogUnavailable = true;
+        }
+    }
+
+    private static (string? Category, string? Audience) GetFilter(string filter)
+    {
+        return filter switch
+        {
+            "adult-kimonos" => ("Kimono", "Adulto"),
+            "kids-kimonos" => ("Kimono", "Infantil"),
+            "adult-belts" => ("Faixa", "Adulto"),
+            "kids-belts" => ("Faixa", "Infantil"),
+            _ => (null, null)
+        };
     }
 }

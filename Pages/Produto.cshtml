@@ -1,0 +1,155 @@
+@page "{slug?}"
+@model ProdutoModel
+@using System.Text.Json
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
+    var product = Model.Product;
+    ViewData["BodyClass"] = "product-detail-page";
+    ViewData["Title"] = product == null ? "Detalhes do Produto | Morita" : product.Name + " | Morita";
+    ViewData["Description"] = product?.Description ?? "Detalhes dos produtos Morita: tamanhos, cores, tecido, gramatura e atendimento pelo WhatsApp.";
+    ViewData["OgTitle"] = product == null ? "Detalhes do Produto | Morita" : product.Name + " | Morita";
+    ViewData["OgDescription"] = product?.Description ?? "Consulte modelos, tamanhos e disponibilidade pelo WhatsApp.";
+    if (product != null)
+    {
+        ViewData["Canonical"] = canonicalBase.TrimEnd('/') + "/Produto/" + Uri.EscapeDataString(product.Slug);
+    }
+    var selectedVariant = product?.ColorVariants.FirstOrDefault();
+    var selectedSize = product?.AvailableSizes.FirstOrDefault();
+    var productJson = product == null ? "{}" : JsonSerializer.Serialize(product, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+}
+
+<main id="product-detail-root" class="product-detail-main">
+@if (Model.IsCatalogUnavailable)
+{
+    <section class="product-not-found">
+      <p class="eyebrow">Catálogo indisponível</p>
+      <h1>Não foi possível carregar este produto agora.</h1>
+      <p>Fale com a Morita pelo WhatsApp para consultar modelos, tamanhos e valores.</p>
+      <div class="hero-actions"><a class="button request-hero-cta" href="/JiuJitsu">Voltar para Jiu-Jitsu</a><a class="button whatsapp primary-cta" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a></div>
+    </section>
+}
+else if (Model.IsNotFound || product == null)
+{
+    <section class="product-not-found">
+      <p class="eyebrow">Produto não encontrado</p>
+      <h1>Não encontramos esse produto.</h1>
+      <p>Confira o catálogo de Jiu-Jitsu ou fale com a Morita pelo WhatsApp.</p>
+      <div class="hero-actions"><a class="button request-hero-cta" href="/JiuJitsu">Voltar para Jiu-Jitsu</a><a class="button whatsapp primary-cta" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a></div>
+    </section>
+}
+else
+{
+    <nav class="breadcrumb" aria-label="Caminho do produto"><a href="/">Início</a><span>/</span><a href="@GetModalityUrl(product.Modality)">@product.Modality</a><span>/</span><span>@product.Name</span></nav>
+
+    <section class="product-detail-layout">
+      <div class="product-detail-gallery">
+        <div class="detail-carousel" id="detail-carousel">
+          @if (selectedVariant == null || selectedVariant.Images.Count == 0)
+          {
+            <div class="detail-image-placeholder">Imagem em breve</div>
+          }
+          else
+          {
+            @for (var i = 0; i < selectedVariant.Images.Count; i++)
+            {
+              <img src="@selectedVariant.Images[i]" alt="@product.Name" class="detail-carousel-img @(i == 0 ? "active" : "")">
+            }
+            @if (selectedVariant.Images.Count > 1)
+            {
+              <button class="detail-carousel-btn prev" type="button" data-carousel-direction="-1" aria-label="Imagem anterior">&#10094;</button>
+              <button class="detail-carousel-btn next" type="button" data-carousel-direction="1" aria-label="Próxima imagem">&#10095;</button>
+            }
+          }
+        </div>
+      </div>
+
+      <article class="product-detail-info">
+        <p class="eyebrow">@product.Modality / @product.Category</p>
+        <h1>@product.Name</h1>
+        <strong id="product-detail-price" class="detail-price">@(selectedVariant?.DisplayPrice ?? product.DisplayPrice)</strong>
+
+        <dl class="product-specs">
+          <div><dt>Marca</dt><dd>@(product.Brand ?? "Consultar")</dd></div>
+          <div><dt>Modelo</dt><dd>@(product.Model ?? "Consultar")</dd></div>
+          <div><dt>Público</dt><dd>@product.Audience</dd></div>
+          <div><dt>Tecido</dt><dd>@(product.FabricType ?? "Consultar")</dd></div>
+          <div><dt>Gramatura</dt><dd>@(product.WeightGsm.HasValue ? product.WeightGsm + "gsm" : "Consultar")</dd></div>
+        </dl>
+
+        @if (product.AvailableColors.Count > 0)
+        {
+          <section class="detail-selector" aria-label="Cores disponíveis"><h2>Cores disponíveis</h2><div class="detail-choice-row">
+            @foreach (var color in product.AvailableColors)
+            {
+              <button class="detail-choice @(selectedVariant?.Color == color ? "active" : "")" type="button" data-color="@color">@color</button>
+            }
+          </div></section>
+        }
+
+        @if (product.AvailableSizes.Count > 0)
+        {
+          <section class="detail-selector" aria-label="Tamanhos disponíveis"><h2>Tamanhos disponíveis</h2><div class="detail-choice-row">
+            @foreach (var size in product.AvailableSizes)
+            {
+              <button class="detail-choice @(selectedSize == size ? "active" : "")" type="button" data-size="@size">@size</button>
+            }
+          </div></section>
+        }
+
+        <p class="product-detail-description">@product.Description</p>
+        @if (product.Details.Count > 0)
+        {
+          <ul class="product-detail-list">@foreach (var detail in product.Details) { <li>@detail</li> }</ul>
+        }
+
+        <div class="product-detail-actions">
+          <a id="product-whatsapp-cta" class="button whatsapp primary-cta" href="@GetWhatsAppUrl(product, selectedVariant, selectedSize)" target="_blank" rel="noopener noreferrer" data-track-event="whatsapp_product_click" data-track-category="product-detail" data-track-selected-category="@product.Name"><i class="fas fa-phone"></i> Consultar no WhatsApp</a>
+          <button class="button request-hero-cta" type="button" data-request-open data-track-event="customer_product_request_open" data-track-category="product-detail" data-track-selected-category="@product.Name"><i class="fas fa-magnifying-glass"></i> Encontrar meu tamanho</button>
+        </div>
+      </article>
+    </section>
+
+    @if (Model.RelatedProducts.Count > 0)
+    {
+      <section class="related-products" aria-labelledby="related-products-title"><p class="eyebrow">Continue olhando</p><h2 id="related-products-title">Produtos relacionados</h2><div class="related-products-grid">
+        @foreach (var related in Model.RelatedProducts)
+        {
+          var relatedImage = related.PrimaryImages.FirstOrDefault();
+          <a class="related-product-card" href="/Produto/@Uri.EscapeDataString(related.Slug)" data-track-event="related_product_click" data-track-category="product-detail" data-track-selected-category="@related.Name">
+            @if (relatedImage == null) { <div class="related-product-placeholder">Imagem em breve</div> } else { <img src="@relatedImage" alt="@related.Name"> }
+            <span>@related.Category</span><strong>@related.Name</strong><em>@related.DisplayPrice</em>
+          </a>
+        }
+      </div></section>
+    }
+
+    <script type="application/json" id="product-detail-data">@Html.Raw(productJson)</script>
+}
+</main>
+
+@section Scripts {
+<script src="~/js/product-detail.js" asp-append-version="true"></script>
+}
+
+@functions {
+    private static string GetModalityUrl(string modality)
+    {
+        return modality switch
+        {
+            "Karatê" => "/Karate",
+            "Jiu-Jitsu" => "/JiuJitsu",
+            "Muay Thai" => "/MuayThai",
+            _ => "/"
+        };
+    }
+
+    private static string GetWhatsAppUrl(Morita.LP.Razor.Models.PublicCatalogProduct product, Morita.LP.Razor.Models.PublicCatalogProductVariant? variant, string? size)
+    {
+        var message = new List<string> { $"Olá! Tenho interesse no produto {product.Name}." };
+        if (!string.IsNullOrWhiteSpace(variant?.Color)) message.Add($"Cor: {variant.Color}.");
+        if (!string.IsNullOrWhiteSpace(size)) message.Add($"Tamanho: {size}.");
+        message.Add($"Preço exibido: {(variant?.DisplayPrice ?? product.DisplayPrice)}.");
+        return "https://wa.me/5515981079332?text=" + Uri.EscapeDataString(string.Join(" ", message));
+    }
+}

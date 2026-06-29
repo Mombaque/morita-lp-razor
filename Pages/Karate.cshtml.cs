@@ -4,11 +4,11 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public class MuayThaiModel : PageModel
+public class KarateModel : PageModel
 {
     private readonly PublicCatalogService _publicCatalogService;
 
-    public MuayThaiModel(PublicCatalogService publicCatalogService)
+    public KarateModel(PublicCatalogService publicCatalogService)
     {
         _publicCatalogService = publicCatalogService;
     }
@@ -20,7 +20,7 @@ public class MuayThaiModel : PageModel
     {
         try
         {
-            Products = await _publicCatalogService.GetProductsAsync("Muay Thai");
+            Products = await _publicCatalogService.GetProductsAsync("Karatê");
         }
         catch
         {
