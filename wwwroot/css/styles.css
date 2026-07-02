@@ -1206,6 +1206,51 @@ body {
     right: 12px;
   }
 
+  .request-modal {
+    align-items: flex-start;
+    padding: 10px;
+    padding-top: 12px;
+  }
+
+  .request-panel {
+    border-radius: 18px;
+    max-height: 88vh;
+    max-height: 88dvh;
+    padding: 18px 16px;
+  }
+
+  .request-close {
+    height: 34px;
+    right: 12px;
+    top: 12px;
+    width: 34px;
+  }
+
+  .request-panel h2 {
+    font-size: 1.65rem;
+    line-height: 1.02;
+    padding-right: 38px;
+  }
+
+  .request-subtitle {
+    font-size: 0.92rem;
+    line-height: 1.35;
+    margin-top: 8px;
+  }
+
+  .request-progress {
+    font-size: 0.78rem;
+    margin-top: 10px;
+  }
+
+  .request-form {
+    margin-top: 12px;
+  }
+
+  .request-choice-group {
+    margin-bottom: 12px;
+  }
+
   .request-actions {
     flex-direction: column-reverse;
   }
