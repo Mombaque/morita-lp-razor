@@ -3,9 +3,9 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
-    ViewData["Title"] = "Morita Fitness - Equipamentos para Artes Marciais em Sorocaba";
+    ViewData["Title"] = "Morita - Equipamentos para Artes Marciais em Sorocaba";
     ViewData["Description"] = "Equipamentos para Jiu-Jitsu e Muay Thai em Sorocaba. Kimonos, luvas, rashguards, shorts e acessórios com atendimento pelo WhatsApp e retirada na loja.";
-    ViewData["OgTitle"] = "Morita Fitness | Artes Marciais em Sorocaba";
+    ViewData["OgTitle"] = "Morita | Artes Marciais em Sorocaba";
     ViewData["OgDescription"] = "Kimonos, luvas, rashguards, shorts e acessórios para Jiu-Jitsu e Muay Thai em Sorocaba.";
     ViewData["BodyClass"] = "home-page";
 }
@@ -15,7 +15,7 @@
   {
     "@@context": "https://schema.org",
     "@@type": "SportingGoodsStore",
-    "name": "Morita Fitness",
+    "name": "Morita",
     "url": "@(canonicalBase)",
     "image": "@($"{canonicalBase.TrimEnd('/')}/images/favicon.png")",
     "logo": "@($"{canonicalBase.TrimEnd('/')}/images/favicon.png")",
@@ -41,12 +41,12 @@
 <main class="home-main">
     <section class="home-hero" aria-labelledby="home-title">
       <div class="home-hero-copy">
-        <img src="~/images/logo.png" alt="Morita Fitness" class="home-logo">
+        <img src="~/images/logo.png" alt="Morita" class="home-logo">
         <p class="eyebrow">Loja de artes marciais em Sorocaba</p>
         <h1 id="home-title">Equipamentos certos para o seu treino em Sorocaba</h1>
         <p class="hero-lead">Jiu-Jitsu e Muay Thai com atendimento direto para escolher tamanho, modelo e disponibilidade, seja para começar, treinar melhor ou competir.</p>
         <div class="hero-actions">
-          <a class="button whatsapp primary-cta" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Abrir catálogo da Morita Fitness no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="home">
+          <a class="button whatsapp primary-cta" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Abrir catálogo da Morita no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="home">
             <i class="fas fa-phone"></i>
             Falar no WhatsApp
           </a>
@@ -54,7 +54,7 @@
             <i class="fas fa-magnifying-glass"></i>
             Encontrar meu tamanho
           </button>
-          <a class="button instagram secondary-cta" href="https://www.instagram.com/morita.fight/" target="_blank" rel="noopener noreferrer" aria-label="Abrir Instagram da Morita Fitness" data-track-event="instagram_click" data-track-category="home">
+          <a class="button instagram secondary-cta" href="https://www.instagram.com/morita.fight/" target="_blank" rel="noopener noreferrer" aria-label="Abrir Instagram da Morita" data-track-event="instagram_click" data-track-category="home">
             <i class="fab fa-instagram"></i>
             Instagram
           </a>
@@ -63,7 +63,7 @@
           <i class="fas fa-location-dot"></i>
           Rua Coronel Nogueira Padilha, 429 - Sorocaba, SP
         </a>
-        <ul class="trust-list" aria-label="Diferenciais da Morita Fitness">
+        <ul class="trust-list" aria-label="Diferenciais da Morita">
           <li>Loja física em Sorocaba</li>
           <li>Ajuda para escolher tamanho</li>
           <li>Atendimento rápido em Sorocaba e região</li>
@@ -81,7 +81,7 @@
       <h2 id="category-title">Encontre o equipamento certo para o seu treino</h2>
       <div class="category-grid">
         <a href="/JiuJitsu" class="category-card category-card-jiu" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="jiu-jitsu">
-          <img src="~/images/kimono/adulto/itg-branco.jpeg" alt="Kimono de Jiu-Jitsu Morita Fitness">
+          <img src="~/images/kimono/adulto/itg-branco.jpeg" alt="Kimono de Jiu-Jitsu Morita">
           <span class="category-card-content">
             <span class="category-kicker">Jiu-Jitsu</span>
             <strong>Kimonos, rashguards e faixas</strong>
@@ -89,7 +89,7 @@
           </span>
         </a>
         <a href="/MuayThai" class="category-card category-card-muay" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="muay-thai">
-          <img src="~/images/muay-thai/shorts-varios.jpg" alt="Shorts e equipamentos de Muay Thai Morita Fitness">
+          <img src="~/images/muay-thai/shorts-varios.jpg" alt="Shorts e equipamentos de Muay Thai Morita">
           <span class="category-card-content">
             <span class="category-kicker">Muay Thai</span>
             <strong>Luvas, shorts e caneleiras</strong>
@@ -108,7 +108,7 @@
     {
         var slide = Model.Slides[i];
         <a href="@slide.CategoryUrl" class="random-carousel-slide @(i == 0 ? "active" : "")" data-track-event="category_navigation_click" data-track-category="home-carousel" data-track-selected-category="@slide.CategoryName.ToLower().Replace(" ", "-")">
-          <img src="@slide.Image" class="random-carousel-img" alt="Produto de @slide.CategoryName Morita Fitness">
+          <img src="@slide.Image" class="random-carousel-img" alt="Produto de @slide.CategoryName Morita">
           <span class="random-carousel-caption">
             <span>@slide.CategoryName</span>
             <strong>Ver produtos</strong>

@@ -1,8 +1,8 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
-    var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https://morita-api-1nnj.onrender.com";
+    var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https://morita-api.fly.dev";
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
-    var title = ViewData["Title"] ?? "Morita Fitness - Equipamentos para Artes Marciais em Sorocaba";
+    var title = ViewData["Title"] ?? "Morita - Equipamentos para Artes Marciais em Sorocaba";
     var description = ViewData["Description"] ?? "Equipamentos para Jiu-Jitsu e Muay Thai em Sorocaba. Kimonos, luvas, rashguards, shorts e acessórios com atendimento pelo WhatsApp e retirada na loja.";
     var canonical = ViewData["Canonical"] ?? $"{canonicalBase.TrimEnd('/')}{ViewContext.HttpContext.Request.Path}";
     var ogImage = $"{canonicalBase.TrimEnd('/')}/images/favicon.png";
@@ -23,7 +23,7 @@
     
     <meta property="og:type" content="website">
     <meta property="og:locale" content="pt_BR">
-    <meta property="og:title" content="@(ViewData["OgTitle"] ?? "Morita Fitness | Artes Marciais em Sorocaba")">
+    <meta property="og:title" content="@(ViewData["OgTitle"] ?? "Morita | Artes Marciais em Sorocaba")">
     <meta property="og:description" content="@(ViewData["OgDescription"] ?? "Kimonos, luvas, rashguards, shorts e acessórios para Jiu-Jitsu e Muay Thai em Sorocaba.")">
     <meta property="og:url" content="@canonical">
     <meta property="og:image" content="@ogImage">

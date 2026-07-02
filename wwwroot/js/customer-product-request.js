@@ -121,7 +121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function injectRequestWidget() {
   document.body.insertAdjacentHTML('beforeend', `
-    <a class="request-float" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Falar com a Morita Fitness no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="request-widget">
+    <a class="request-float" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Falar com a Morita no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="request-widget">
       <i class="fas fa-phone"></i>
       Falar no WhatsApp
     </a>
@@ -539,7 +539,7 @@ function renderPrivacyConsent() {
     <section class="request-privacy" aria-label="Política de Privacidade">
       <label class="request-checkbox">
         <input type="checkbox" name="${FIELD.acceptedPrivacyPolicy}" value="true" ${state.data[FIELD.acceptedPrivacyPolicy] === true ? 'checked' : ''}>
-        <span>Estou de acordo em compartilhar esses dados para que a Morita Fitness entre em contato comigo para prosseguir com o atendimento.</span>
+        <span>Estou de acordo em compartilhar esses dados para que a Morita entre em contato comigo para prosseguir com o atendimento.</span>
       </label>
     </section>
   `;
