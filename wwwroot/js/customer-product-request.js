@@ -2,7 +2,6 @@ const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === 'local
   ? 'http://localhost:5001'
   : 'https://morita-api-1nnj.onrender.com');
 
-const WHATSAPP_NUMBER = '5515981079332';
 const TOTAL_STEPS = 3;
 
 const REQUEST_STATUS = {
@@ -137,6 +136,7 @@ function injectRequestWidget() {
           <div id="request-step-content"></div>
           <div class="request-actions">
             <button class="request-secondary" type="button" data-request-back>Voltar</button>
+            <button class="request-cancel" type="button" data-request-close>Cancelar</button>
             <button class="request-primary" type="button" data-request-next>${BUTTON_LABELS.continue}</button>
           </div>
         </form>
@@ -547,8 +547,6 @@ function renderPrivacyConsent() {
 
 async function submitRequest() {
   const button = document.querySelector('[data-request-next]');
-  let whatsappWindow = null;
-
   if (state.data[FIELD.acceptedPrivacyPolicy] !== true) {
     document.querySelector('.request-error')?.remove();
     document.getElementById('request-step-content').insertAdjacentHTML('beforeend', renderError(ERROR_MESSAGES.privacy));
@@ -561,7 +559,6 @@ async function submitRequest() {
 
   try {
     const payload = buildPayload();
-    whatsappWindow = window.open('', '_blank');
     const response = await fetch(`${API_BASE_URL}/v1/CustomerProductRequest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -570,13 +567,11 @@ async function submitRequest() {
 
     if (!response.ok) throw new Error('Request failed');
 
-    openWhatsAppRequestMessage(payload, whatsappWindow);
     state.status = REQUEST_STATUS.success;
     state.data = {};
     document.querySelector('.request-actions').style.display = 'none';
     document.getElementById('request-step-content').innerHTML = getStepHtml();
   } catch {
-    whatsappWindow?.close();
     document.querySelector('.request-error')?.remove();
     document.getElementById('request-step-content').insertAdjacentHTML('beforeend', renderError(ERROR_MESSAGES.submit));
     button.disabled = false;
@@ -615,63 +610,6 @@ function buildPayload() {
       };
     }),
   };
-}
-
-function openWhatsAppRequestMessage(payload, whatsappWindow) {
-  const url = "https://wa.me/" + WHATSAPP_NUMBER + "?text=" + encodeURIComponent(buildWhatsAppMessage(payload));
-
-  if (whatsappWindow && !whatsappWindow.closed) {
-    whatsappWindow.location.href = url;
-    return;
-  }
-
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
-function buildWhatsAppMessage(request) {
-  const lines = [
-    "Nova consulta no site Morita",
-    "",
-    "Nome: " + valueOrDash(request.customerName),
-    "Telefone: " + valueOrDash(request.customerPhone),
-    "Modalidade: " + valueOrDash(request.modality),
-    "Página: " + valueOrDash(request.landingPage),
-    "Campanha: " + valueOrDash(request.campaign),
-  ];
-
-  if (request.notes) {
-    lines.push("Observações: " + request.notes);
-  }
-
-  lines.push("", "Itens solicitados:");
-
-  request.items.forEach((item, index) => {
-    lines.push((index + 1) + ". " + valueOrDash(item.productType));
-    lines.push("   Tamanho: " + valueOrDash(item.size));
-    lines.push("   Cor: " + valueOrDash(item.color));
-
-    if (item.heightCm) {
-      lines.push("   Altura: " + item.heightCm + " cm");
-    }
-
-    if (item.weightKg) {
-      lines.push("   Peso: " + item.weightKg + " kg");
-    }
-
-    if (item.age) {
-      lines.push("   Idade: " + item.age);
-    }
-
-    if (item.notes) {
-      lines.push("   Observações do item: " + item.notes);
-    }
-  });
-
-  return lines.join(String.fromCharCode(10));
-}
-
-function valueOrDash(value) {
-  return value || "-";
 }
 
 function getLandingPagePath() {

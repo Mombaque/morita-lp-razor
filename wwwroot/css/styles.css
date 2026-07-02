@@ -730,8 +730,8 @@ body {
 }
 
 .request-close {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #dc2626;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   color: white;
   cursor: pointer;
@@ -741,6 +741,13 @@ body {
   right: 18px;
   top: 18px;
   width: 40px;
+}
+
+.request-close:hover,
+.request-close:focus-visible {
+  background: #ef4444;
+  outline: 2px solid rgba(255, 255, 255, 0.45);
+  outline-offset: 2px;
 }
 
 .request-panel h2 {
@@ -1002,12 +1009,13 @@ body {
 .request-actions {
   display: flex;
   gap: 10px;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-top: 20px;
 }
 
 .request-primary,
-.request-secondary {
+.request-secondary,
+.request-cancel {
   border: 0;
   border-radius: 999px;
   cursor: pointer;
@@ -1029,6 +1037,12 @@ body {
 .request-secondary {
   background: rgba(255, 255, 255, 0.08);
   color: white;
+  margin-right: auto;
+}
+
+.request-cancel {
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .request-error {
