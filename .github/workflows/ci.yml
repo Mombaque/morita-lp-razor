@@ -24,3 +24,13 @@ jobs:
 
       - name: Build
         run: dotnet build Morita.LP.Razor.csproj -c Release --no-restore
+
+      - name: Setup Flyctl
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to Fly
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: flyctl deploy --remote-only --config fly.toml
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
