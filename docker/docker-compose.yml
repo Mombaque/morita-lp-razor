@@ -11,3 +11,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
     volumes:
       - ..:/src
+    develop:
+      watch:
+        - action: rebuild
+          path: ..
