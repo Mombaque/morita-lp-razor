@@ -1,7 +1,7 @@
 const GOOGLE_ADS_CONTACT_CONVERSION = 'AW-17391563568/47KdCNHtgLEcELDm-ORA';
 const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === 'localhost'
   ? 'http://localhost:5001'
-  : 'https://morita-api-1nnj.onrender.com');
+  : 'https://morita-api.fly.dev');
 const USAGE_EVENT_ENDPOINT = `${API_BASE_URL.replace(/\/$/, '')}/v1/WebsiteUsageEvent`;
 
 function getPageCategory() {
