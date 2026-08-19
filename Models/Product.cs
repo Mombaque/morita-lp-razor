@@ -6,4 +6,5 @@ public class Product
     public string Alt { get; set; } = string.Empty;
     public string Descricao { get; set; } = string.Empty;
     public List<string> Imagens { get; set; } = new();
+    public string? FormattedPrice { get; set; }
 }

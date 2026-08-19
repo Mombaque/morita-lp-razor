@@ -2,4 +2,7 @@
 .vs
 bin/
 obj/
+**/bin/
+**/obj/
+Morita.LP.Razor.Tests/
 out/

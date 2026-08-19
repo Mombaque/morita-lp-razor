@@ -1,4 +1,4 @@
-@page
+@page "/jiu-jitsu"
 @model JiuJitsuModel
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
@@ -17,7 +17,7 @@
       "@@context": "https://schema.org",
       "@@type": "SportingGoodsStore",
       "name": "Morita Kimonos Sorocaba",
-      "url": "@(canonicalBase)",
+       "url": "@($"{canonicalBase.TrimEnd('/')}/jiu-jitsu")",
       "image": "@($"{canonicalBase.TrimEnd('/')}/images/favicon.png")",
       "logo": "@($"{canonicalBase.TrimEnd('/')}/images/favicon.png")",
       "telephone": "+55-15-98107-9332",
@@ -91,39 +91,13 @@
     </section>
 
     <section id="products" class="products" data-track-category="jiu-jitsu">
+        @if (Model.CatalogState == CatalogLoadState.Empty)
+        { <div class="catalog-state catalog-empty" role="status"><h3>Catálogo em atualização</h3><p>Não encontramos produtos publicados nesta modalidade no momento.</p></div> }
+        else if (Model.CatalogState == CatalogLoadState.Unavailable)
+        { <div class="catalog-state catalog-unavailable" role="status"><h3>Catálogo temporariamente indisponível</h3><p>Tente novamente em instantes ou fale conosco pelo WhatsApp.</p></div> }
         @for (var index = 0; index < Model.Products.Count; index++)
         {
-            var p = Model.Products[index];
-            var cleanName = System.Text.RegularExpressions.Regex.Replace(p.Nome.ToLower(), @"[^\w-]", "");
-            var carouselId = $"carousel-{cleanName}-{index}";
-            var shuffledImagens = p.Imagens.OrderBy(_ => Random.Shared.Next()).ToList();
-
-            <div class="product">
-                <div class="carousel" id="@carouselId">
-                    @if (shuffledImagens.Count == 0)
-                    {
-                        <img src="https://via.placeholder.com/300x300.png?text=Produto+sem+imagem" alt="@p.Alt" class="carousel-img active">
-                    }
-                    else
-                    {
-                        @for (var i = 0; i < shuffledImagens.Count; i++)
-                        {
-                            <img src="@Url.Content("~" + shuffledImagens[i])" alt="@p.Alt" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i">
-                        }
-                    }
-                    @if (shuffledImagens.Count > 1)
-                    {
-                        <button class="prev" onclick="getImage('@carouselId', false)">&#10094;</button>
-                        <button class="next" onclick="getImage('@carouselId', true)">&#10095;</button>
-                    }
-                </div>
-                <h3>@p.Nome</h3>
-                <p>@p.Descricao</p>
-                <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="jiu-jitsu" data-track-selected-category="@p.Nome">
-                    <i class="fas fa-magnifying-glass"></i>
-                    Consultar disponibilidade
-                </button>
-            </div>
+            <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Products[index], "jiu-jitsu", index))" />
         }
     </section>
 </main>

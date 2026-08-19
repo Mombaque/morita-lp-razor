@@ -6,18 +6,21 @@ namespace Morita.LP.Razor.Pages;
 
 public class MuayThaiModel : PageModel
 {
-    private readonly ProductService _productService;
+    private readonly CatalogService _catalogService;
 
-    public MuayThaiModel(ProductService productService)
+    public MuayThaiModel(CatalogService catalogService)
     {
-        _productService = productService;
+        _catalogService = catalogService;
     }
 
     public List<Product> Products { get; set; } = new();
+    public CatalogLoadState CatalogState { get; private set; }
 
-    public void OnGet()
+    public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        Products = _productService.GetMuayThaiProducts()
+        var result = await _catalogService.GetProductsAsync("muay-thai", cancellationToken);
+        CatalogState = result.State;
+        Products = result.Products
             .OrderBy(_ => Random.Shared.Next())
             .ToList();
     }

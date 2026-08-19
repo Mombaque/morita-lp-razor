@@ -9,9 +9,14 @@ services:
       - "5173:5173"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - Storefront__DataProtectionKeyDirectory=/var/morita/data-protection-keys
     volumes:
       - ..:/src
+      - razor-data-protection:/var/morita/data-protection-keys
     develop:
       watch:
         - action: rebuild
           path: ..
+
+volumes:
+  razor-data-protection:

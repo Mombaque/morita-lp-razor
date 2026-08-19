@@ -102,4 +102,7 @@ public class ProductService
 
     public List<Product> GetJiuJitsuProducts() => JiuJitsuProducts;
     public List<Product> GetMuayThaiProducts() => MuayThaiProducts;
+
+    public IReadOnlyList<Product> GetLegacyProducts(string modality) =>
+        modality.Equals("jiu-jitsu", StringComparison.OrdinalIgnoreCase) ? JiuJitsuProducts : MuayThaiProducts;
 }

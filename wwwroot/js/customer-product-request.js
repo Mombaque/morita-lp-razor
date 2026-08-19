@@ -1,6 +1,7 @@
 const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === 'localhost'
   ? 'http://localhost:5001'
   : 'https://morita-api.fly.dev');
+const USE_REQUEST_RELAY = window.CUSTOMER_REQUEST_RELAY === true;
 
 const TOTAL_STEPS = 3;
 
@@ -111,6 +112,7 @@ const state = {
   step: 1,
   data: {},
   status: REQUEST_STATUS.idle,
+  previouslyFocused: null,
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -173,10 +175,12 @@ function bindRequestEvents() {
   document.querySelector('[data-request-next]').addEventListener('click', goNext);
   document.getElementById('customer-request-form').addEventListener('click', handleRequestFormClick);
   document.getElementById('customer-request-form').addEventListener('change', handleFormChange);
+  document.addEventListener('keydown', handleModalKeydown);
 }
 
 function openRequestModal(selectedProduct = null, pageCategory = null) {
   const modal = document.getElementById('customer-request-modal');
+  state.previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   modal.setAttribute('aria-hidden', 'false');
   document.body.classList.add('request-modal-open');
   state.step = 1;
@@ -210,11 +214,40 @@ function openRequestModal(selectedProduct = null, pageCategory = null) {
   }
 
   renderStep();
+  document.querySelector('.request-close')?.focus();
 }
 
 function closeRequestModal() {
   document.getElementById('customer-request-modal').setAttribute('aria-hidden', 'true');
   document.body.classList.remove('request-modal-open');
+  state.previouslyFocused?.focus();
+  state.previouslyFocused = null;
+}
+
+function handleModalKeydown(event) {
+  const modal = document.getElementById('customer-request-modal');
+  if (modal.getAttribute('aria-hidden') === 'true') return;
+
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeRequestModal();
+    return;
+  }
+
+  if (event.key !== 'Tab') return;
+  const focusable = [...modal.querySelectorAll('button:not([disabled]), a[href], input:not([disabled]), textarea:not([disabled])')]
+    .filter(element => element instanceof HTMLElement && element.offsetParent !== null);
+  if (focusable.length === 0) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function handleRequestFormClick(event) {
@@ -354,7 +387,7 @@ function updateSubmitButtonState() {
 
 function getStepHtml() {
   if (state.status === REQUEST_STATUS.success) {
-    return '<div class="request-success"><strong>Pedido recebido.</strong><span>Vamos confirmar disponibilidade pelo WhatsApp.</span></div>';
+    return '<div class="request-success" role="status" aria-live="polite"><strong>Pedido recebido.</strong><span>Vamos confirmar disponibilidade pelo WhatsApp.</span></div>';
   }
 
   if (state.step === 1) {
@@ -378,15 +411,15 @@ function renderProductSelectionStep() {
       
       ${Object.entries(options.productTypes).map(([modality, types]) => `
         <div class="request-modality-group">
-          <h4 class="request-group-title">${modality}</h4>
+          <h4 class="request-group-title">${escapeHtml(modality)}</h4>
           <div class="request-choice-grid">
             ${types.map(type => {
               const itemKey = `${modality}::${type}`;
               const isChecked = selectedKeys.includes(itemKey);
               return `
                 <label class="request-choice request-choice-multiple ${isChecked ? 'selected' : ''}">
-                  <input type="checkbox" name="${FIELD.productTypes}" value="${itemKey}" ${isChecked ? 'checked' : ''}>
-                  <span>${type}</span>
+                  <input type="checkbox" name="${FIELD.productTypes}" value="${escapeHtml(itemKey)}" ${isChecked ? 'checked' : ''}>
+                  <span>${escapeHtml(type)}</span>
                 </label>
               `;
             }).join('')}
@@ -419,13 +452,13 @@ function renderProductQuestionGroup(key, modality, productType) {
 
   return `
     <section class="request-product-section">
-      <h3>${productType} <span class="request-badge">${modality}</span></h3>
+      <h3>${escapeHtml(productType)} <span class="request-badge">${escapeHtml(modality)}</span></h3>
       ${sizeOptions ? renderDetailChoiceGroup(FIELD.size, key, 'Tamanho', sizeOptions, details[FIELD.size]) : ''}
       ${beltColorOptions ? renderDetailChoiceGroup(FIELD.color, key, 'Cor da faixa', beltColorOptions, details[FIELD.color], getBeltColorIconSrc) : ''}
       ${needsBodyInfo ? '<p class="request-help">Para kimono, altura e peso ajudam a orientar o tamanho com mais segurança.</p>' : ''}
-      ${needsBodyInfo ? '<label class="request-label">Altura em cm<input name="' + getDetailFieldName(FIELD.heightCm, key) + '" type="number" min="50" max="230" value="' + (details[FIELD.heightCm] || '') + '"></label>' : ''}
-      ${needsBodyInfo ? '<label class="request-label">Peso em kg<input name="' + getDetailFieldName(FIELD.weightKg, key) + '" type="number" min="10" max="250" step="0.1" value="' + (details[FIELD.weightKg] || '') + '"></label>' : ''}
-      ${productType === PRODUCT_TYPE.kimonoInfantilJudo ? '<label class="request-label">Idade<input name="' + getDetailFieldName(FIELD.age, key) + '" type="number" min="1" max="120" value="' + (details[FIELD.age] || '') + '"></label>' : ''}
+      ${needsBodyInfo ? '<label class="request-label">Altura em cm<input name="' + escapeHtml(getDetailFieldName(FIELD.heightCm, key)) + '" type="number" min="50" max="230" value="' + escapeHtml(details[FIELD.heightCm] || '') + '"></label>' : ''}
+      ${needsBodyInfo ? '<label class="request-label">Peso em kg<input name="' + escapeHtml(getDetailFieldName(FIELD.weightKg, key)) + '" type="number" min="10" max="250" step="0.1" value="' + escapeHtml(details[FIELD.weightKg] || '') + '"></label>' : ''}
+      ${productType === PRODUCT_TYPE.kimonoInfantilJudo ? '<label class="request-label">Idade<input name="' + escapeHtml(getDetailFieldName(FIELD.age, key)) + '" type="number" min="1" max="120" value="' + escapeHtml(details[FIELD.age] || '') + '"></label>' : ''}
       ${productType === PRODUCT_TYPE.kimonoInfantilJudo ? '<p class="request-help">Também temos opções infantis para Judô.</p>' : ''}
       ${!hasStructuredOptions ? renderProductDetailsField(key, details[FIELD.productDetails]) : ''}
     </section>
@@ -462,15 +495,15 @@ function renderDetailChoiceGroup(field, key, label, values, selectedValue, getIc
 function renderChoiceGroup(name, label, values, selectedValue = null, getIconSrc = null) {
   return `
     <fieldset class="request-choice-group">
-      <legend>${label}</legend>
+      <legend>${escapeHtml(label)}</legend>
       <div class="request-choice-grid">
         ${values.map(value => {
           const isSelected = selectedValue === value;
           return `
             <label class="request-choice ${isSelected ? 'selected' : ''}">
-              <input type="radio" name="${name}" value="${value}" ${isSelected ? 'checked' : ''}>
-              ${getIconSrc ? `<img src="${getIconSrc(value)}" alt="" aria-hidden="true">` : ''}
-              <span>${value}</span>
+              <input type="radio" name="${escapeHtml(name)}" value="${escapeHtml(value)}" ${isSelected ? 'checked' : ''}>
+              ${getIconSrc ? `<img src="${escapeHtml(getIconSrc(value))}" alt="" aria-hidden="true">` : ''}
+              <span>${escapeHtml(value)}</span>
             </label>
           `;
         }).join('')}
@@ -484,7 +517,7 @@ function renderProductDetailsField(key, value) {
   return `
     <label class="request-label">
       Detalhes do produto (marca, modelo, cor preferida)
-      <textarea name="${name}" rows="3" maxlength="${PRODUCT_DETAILS_MAX_LENGTH}">${value || ''}</textarea>
+      <textarea name="${escapeHtml(name)}" rows="3" maxlength="${PRODUCT_DETAILS_MAX_LENGTH}">${escapeHtml(value || '')}</textarea>
     </label>
   `;
 }
@@ -492,9 +525,9 @@ function renderProductDetailsField(key, value) {
 function renderReviewStep() {
   return `
     ${renderSelectedProductsSummary()}
-    <label class="request-label">Seu nome<input name="${FIELD.customerName}" value="${state.data[FIELD.customerName] || ''}" required></label>
-    <label class="request-label">WhatsApp<input name="${FIELD.customerPhone}" value="${state.data[FIELD.customerPhone] || ''}" inputmode="tel" required></label>
-    <label class="request-label">Observações<textarea name="${FIELD.notes}" rows="3">${state.data[FIELD.notes] || ''}</textarea></label>
+    <label class="request-label">Seu nome<input name="${FIELD.customerName}" value="${escapeHtml(state.data[FIELD.customerName] || '')}" required></label>
+    <label class="request-label">WhatsApp<input name="${FIELD.customerPhone}" value="${escapeHtml(state.data[FIELD.customerPhone] || '')}" inputmode="tel" required></label>
+    <label class="request-label">Observações<textarea name="${FIELD.notes}" rows="3">${escapeHtml(state.data[FIELD.notes] || '')}</textarea></label>
     ${renderPrivacyConsent()}
     <input class="request-honeypot" name="${FIELD.website}" tabindex="-1" autocomplete="off">
   `;
@@ -528,8 +561,8 @@ function renderSelectedProductSummaryItem(key) {
 
   return `
     <article class="request-selection-item">
-      <strong>${productType} <span class="request-badge">${modality}</span></strong>
-      ${summary.length > 0 ? `<dl>${summary.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl>` : '<span>Sem detalhes adicionais</span>'}
+      <strong>${escapeHtml(productType)} <span class="request-badge">${escapeHtml(modality)}</span></strong>
+      ${summary.length > 0 ? `<dl>${summary.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`).join('')}</dl>` : '<span>Sem detalhes adicionais</span>'}
     </article>
   `;
 }
@@ -559,18 +592,24 @@ async function submitRequest() {
 
   try {
     const payload = buildPayload();
-    const response = await fetch(`${API_BASE_URL}/v1/CustomerProductRequest`, {
+    const headers = { 'Content-Type': 'application/json' };
+    if (USE_REQUEST_RELAY) {
+      const token = document.querySelector('meta[name="request-verification-token"]')?.content;
+      if (token) headers.RequestVerificationToken = token;
+    }
+    const response = await fetch(USE_REQUEST_RELAY ? window.CUSTOMER_REQUEST_RELAY_URL : `${API_BASE_URL}/v1/CustomerProductRequest`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(payload),
     });
 
     if (!response.ok) throw new Error('Request failed');
 
     state.status = REQUEST_STATUS.success;
+    const whatsappUrl = getPrefilledWhatsAppUrl();
     state.data = {};
     document.querySelector('.request-actions').style.display = 'none';
-    document.getElementById('request-step-content').innerHTML = getStepHtml();
+    document.getElementById('request-step-content').innerHTML = `${getStepHtml()}<a class="request-success-whatsapp" href="${whatsappUrl}" target="_blank" rel="noopener noreferrer" data-track-event="whatsapp_catalog_click" data-track-category="request-widget">Continuar pelo WhatsApp</a>`;
   } catch {
     document.querySelector('.request-error')?.remove();
     document.getElementById('request-step-content').insertAdjacentHTML('beforeend', renderError(ERROR_MESSAGES.submit));
@@ -579,8 +618,23 @@ async function submitRequest() {
   }
 }
 
+function getPrefilledWhatsAppUrl() {
+  const message = `Olá, sou ${state.data[FIELD.customerName] || 'cliente'} e gostaria de confirmar minha consulta de produtos Morita.`;
+  return `https://wa.me/5515981079332?text=${encodeURIComponent(message)}`;
+}
+
 function renderError(message) {
-  return `<p class="request-error">${message}</p>`;
+  return `<p class="request-error" role="alert">${escapeHtml(message)}</p>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, character => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  })[character]);
 }
 
 function buildPayload() {

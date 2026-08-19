@@ -5,6 +5,18 @@ body {
       background: #000000;
       color: white;
     }
+
+.catalog-state {
+  border-radius: 20px;
+  grid-column: 1 / -1;
+  padding: 2rem;
+  text-align: center;
+}
+.catalog-empty { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.82); }
+.catalog-unavailable { background: rgba(255, 190, 80, 0.12); border: 1px solid rgba(255, 190, 80, 0.35); color: #ffe0a3; }
+.catalog-partial { background: rgba(255, 190, 80, 0.08); border: 1px solid rgba(255, 190, 80, 0.25); color: #ffe0a3; margin-bottom: 1rem; padding-block: 0.85rem; }
+.product-image-empty { align-items: center; background: #151515; color: rgba(255, 255, 255, .65); display: flex; height: 100%; justify-content: center; min-height: 240px; }
+.request-success-whatsapp { color: #07110d; background: #3CF9AE; border-radius: 999px; display: inline-block; font-weight: 900; margin-top: 1rem; padding: 12px 18px; text-decoration: none; }
     header {
       background-color: #000000 !important;
       width: 100%;

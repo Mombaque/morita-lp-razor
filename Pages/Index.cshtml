@@ -80,7 +80,7 @@
       <p class="eyebrow">Escolha sua modalidade</p>
       <h2 id="category-title">Encontre o equipamento certo para o seu treino</h2>
       <div class="category-grid">
-        <a href="/JiuJitsu" class="category-card category-card-jiu" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="jiu-jitsu">
+       <a href="/jiu-jitsu" class="category-card category-card-jiu" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="jiu-jitsu">
           <img src="~/images/kimono/adulto/itg-branco.jpeg" alt="Kimono de Jiu-Jitsu Morita">
           <span class="category-card-content">
             <span class="category-kicker">Jiu-Jitsu</span>
@@ -88,7 +88,7 @@
             <span>Ver produtos</span>
           </span>
         </a>
-        <a href="/MuayThai" class="category-card category-card-muay" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="muay-thai">
+       <a href="/muay-thai" class="category-card category-card-muay" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="muay-thai">
           <img src="~/images/muay-thai/shorts-varios.jpg" alt="Shorts e equipamentos de Muay Thai Morita">
           <span class="category-card-content">
             <span class="category-kicker">Muay Thai</span>
@@ -103,6 +103,20 @@
 <section class="random-products-section" aria-labelledby="random-products-title">
   <p class="eyebrow">Produtos em destaque</p>
   <h2 id="random-products-title">Um giro pelo catálogo Morita</h2>
+  @if (Model.CatalogState == CatalogLoadState.Empty)
+  {
+    <div class="catalog-state catalog-empty" role="status"><h3>Catálogo em atualização</h3><p>Não encontramos produtos publicados no momento.</p></div>
+  }
+  else if (Model.CatalogState == CatalogLoadState.Unavailable)
+  {
+    <div class="catalog-state catalog-unavailable" role="status"><h3>Catálogo temporariamente indisponível</h3><p>Tente novamente em instantes ou fale conosco pelo WhatsApp.</p></div>
+  }
+  else if (Model.CatalogState is CatalogLoadState.Success or CatalogLoadState.Partial)
+  {
+  @if (Model.CatalogState == CatalogLoadState.Partial)
+  {
+    <div class="catalog-state catalog-partial" role="status"><p>Parte do catálogo está temporariamente indisponível. Os produtos carregados continuam disponíveis abaixo.</p></div>
+  }
   <div class="random-carousel">
     @for (var i = 0; i < Model.Slides.Count; i++)
     {
@@ -118,6 +132,7 @@
     <button class="random-carousel-btn prev" type="button" onclick="navigateRandomCarousel(-1)" aria-label="Produto anterior">&#10094;</button>
     <button class="random-carousel-btn next" type="button" onclick="navigateRandomCarousel(1)" aria-label="Próximo produto">&#10095;</button>
   </div>
+  }
 </section>
 
 @section Scripts {

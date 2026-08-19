@@ -7,31 +7,43 @@ namespace Morita.LP.Razor.Pages;
 
 public class IndexModel : PageModel
 {
-    private readonly ProductService _productService;
+    private readonly CatalogService _catalogService;
 
-    public IndexModel(ProductService productService)
+    public IndexModel(CatalogService catalogService)
     {
-        _productService = productService;
+        _catalogService = catalogService;
     }
 
     public List<CarouselSlide> Slides { get; set; } = new();
+    public CatalogLoadState CatalogState { get; private set; }
 
-    public void OnGet()
+    public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         var fixedFirstImage = "/images/kimono/adulto/itg-azul.jpg";
 
-        var jiuJitsuImages = _productService.GetJiuJitsuProducts()
+        var jiuJitsu = await _catalogService.GetProductsAsync("jiu-jitsu", cancellationToken);
+        var muayThai = await _catalogService.GetProductsAsync("muay-thai", cancellationToken);
+        var hasProducts = jiuJitsu.State == CatalogLoadState.Success || muayThai.State == CatalogLoadState.Success;
+        var hasUnavailableCatalog = jiuJitsu.State == CatalogLoadState.Unavailable || muayThai.State == CatalogLoadState.Unavailable;
+        CatalogState = hasProducts && hasUnavailableCatalog
+            ? CatalogLoadState.Partial
+            : hasProducts
+                ? CatalogLoadState.Success
+                : hasUnavailableCatalog
+                    ? CatalogLoadState.Unavailable
+                    : CatalogLoadState.Empty;
+        var jiuJitsuImages = jiuJitsu.Products
             .SelectMany(p => p.Imagens)
             .Where(img => img != fixedFirstImage)
-            .Select(img => new CarouselSlide { Image = img, CategoryName = "Jiu-Jitsu", CategoryUrl = "/JiuJitsu" })
+            .Select(img => new CarouselSlide { Image = img, CategoryName = "Jiu-Jitsu", CategoryUrl = "/jiu-jitsu" })
             .OrderBy(_ => Random.Shared.Next())
             .Take(4)
             .ToList();
 
-        var muayThaiImages = _productService.GetMuayThaiProducts()
+        var muayThaiImages = muayThai.Products
             .SelectMany(p => p.Imagens)
             .Where(img => img != fixedFirstImage)
-            .Select(img => new CarouselSlide { Image = img, CategoryName = "Muay Thai", CategoryUrl = "/MuayThai" })
+            .Select(img => new CarouselSlide { Image = img, CategoryName = "Muay Thai", CategoryUrl = "/muay-thai" })
             .OrderBy(_ => Random.Shared.Next())
             .Take(4)
             .ToList();
@@ -40,8 +52,11 @@ public class IndexModel : PageModel
             .OrderBy(_ => Random.Shared.Next())
             .ToList();
 
-        Slides.Add(new CarouselSlide { Image = fixedFirstImage, CategoryName = "Jiu-Jitsu", CategoryUrl = "/JiuJitsu" });
-        Slides.AddRange(randomSlides);
+        if (jiuJitsu.State == CatalogLoadState.Success || muayThai.State == CatalogLoadState.Success)
+        {
+            Slides.Add(new CarouselSlide { Image = fixedFirstImage, CategoryName = "Jiu-Jitsu", CategoryUrl = "/jiu-jitsu" });
+            Slides.AddRange(randomSlides);
+        }
     }
 }
 

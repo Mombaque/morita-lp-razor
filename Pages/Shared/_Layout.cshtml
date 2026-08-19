@@ -1,6 +1,9 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.CatalogApiOptions> CatalogApiOptions
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@using System.Text.Json
 @{
-    var apiBaseUrl = Configuration["ApiBaseUrl"] ?? "https://morita-api.fly.dev";
+    var apiBaseUrl = CatalogApiOptions.Value.BaseUrl;
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
     var title = ViewData["Title"] ?? "Morita - Equipamentos para Artes Marciais em Sorocaba";
     var description = ViewData["Description"] ?? "Equipamentos para Jiu-Jitsu e Muay Thai em Sorocaba. Kimonos, luvas, rashguards, shorts e acessórios com atendimento pelo WhatsApp e retirada na loja.";
@@ -27,6 +30,7 @@
     <meta property="og:description" content="@(ViewData["OgDescription"] ?? "Kimonos, luvas, rashguards, shorts e acessórios para Jiu-Jitsu e Muay Thai em Sorocaba.")">
     <meta property="og:url" content="@canonical">
     <meta property="og:image" content="@ogImage">
+    <meta name="request-verification-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken">
 
     <!-- Google Tag Manager -->
     <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -54,12 +58,15 @@
     <!-- End Google Tag Manager (noscript) -->
 
     @{
-        var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
+        var currentPath = Context.Request.Path.Value?.TrimEnd('/');
+        var isHome = string.IsNullOrEmpty(currentPath);
+        var isJiuJitsu = currentPath == "/jiu-jitsu";
+        var isMuayThai = currentPath == "/muay-thai";
     }
     <nav class="main-nav">
-        <a href="/" class="nav-link @(currentPage == "/Index" ? "active" : "")">Home</a>
-        <a href="/JiuJitsu" class="nav-link @(currentPage == "/JiuJitsu" ? "active" : "")">Jiu-Jitsu</a>
-        <a href="/MuayThai" class="nav-link @(currentPage == "/MuayThai" ? "active" : "")">Muay Thai</a>
+        <a href="/" class="nav-link @(isHome ? "active" : "")" aria-current="@(isHome ? "page" : null)">Home</a>
+        <a href="/jiu-jitsu" class="nav-link @(isJiuJitsu ? "active" : "")" aria-current="@(isJiuJitsu ? "page" : null)">Jiu-Jitsu</a>
+        <a href="/muay-thai" class="nav-link @(isMuayThai ? "active" : "")" aria-current="@(isMuayThai ? "page" : null)">Muay Thai</a>
     </nav>
 
     @RenderBody()
@@ -80,7 +87,9 @@
     </div>
 
     <script>
-        window.API_BASE_URL = "@apiBaseUrl";
+        window.API_BASE_URL = @Html.Raw(JsonSerializer.Serialize(apiBaseUrl));
+        window.CUSTOMER_REQUEST_RELAY = @Html.Raw(JsonSerializer.Serialize(Configuration.GetValue<bool>("Storefront:UseRelayForCustomerRequests")));
+        window.CUSTOMER_REQUEST_RELAY_URL = "/customer-product-request";
     </script>
     <script type="module" src="~/js/customer-product-request.js" asp-append-version="true"></script>
     <script type="module" src="~/js/tracking.js" asp-append-version="true"></script>
