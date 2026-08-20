@@ -1483,3 +1483,14 @@ body {
     padding: 1rem;
   }
 }
+
+.checkout-shell { max-width: 1100px; margin: auto; padding: clamp(1.25rem, 4vw, 4rem) 1rem; min-height: 40vh; }
+.checkout-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 2rem; }
+.checkout-layout form { display: grid; gap: .65rem; }
+.checkout-layout label { display: grid; gap: .3rem; color: #3CF9AE; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
+.checkout-layout input { box-sizing: border-box; width: 100%; min-height: 44px; padding: .7rem; background: #0b0b0b; color: #fff; border: 1px solid #555; font: inherit; }
+.checkout-layout input:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 2px; }
+.checkout-layout fieldset { border: 1px solid #3CF9AE; margin: 1rem 0; padding: 1rem; }
+.checkout-layout legend { color: #3CF9AE; padding: 0 .4rem; }
+.checkout-layout .button { width: fit-content; max-width: 100%; }
+@media (max-width: 700px) { .checkout-layout { grid-template-columns: 1fr; } }

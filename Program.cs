@@ -56,8 +56,17 @@ if (!string.IsNullOrWhiteSpace(keyDirectory))
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddScoped<ICartCookieStore, CartCookieStore>();
+builder.Services.AddScoped<ICheckoutDraftCookieStore, CheckoutDraftCookieStore>();
+builder.Services.AddScoped<ICheckoutAccessCookieStore, CheckoutAccessCookieStore>();
+builder.Services.AddSingleton<CheckoutRateLimiter>();
 builder.Services.AddScoped<CatalogService>();
 builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+builder.Services.AddHttpClient<ICheckoutClient, CheckoutClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);

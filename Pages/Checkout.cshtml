@@ -1,0 +1,58 @@
+@page "/checkout"
+@model Morita.LP.Razor.Pages.CheckoutModel
+@{
+    ViewData["Title"] = "Reserva para retirada | Morita Fight";
+    ViewData["Robots"] = "noindex,nofollow";
+}
+<main class="checkout-shell" data-checkout="page">
+    <h1>Reservar para retirada</h1>
+    @if (Model.Empty)
+    {
+        <div class="catalog-state" data-checkout="empty"><p>Seu carrinho está vazio.</p><a class="button primary-cta" href="/products">Ver produtos</a></div>
+    }
+    else if (Model.ErrorState is not null && (Model.ErrorState == CheckoutLoadState.Unavailable || Model.ErrorState == CheckoutLoadState.Malformed))
+    {
+        <div class="catalog-state catalog-unavailable" data-checkout="unavailable" role="alert"><h2>Não foi possível preparar a reserva</h2><p>@Model.ErrorMessage</p><a class="button" href="/checkout">Tentar novamente</a></div>
+    }
+    else
+    {
+        @if (Model.ErrorMessage is not null) { <p class="validation-error" data-checkout="error" role="alert">@Model.ErrorMessage</p> }
+        <div class="checkout-layout">
+            <section aria-labelledby="contact-heading">
+                <h2 id="contact-heading">Seus dados</h2>
+                <form method="post">
+                    <div asp-validation-summary="ModelOnly" class="validation-error" role="alert"></div>
+                    <label>Nome<input asp-for="Contact.Name" autocomplete="name" /></label><span asp-validation-for="Contact.Name" class="validation-error"></span>
+                    <label>E-mail<input asp-for="Contact.Email" autocomplete="email" type="email" /></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
+                    <label>Telefone<input asp-for="Contact.Phone" autocomplete="tel" /></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
+                    @if (Model.Configuration.Configuration?.Pickup is { } pickup)
+                    {
+                        <fieldset><legend>Retirada</legend><strong>@pickup.DisplayName</strong><p>@pickup.Address.Street, @pickup.Address.Number - @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</p><p>@pickup.Hours</p>@if (!string.IsNullOrWhiteSpace(pickup.Instructions)) { <p>@pickup.Instructions</p> }</fieldset>
+                    }
+                    else { <p class="validation-error" role="alert">A retirada na loja está temporariamente indisponível.</p> }
+                    <button class="button primary-cta" type="submit" disabled="@(Model.CanSubmit ? null : "disabled")">Confirmar reserva</button>
+                    <p class="cart-estimate-note">Pagamento não está disponível nesta etapa. O total atual é reservado para retirada na loja.</p>
+                </form>
+            </section>
+            <aside class="cart-summary" aria-label="Resumo atual">
+                <h2>Resumo atual</h2>
+                <ul class="checkout-lines" data-checkout="lines">
+                    @foreach (var line in Model.Quote.Lines)
+                    {
+                        var available = string.Equals(line.Availability, "available", StringComparison.OrdinalIgnoreCase);
+                        <li class="@(available ? "" : "checkout-line-unavailable")">
+                            <strong>@line.Presentation</strong>
+                            <span>Quantidade: @line.Quantity</span>
+                            <span>@(available ? $"{line.Currency} {line.LinePrice?.ToString("0.00")}" : "Indisponível para reserva")</span>
+                        </li>
+                    }
+                </ul>
+                @if (Model.Quote.Total is not null)
+                {
+                    <p>Total atual: <strong>@Model.Quote.Currency @Model.Quote.Total.Value.ToString("0.00")</strong></p>
+                }
+                <p>O valor final da reserva é confirmado pelo serviço no envio.</p>
+            </aside>
+        </div>
+    }
+</main>
