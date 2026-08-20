@@ -71,6 +71,37 @@ public sealed class CheckoutCookieStoreTests
         Assert.Null(store.Read(Guid.NewGuid()));
     }
 
+    [Fact]
+    public void Payment_attempt_is_stable_and_bound_to_checkout()
+    {
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var context = new DefaultHttpContext();
+        var store = new PaymentAttemptCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment("Production"), new FixedTimeProvider(Now));
+        var id = Guid.NewGuid();
+        var first = store.Ensure(id);
+        var cookie = CookieValue(context, PaymentAttemptCookieStore.CookieName);
+        context.Request.Headers.Cookie = $"{PaymentAttemptCookieStore.CookieName}={cookie}";
+        Assert.Equal(first, store.Ensure(id));
+        Assert.Null(store.Read(Guid.NewGuid()));
+        Assert.Contains("path=/checkout", context.Response.Headers.SetCookie.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Order_cookie_requires_crockford_number_and_gets_ninety_days()
+    {
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var context = new DefaultHttpContext();
+        var store = new OrderAccessCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment("Production"), new FixedTimeProvider(Now));
+        var number = "MF-0123456789ABCDEF";
+        Assert.True(store.Write(number.ToLowerInvariant(), new string('t', 32)));
+        Assert.Contains("path=/order", context.Response.Headers.SetCookie.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("expires=Wed, 18 Nov 2026", context.Response.Headers.SetCookie.ToString(), StringComparison.OrdinalIgnoreCase);
+        var cookie = CookieValue(context, OrderAccessCookieStore.CookieName);
+        context.Request.Headers.Cookie = $"{OrderAccessCookieStore.CookieName}={cookie}";
+        Assert.Equal(number, store.Read(number)?.PublicOrderNumber);
+        Assert.Null(store.Read("MF-0123456789ABCDEF-I"));
+    }
+
     private static CheckoutDraftCookieStore Draft(IDataProtectionProvider provider, HttpContext context, string environment = "Development") => new(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(environment), new FixedTimeProvider(Now));
     private static CheckoutAccessCookieStore Access(IDataProtectionProvider provider, HttpContext context, string environment = "Development") => new(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(environment), new FixedTimeProvider(Now));
     private static string CookieValue(HttpContext context, string name) => context.Response.Headers.SetCookie.ToString().Split(';', 2)[0].Split('=', 2)[1];

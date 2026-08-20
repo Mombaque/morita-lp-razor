@@ -8,6 +8,8 @@ namespace Morita.LP.Razor.Services;
 
 public sealed record DraftCredentials(string IdempotencyKey, string AccessToken, DateTimeOffset IssuedAt);
 public sealed record CheckoutAccess(Guid PublicCheckoutId, string Token, DateTimeOffset IssuedAt, DateTimeOffset AccessExpiresAt);
+public sealed record PaymentAttempt(Guid PublicCheckoutId, string IdempotencyKey, DateTimeOffset IssuedAt);
+public sealed record OrderAccess(string PublicOrderNumber, string Token, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt);
 
 public interface ICheckoutDraftCookieStore
 {
@@ -20,6 +22,20 @@ public interface ICheckoutAccessCookieStore
 {
     CheckoutAccess? Read(Guid publicCheckoutId);
     bool Write(CheckoutResponse checkout, string token);
+    void Clear();
+}
+
+public interface IPaymentAttemptCookieStore
+{
+    PaymentAttempt? Read(Guid publicCheckoutId);
+    PaymentAttempt Ensure(Guid publicCheckoutId);
+    void Clear(Guid publicCheckoutId);
+}
+
+public interface IOrderAccessCookieStore
+{
+    OrderAccess? Read(string publicOrderNumber);
+    bool Write(string publicOrderNumber, string token);
     void Clear();
 }
 
@@ -97,6 +113,75 @@ public sealed class CheckoutAccessCookieStore(IHttpContextAccessor accessor, IDa
     public void Clear() => accessor.HttpContext?.Response.Cookies.Delete(CookieName, Options());
     private CookieOptions Options(DateTimeOffset? expires = null) => new() { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = !environment.IsDevelopment() && !environment.IsEnvironment("E2E"), IsEssential = true, Path = "/checkout", Expires = expires ?? timeProvider.GetUtcNow().AddDays(30) };
     private sealed record Payload(int Version, Guid PublicCheckoutId, string Token, DateTimeOffset IssuedAt, DateTimeOffset AccessExpiresAt);
+}
+
+public sealed class PaymentAttemptCookieStore(IHttpContextAccessor accessor, IDataProtectionProvider protection, IHostEnvironment environment, TimeProvider timeProvider) : IPaymentAttemptCookieStore
+{
+    public const string CookieName = "morita_payment_attempt";
+    public const int MaxProtectedBytes = 2048;
+    private static readonly TimeSpan Lifetime = TimeSpan.FromDays(90);
+    private readonly IDataProtector protector = protection.CreateProtector("Morita.LP.Razor.PaymentAttempt.v1");
+    public PaymentAttempt? Read(Guid checkoutId)
+    {
+        if (accessor.HttpContext is not { } context || !context.Request.Cookies.TryGetValue(CookieName, out var value)) return null;
+        try
+        {
+            if (value.Length > MaxProtectedBytes) throw new InvalidDataException();
+            var payload = JsonSerializer.Deserialize<Payload>(protector.Unprotect(value));
+            var now = timeProvider.GetUtcNow();
+            if (payload is null || payload.Version != 1 || payload.PublicCheckoutId != checkoutId || payload.IssuedAt > now.AddMinutes(1) || now - payload.IssuedAt > Lifetime || payload.IdempotencyKey.Length < 32 || payload.IdempotencyKey.Length > 128) throw new InvalidDataException();
+            return new(checkoutId, payload.IdempotencyKey, payload.IssuedAt);
+        }
+        catch (Exception ex) when (ex is CryptographicException or JsonException or InvalidDataException or FormatException or NullReferenceException)
+        { context.Response.Cookies.Delete(CookieName, Options()); return null; }
+    }
+    public PaymentAttempt Ensure(Guid checkoutId) => Read(checkoutId) ?? Create(checkoutId);
+    public void Clear(Guid checkoutId) => accessor.HttpContext?.Response.Cookies.Delete(CookieName, Options());
+    private PaymentAttempt Create(Guid checkoutId)
+    {
+        var attempt = new PaymentAttempt(checkoutId, Convert.ToHexString(RandomNumberGenerator.GetBytes(32)), timeProvider.GetUtcNow());
+        var protectedValue = protector.Protect(JsonSerializer.Serialize(new Payload(1, checkoutId, attempt.IdempotencyKey, attempt.IssuedAt)));
+        if (protectedValue.Length > MaxProtectedBytes) throw new InvalidOperationException("Payment attempt cookie exceeds its limit.");
+        accessor.HttpContext?.Response.Cookies.Append(CookieName, protectedValue, Options());
+        return attempt;
+    }
+    private CookieOptions Options() => new() { HttpOnly = true, SameSite = SameSiteMode.Strict, Secure = !environment.IsDevelopment() && !environment.IsEnvironment("E2E"), IsEssential = true, Path = "/checkout", Expires = timeProvider.GetUtcNow().Add(Lifetime) };
+    private sealed record Payload(int Version, Guid PublicCheckoutId, string IdempotencyKey, DateTimeOffset IssuedAt);
+}
+
+public sealed class OrderAccessCookieStore(IHttpContextAccessor accessor, IDataProtectionProvider protection, IHostEnvironment environment, TimeProvider timeProvider) : IOrderAccessCookieStore
+{
+    public const string CookieName = "morita_order_access";
+    public const int MaxProtectedBytes = 2048;
+    private readonly IDataProtector protector = protection.CreateProtector("Morita.LP.Razor.OrderAccess.v1");
+    public OrderAccess? Read(string publicOrderNumber)
+    {
+        if (!IsValidOrderNumber(publicOrderNumber) || accessor.HttpContext is not { } context || !context.Request.Cookies.TryGetValue(CookieName, out var value)) return null;
+        try
+        {
+            if (value.Length > MaxProtectedBytes) throw new InvalidDataException();
+            var payload = JsonSerializer.Deserialize<Payload>(protector.Unprotect(value));
+            var now = timeProvider.GetUtcNow();
+            if (payload is null || payload.Version != 1 || !string.Equals(payload.PublicOrderNumber, publicOrderNumber, StringComparison.OrdinalIgnoreCase) || payload.IssuedAt > now.AddMinutes(1) || payload.ExpiresAt < now || payload.Token.Length < 32 || payload.Token.Length > 200) throw new InvalidDataException();
+            return new(payload.PublicOrderNumber, payload.Token, payload.IssuedAt, payload.ExpiresAt);
+        }
+        catch (Exception ex) when (ex is CryptographicException or JsonException or InvalidDataException or FormatException or NullReferenceException)
+        { context.Response.Cookies.Delete(CookieName, Options()); return null; }
+    }
+    public bool Write(string publicOrderNumber, string token)
+    {
+        if (!IsValidOrderNumber(publicOrderNumber) || token.Length < 32 || token.Length > 200) return false;
+        var now = timeProvider.GetUtcNow();
+        var expiry = now.AddDays(90);
+        if (expiry <= now) return false;
+        var protectedValue = protector.Protect(JsonSerializer.Serialize(new Payload(1, publicOrderNumber.ToUpperInvariant(), token, now, expiry)));
+        if (protectedValue.Length > MaxProtectedBytes) return false;
+        accessor.HttpContext?.Response.Cookies.Append(CookieName, protectedValue, Options(expiry)); return true;
+    }
+    public void Clear() => accessor.HttpContext?.Response.Cookies.Delete(CookieName, Options());
+    private CookieOptions Options(DateTimeOffset? expires = null) => new() { HttpOnly = true, SameSite = SameSiteMode.Strict, Secure = !environment.IsDevelopment() && !environment.IsEnvironment("E2E"), IsEssential = true, Path = "/order", Expires = expires ?? timeProvider.GetUtcNow().AddDays(90) };
+    public static bool IsValidOrderNumber(string value) => value.Length == 19 && value.StartsWith("MF-", StringComparison.OrdinalIgnoreCase) && value.Skip(3).All(c => "0123456789ABCDEFGHJKMNPQRSTVWXYZ".Contains(char.ToUpperInvariant(c)));
+    private sealed record Payload(int Version, string PublicOrderNumber, string Token, DateTimeOffset IssuedAt, DateTimeOffset ExpiresAt);
 }
 
 public sealed class CheckoutRateLimiter(TimeProvider timeProvider)

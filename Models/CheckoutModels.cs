@@ -9,6 +9,54 @@ public sealed record CheckoutResult(CheckoutLoadState State, CheckoutResponse? C
     public static CheckoutResult Failure(CheckoutLoadState state, string? message = null) => new(state, null, message);
 }
 
+public enum PaymentLoadState { Success, Validation, NotFound, RateLimited, Unavailable, Timeout, Malformed }
+public sealed record PaymentResult(PaymentLoadState State, PixPayment? Payment, string? Message = null)
+{
+    public static PaymentResult Failure(PaymentLoadState state, string? message = null) => new(state, null, message);
+}
+
+public sealed class PixPayment
+{
+    public string Status { get; init; } = "";
+    public decimal Amount { get; init; }
+    public string Currency { get; init; } = "";
+    public DateTimeOffset ExpiresAt { get; init; }
+    public string PixCopyPaste { get; init; } = "";
+    public string QrCodePngDataUri { get; init; } = "";
+    public string? PublicOrderNumber { get; init; }
+}
+
+public enum OrderLoadState { Success, NotFound, Unauthorized, Unavailable, Timeout, Malformed }
+public sealed record OrderResult(OrderLoadState State, PublicOrder? Order, string? Message = null)
+{
+    public static OrderResult Failure(OrderLoadState state, string? message = null) => new(state, null, message);
+}
+
+public sealed class PublicOrder
+{
+    public string PublicOrderNumber { get; init; } = "";
+    public string PaymentStatus { get; init; } = "";
+    public string FulfillmentStatus { get; init; } = "";
+    public decimal Amount { get; init; }
+    public string Currency { get; init; } = "";
+    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? FulfillmentUpdatedAt { get; init; }
+    public string PickupDisplayName { get; init; } = "";
+    public CheckoutAddress PickupAddress { get; init; } = new();
+    public string PickupHours { get; init; } = "";
+    public string PickupInstructions { get; init; } = "";
+    public IReadOnlyList<PublicOrderLine> Lines { get; init; } = [];
+}
+
+public sealed class PublicOrderLine
+{
+    public string Description { get; init; } = "";
+    public string Presentation { get; init; } = "";
+    public int Quantity { get; init; }
+    public decimal UnitPrice { get; init; }
+    public decimal Total { get; init; }
+}
+
 public sealed record CheckoutConfigurationResult(CheckoutLoadState State, CheckoutConfiguration? Configuration)
 {
     public static CheckoutConfigurationResult Failure(CheckoutLoadState state) => new(state, null);
