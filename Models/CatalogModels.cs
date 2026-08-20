@@ -87,12 +87,13 @@ public sealed class CatalogQuoteLine
     public decimal? LinePrice { get; set; }
     public string? Currency { get; set; }
     public string? Availability { get; set; }
+    public string? ImageUrl { get; set; }
 }
 
 public sealed record CatalogQuoteResult(CatalogLoadState State, string? Currency, decimal? Total, IReadOnlyList<CatalogQuoteLine> Lines)
 {
     public static CatalogQuoteResult Unavailable() => new(CatalogLoadState.Unavailable, null, null, []);
-    public static CatalogQuoteResult Success(string currency, decimal total, IReadOnlyList<CatalogQuoteLine> lines) => new(CatalogLoadState.Success, currency, total, lines);
+    public static CatalogQuoteResult Success(string currency, decimal total, IReadOnlyList<CatalogQuoteLine> lines) => new(lines.Any(x => !string.Equals(x.Availability, "available", StringComparison.OrdinalIgnoreCase)) ? CatalogLoadState.Partial : CatalogLoadState.Success, currency, total, lines);
 }
 
 public sealed class PublicCatalogProductResponse

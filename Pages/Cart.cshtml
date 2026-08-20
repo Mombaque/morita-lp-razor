@@ -1,0 +1,43 @@
+@page "/cart"
+@model CartModel
+@{
+    ViewData["Title"] = "Carrinho | Morita Fight";
+    ViewData["Robots"] = "noindex,nofollow";
+}
+<main class="cart-shell" data-cart="page">
+    <h1>Seu carrinho</h1>
+    @if (!string.IsNullOrWhiteSpace(Model.MutationMessage))
+    {
+        <p class="validation-error" data-cart="message" role="alert">@Model.MutationMessage</p>
+    }
+    @if (Model.IsEmpty)
+    {
+        <div class="catalog-state" data-cart="empty">
+            <p>Seu carrinho está vazio.</p>
+            <a class="button primary-cta" href="/products">Ver produtos</a>
+        </div>
+    }
+    else if (Model.Quote.State == CatalogLoadState.Unavailable)
+    {
+        <div class="catalog-state catalog-unavailable" data-cart="unavailable" role="alert" aria-live="polite">
+            <h2>Não foi possível consultar o carrinho</h2>
+            <p>Seus itens foram preservados. Tente novamente em instantes.</p>
+            <a class="button" href="/cart">Tentar novamente</a>
+        </div>
+    }
+    else
+    {
+        <p class="cart-actions"><a class="button" href="/products" data-cart="continue-shopping">Continuar comprando</a></p>
+        <div class="cart-layout">
+            <section class="cart-lines" aria-label="Itens do carrinho">
+                @foreach (var line in Model.Quote.Lines)
+                {
+                    <partial name="_CartLine" model="line" />
+                }
+            </section>
+            <aside class="cart-summary" aria-label="Resumo do carrinho">
+                <partial name="_CartSummary" model="Model.Quote" />
+            </aside>
+        </div>
+    }
+</main>

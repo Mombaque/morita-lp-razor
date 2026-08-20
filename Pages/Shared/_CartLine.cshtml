@@ -1,0 +1,47 @@
+@model CatalogQuoteLine
+@{
+    var status = Model.Availability?.ToLowerInvariant();
+    var available = status == "available";
+    var statusMessage = status switch
+    {
+        "insufficient" => "Quantidade indisponível",
+        "inactive" => "Oferta inativa",
+        "removed" => "Oferta removida",
+        _ => "Oferta indisponível"
+    };
+    var colorSize = string.Join(" / ", new[] { Model.ColorLabel, Model.SizeLabel }.Where(x => !string.IsNullOrWhiteSpace(x)));
+}
+<article class="cart-line @(available ? "" : "cart-line-unavailable")" data-cart="line" data-offer-id="@Model.PublicOfferId">
+    @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
+    {
+        <img src="@Model.ImageUrl" alt="@(Model.Presentation ?? "Item do catálogo")" loading="lazy">
+    }
+    <div class="cart-line-content">
+        <h2>@(Model.Presentation ?? "Item do catálogo")</h2>
+        @if (!string.IsNullOrWhiteSpace(colorSize))
+        {
+            <p class="cart-line-variant">@colorSize</p>
+        }
+        @if (available || status == "insufficient")
+        {
+            <p class="cart-line-price">Preço atual estimado: <strong>@Model.Currency @Model.UnitPrice?.ToString("0.00")</strong> / unidade</p>
+        }
+        @if (!available)
+        {
+            <p class="cart-line-status" role="alert">@statusMessage</p>
+        }
+        @if (available)
+        {
+            <form method="post" asp-page-handler="Update">
+                <input type="hidden" name="publicOfferId" value="@Model.PublicOfferId">
+                <label for="quantity-@Model.PublicOfferId">Quantidade</label>
+                <input id="quantity-@Model.PublicOfferId" type="number" name="quantity" min="1" max="10" value="@Model.Quantity">
+                <button class="button" type="submit" data-cart="update">Atualizar</button>
+            </form>
+        }
+        <form method="post" asp-page-handler="Remove">
+            <input type="hidden" name="publicOfferId" value="@Model.PublicOfferId">
+            <button class="button" type="submit" data-cart="remove">Remover item</button>
+        </form>
+    </div>
+</article>

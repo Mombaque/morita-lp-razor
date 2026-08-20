@@ -99,6 +99,26 @@ public sealed class Phase03CatalogClientTests
     }
 
     [Fact]
+    public async Task Quote_accepts_partial_lines_and_totals_only_available_items()
+    {
+        var available = Guid.NewGuid();
+        var removed = Guid.NewGuid();
+        var body = $$"""{"lines":[{"publicOfferId":"{{available}}","quantity":2,"unitPrice":10,"linePrice":20,"currency":"BRL","availability":"available"},{"publicOfferId":"{{removed}}","quantity":3,"availability":"removed"}],"total":20,"currency":"BRL"}""";
+        var result = await Create(body).QuoteAsync(new CatalogQuoteRequest([new(available, 2), new(removed, 3)]));
+        Assert.Equal(CatalogLoadState.Partial, result.State);
+        Assert.Equal(20m, result.Total);
+        Assert.Null(result.Lines[1].UnitPrice);
+    }
+
+    [Fact]
+    public async Task Quote_rejects_out_of_range_quantity_and_protocol_relative_image()
+    {
+        var id = Guid.NewGuid();
+        var response = $$"""{"lines":[{"publicOfferId":"{{id}}","quantity":11,"unitPrice":10,"linePrice":110,"currency":"BRL","availability":"available","imageUrl":"//cdn.example/x.jpg"}],"total":110,"currency":"BRL"}""";
+        Assert.Equal(CatalogLoadState.Unavailable, (await Create(response).QuoteAsync(new CatalogQuoteRequest([new(id, 11)]))).State);
+    }
+
+    [Fact]
     public async Task Legacy_images_are_safe_and_null_fields_do_not_throw()
     {
         var json = "[{\"name\":null,\"description\":null,\"colorVariants\":[{\"images\":[\"/img.jpg\",\"images/foo.jpg\",\"  //bad\",\"javascript:bad\",\"https://cdn.example/a.jpg\"]}]}]";

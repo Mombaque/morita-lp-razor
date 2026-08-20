@@ -58,22 +58,46 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
     {
         var result = await PostAsync<QuoteResponse>("v1/storefront/catalog/quote", request, cancellationToken);
         if (!result.IsSuccess || result.Value is null || !IsValidQuote(request, result.Value)) return CatalogQuoteResult.Unavailable();
-        return CatalogQuoteResult.Success(result.Value.Currency!, result.Value.Total!.Value, result.Value.Lines!);
+        var lines = result.Value.Lines!;
+        foreach (var line in lines)
+            line.ImageUrl = NormalizeQuoteImage(line.ImageUrl);
+        return CatalogQuoteResult.Success(result.Value.Currency!, result.Value.Total!.Value, lines);
     }
 
     private static bool IsValidQuote(CatalogQuoteRequest request, QuoteResponse response)
     {
-        if (response.Lines is null || response.Currency is null || string.IsNullOrWhiteSpace(response.Currency) || response.Total is null || response.Total < 0 || response.Lines.Count != request.Lines.Count) return false;
+        if (request.Lines is null || request.Lines.Count == 0 || request.Lines.Any(x => x.PublicOfferId == Guid.Empty || x.Quantity is < 1 or > 10) || response.Lines is null || response.Currency is null || string.IsNullOrWhiteSpace(response.Currency) || response.Total is null || response.Total < 0 || response.Lines.Count != request.Lines.Count) return false;
         var expected = request.Lines.ToDictionary(x => x.PublicOfferId);
         if (expected.Count != request.Lines.Count) return false;
         var seen = new HashSet<Guid>();
         decimal sum = 0;
         foreach (var line in response.Lines)
         {
-            if (!seen.Add(line.PublicOfferId) || !expected.TryGetValue(line.PublicOfferId, out var requested) || requested.Quantity != line.Quantity || line.Quantity is < 1 or > 99 || !string.Equals(line.Availability, "available", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(line.Currency) || !string.Equals(line.Currency, response.Currency, StringComparison.OrdinalIgnoreCase) || line.UnitPrice is null || line.LinePrice is null || line.UnitPrice <= 0 || line.LinePrice != line.UnitPrice * line.Quantity) return false;
-            sum += line.LinePrice.Value;
+            var status = line.Availability?.ToLowerInvariant();
+            if (!seen.Add(line.PublicOfferId) || !expected.TryGetValue(line.PublicOfferId, out var requested) || requested.Quantity != line.Quantity || line.Quantity is < 1 or > 200 || status is not ("available" or "insufficient" or "inactive" or "removed")) return false;
+            if (line.ImageUrl is not null && !IsSafeImageUrl(line.ImageUrl)) return false;
+            if (status == "available")
+            {
+                if (string.IsNullOrWhiteSpace(line.Currency) || !string.Equals(line.Currency, response.Currency, StringComparison.OrdinalIgnoreCase) || line.UnitPrice is null or <= 0 || line.LinePrice is null || line.LinePrice != line.UnitPrice * line.Quantity) return false;
+                sum += line.LinePrice.Value;
+            }
+            else if (status == "insufficient" &&
+                (string.IsNullOrWhiteSpace(line.Currency) || !string.Equals(line.Currency, response.Currency, StringComparison.OrdinalIgnoreCase) || line.UnitPrice is null or <= 0 || line.LinePrice is null || line.LinePrice != line.UnitPrice * line.Quantity))
+                return false;
         }
         return seen.SetEquals(expected.Keys) && sum == response.Total.Value;
+    }
+
+    private static bool IsSafeImageUrl(string value) => !value.TrimStart().StartsWith("//", StringComparison.Ordinal) && Uri.TryCreate(value.Trim(), UriKind.RelativeOrAbsolute, out var uri) &&
+        (value.TrimStart().StartsWith("/", StringComparison.Ordinal) || uri.IsAbsoluteUri && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps));
+
+    private string? NormalizeQuoteImage(string? image)
+    {
+        if (string.IsNullOrWhiteSpace(image)) return null;
+        image = image.Trim();
+        if (image.StartsWith("/", StringComparison.Ordinal))
+            return new Uri(new Uri(_options.BaseUrl.TrimEnd('/') + "/"), image.TrimStart('/')).ToString();
+        return image;
     }
 
     private async Task<ReadResult<T>> ReadAsync<T>(string path, CancellationToken callerToken)

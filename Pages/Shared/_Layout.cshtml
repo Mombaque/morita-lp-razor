@@ -70,6 +70,7 @@
         <a href="/jiu-jitsu" class="nav-link @(isJiuJitsu ? "active" : "")" aria-current="@(isJiuJitsu ? "page" : null)">Jiu-Jitsu</a>
         <a href="/muay-thai" class="nav-link @(isMuayThai ? "active" : "")" aria-current="@(isMuayThai ? "page" : null)">Muay Thai</a>
         <a href="/products" class="nav-link @(currentPath == "/products" || currentPath?.StartsWith("/products/") == true ? "active" : "")" aria-current="@(currentPath == "/products" || currentPath?.StartsWith("/products/") == true ? "page" : null)">Produtos</a>
+        @await Component.InvokeAsync("CartIndicator")
     </nav>
 
     @RenderBody()

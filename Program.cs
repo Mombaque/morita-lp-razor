@@ -15,6 +15,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddOptions<StorefrontOptions>()
     .BindConfiguration(StorefrontOptions.SectionName)
     .Validate(options =>
@@ -53,6 +55,7 @@ var keyDirectory = builder.Configuration[$"{StorefrontOptions.SectionName}:DataP
 if (!string.IsNullOrWhiteSpace(keyDirectory))
     dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
 builder.Services.AddSingleton<ProductService>();
+builder.Services.AddScoped<ICartCookieStore, CartCookieStore>();
 builder.Services.AddScoped<CatalogService>();
 builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, client) =>
 {

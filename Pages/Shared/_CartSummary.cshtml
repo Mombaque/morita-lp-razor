@@ -1,0 +1,8 @@
+@model CatalogQuoteResult
+<h2>Resumo</h2>
+<p data-cart="total">Total estimado: <strong>@Model.Currency @Model.Total?.ToString("0.00")</strong></p>
+<p class="cart-estimate-note">Os preços atuais são estimativas e podem mudar.</p>
+<button class="button primary-cta" type="button" disabled data-cart="checkout" aria-disabled="true">Finalizar compra (em breve)</button>
+<form method="post" asp-page-handler="Clear">
+    <button class="button" type="submit" data-cart="clear">Limpar carrinho</button>
+</form>
