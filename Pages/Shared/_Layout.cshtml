@@ -8,7 +8,9 @@
     var title = ViewData["Title"] ?? "Morita - Equipamentos para Artes Marciais em Sorocaba";
     var description = ViewData["Description"] ?? "Equipamentos para Jiu-Jitsu e Muay Thai em Sorocaba. Kimonos, luvas, rashguards, shorts e acessórios com atendimento pelo WhatsApp e retirada na loja.";
     var canonical = ViewData["Canonical"] ?? $"{canonicalBase.TrimEnd('/')}{ViewContext.HttpContext.Request.Path}";
-    var ogImage = $"{canonicalBase.TrimEnd('/')}/images/favicon.png";
+    var hasOgImage = !ViewData.ContainsKey("OgImage") || ViewData["OgImage"] is string;
+    var ogImage = ViewData["OgImage"] as string ?? $"{canonicalBase.TrimEnd('/')}/images/favicon.png";
+    var robots = ViewData["Robots"] as string ?? "index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1";
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -17,7 +19,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>@title</title>
     <meta name="description" content="@description">
-    <meta name="robots" content="index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1">
+    <meta name="robots" content="@robots">
     <link rel="canonical" href="@canonical">
     <link rel="alternate" hreflang="pt-BR" href="@canonical">
     <link rel="icon" href="~/images/favicon.png" type="image/png">
@@ -29,7 +31,7 @@
     <meta property="og:title" content="@(ViewData["OgTitle"] ?? "Morita | Artes Marciais em Sorocaba")">
     <meta property="og:description" content="@(ViewData["OgDescription"] ?? "Kimonos, luvas, rashguards, shorts e acessórios para Jiu-Jitsu e Muay Thai em Sorocaba.")">
     <meta property="og:url" content="@canonical">
-    <meta property="og:image" content="@ogImage">
+    @if (hasOgImage) { <meta property="og:image" content="@ogImage"> }
     <meta name="request-verification-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken">
 
     <!-- Google Tag Manager -->
@@ -67,6 +69,7 @@
         <a href="/" class="nav-link @(isHome ? "active" : "")" aria-current="@(isHome ? "page" : null)">Home</a>
         <a href="/jiu-jitsu" class="nav-link @(isJiuJitsu ? "active" : "")" aria-current="@(isJiuJitsu ? "page" : null)">Jiu-Jitsu</a>
         <a href="/muay-thai" class="nav-link @(isMuayThai ? "active" : "")" aria-current="@(isMuayThai ? "page" : null)">Muay Thai</a>
+        <a href="/products" class="nav-link @(currentPath == "/products" || currentPath?.StartsWith("/products/") == true ? "active" : "")" aria-current="@(currentPath == "/products" || currentPath?.StartsWith("/products/") == true ? "page" : null)">Produtos</a>
     </nav>
 
     @RenderBody()

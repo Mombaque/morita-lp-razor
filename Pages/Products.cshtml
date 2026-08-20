@@ -1,0 +1,21 @@
+@page "/products"
+@model ProductsModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@using System.Text.Json
+@{ var canonical=(Configuration["CanonicalBaseUrl"]??"https://moritafight.com.br/").TrimEnd('/')+"/products"; ViewData["Title"]="Produtos | Morita Fight"; ViewData["Description"]="Equipamentos de artes marciais Morita: kimonos, luvas, rashguards e acessórios."; ViewData["Canonical"]=canonical; ViewData["Robots"]=Model.HasFilters?"noindex,follow":"index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1"; var jsonLd=JsonSerializer.Serialize(new Dictionary<string,object?>{["@context"]="https://schema.org",["@type"]="ItemList",["itemListElement"]=Model.Catalog.Items.Select((p,i)=>new Dictionary<string,object?>{["@type"]="ListItem",["position"]=i+1,["url"]=$"{canonical}/{Uri.EscapeDataString(p.Slug??"")}",["name"]=p.Nome})}); }
+@section Header { <script type="application/ld+json">@Html.Raw(jsonLd)</script> }
+<main class="storefront-shell">
+<header class="storefront-header"><p class="eyebrow">Catálogo Morita / Fight card</p><h1>Equipamento para o próximo round</h1><p>Filtre por modalidade, marca e disponibilidade.</p></header>
+<form class="catalog-filters" method="get" action="/products">
+<label>Buscar <input name="search" value="@Model.Search" maxlength="100"></label>
+<label>Modalidade <select name="modalityId"><option value="">Todas</option>@foreach(var f in Model.Filters.Modalities){<option value="@f.Id" selected="@(Model.ModalityId==f.Id?"selected":null)">@f.Label</option>}</select></label>
+<label>Categoria <select name="categoryId"><option value="">Todas</option>@foreach(var f in Model.Filters.Categories){<option value="@f.Id" selected="@(Model.CategoryId==f.Id?"selected":null)">@f.Label</option>}</select></label>
+<label>Marca <select name="brandId"><option value="">Todas</option>@foreach(var f in Model.Filters.Brands){<option value="@f.Id" selected="@(Model.BrandId==f.Id?"selected":null)">@f.Label</option>}</select></label>
+<label>Tamanho <select name="sizeId"><option value="">Todos</option>@foreach(var f in Model.Filters.Sizes){<option value="@f.Id" selected="@(Model.SizeId==f.Id?"selected":null)">@f.Label</option>}</select></label>
+<label>Cor <select name="colorId"><option value="">Todas</option>@foreach(var f in Model.Filters.Colors){<option value="@f.Id" selected="@(Model.ColorId==f.Id?"selected":null)">@f.Label</option>}</select></label>
+<label>Disponibilidade <select name="available"><option value="">Todas</option><option value="true" selected="@(Model.Available==true?"selected":null)">Disponível</option><option value="false" selected="@(Model.Available==false?"selected":null)">Indisponível</option></select></label>
+<label>Ordenar <select name="sort"><option value="featured" selected="@(Model.Sort=="featured"?"selected":null)">Destaques</option><option value="relevance" disabled="@(string.IsNullOrWhiteSpace(Model.Search)?"disabled":null)" selected="@(Model.Sort=="relevance"?"selected":null)">Relevância</option><option value="name-asc" selected="@(Model.Sort=="name-asc"?"selected":null)">Nome</option><option value="price-asc" selected="@(Model.Sort=="price-asc"?"selected":null)">Menor preço</option><option value="price-desc" selected="@(Model.Sort=="price-desc"?"selected":null)">Maior preço</option></select></label>
+<button class="button filter-submit" type="submit">Aplicar filtros</button></form>
+<section class="products storefront-products" aria-live="polite">@if(Model.Catalog.State==CatalogLoadState.Unavailable){<div class="catalog-state catalog-unavailable"><h2>Catálogo temporariamente indisponível</h2><p>Tente novamente em instantes.</p></div>}else if(Model.Catalog.State==CatalogLoadState.Empty){<div class="catalog-state catalog-empty"><h2>Nenhum produto encontrado</h2><p>Tente remover um filtro.</p></div>}else{@for(var i=0;i<Model.Catalog.Items.Count;i++){<partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Catalog.Items[i],"products",i))" />}}</section>
+@if(Model.Catalog.TotalPages>1){<nav class="pagination" aria-label="Paginação">@if(Model.CurrentPage>1){<a href="@Model.Query(Model.CurrentPage-1)">Anterior</a>}<span>Página @Model.CurrentPage de @Model.Catalog.TotalPages</span>@if(Model.CurrentPage<Model.Catalog.TotalPages){<a href="@Model.Query(Model.CurrentPage+1)">Próxima</a>}</nav>}
+</main>

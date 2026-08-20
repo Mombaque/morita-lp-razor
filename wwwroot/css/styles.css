@@ -12,6 +12,47 @@ body {
   padding: 2rem;
   text-align: center;
 }
+
+/* Phase 03 catalog: editorial fight-card / spec-sheet layer. */
+.storefront-shell,.detail-shell{max-width:1240px;margin:auto;padding:clamp(1.25rem,4vw,4rem) clamp(1rem,3vw,2rem)}
+.storefront-header{border-bottom:2px solid #3CF9AE;padding-bottom:2rem;margin-bottom:1.5rem}.storefront-header h1,.detail-copy h1{font-size:clamp(2.4rem,7vw,6rem);letter-spacing:-.06em;line-height:.9;margin:.3rem 0 1rem}.catalog-filters{display:flex;flex-wrap:wrap;gap:.75rem;align-items:end;margin-bottom:2rem}.catalog-filters label,.quantity-label{display:grid;gap:.3rem;color:#3CF9AE;font-size:.72rem;text-transform:uppercase;letter-spacing:.08em}.catalog-filters input,.catalog-filters select,.quantity-label input{background:#0b0b0b;color:#fff;border:1px solid #555;padding:.75rem;min-width:9rem}.filter-submit{border:1px solid #3CF9AE;background:#3CF9AE;color:#000;width:auto}.storefront-products{grid-template-columns:repeat(4,minmax(0,1fr));}.product-card-link{color:inherit;text-decoration:none}.product-taxonomy,.taxonomy{color:#3CF9AE;text-transform:uppercase;font-size:.7rem;letter-spacing:.12em}.product-taxonomy span{color:#aaa}.product-availability{display:block;color:#3CF9AE;font-size:.75rem;text-transform:uppercase;margin:0 8px}.pagination{display:flex;gap:1rem;justify-content:center;align-items:center;margin:2rem 0}.pagination a{color:#3CF9AE}.detail-layout{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);gap:clamp(2rem,7vw,7rem)}.detail-gallery{min-width:0}.detail-main-image{aspect-ratio:1;background:#080808;display:grid;place-items:center;border-bottom:2px solid #3CF9AE}.detail-main-image img{width:100%;height:100%;object-fit:contain}.detail-thumbs{display:flex;gap:.5rem;padding-top:.7rem;overflow:auto}.detail-thumb{background:#111;border:1px solid #444;padding:0;width:64px;height:64px}.detail-thumb.selected{border:2px solid #3CF9AE}.detail-thumb img{width:100%;height:100%;object-fit:cover}.detail-copy{padding-top:1rem}.detail-copy .product-price{font-size:2rem;color:#3CF9AE}.availability-text{font-weight:bold;text-transform:uppercase}.offer-boundary{border-top:1px solid #3CF9AE;margin-top:2rem;padding-top:1rem}.offer-boundary fieldset{border:0;padding:0}.offer-boundary legend,.offer-label{display:block;text-transform:uppercase;color:#3CF9AE;font-size:.75rem;letter-spacing:.1em;margin-bottom:.7rem}.offer-group{display:flex;flex-wrap:wrap;gap:.5rem;margin:1rem 0}.offer-group label{border:1px solid #555;padding:.65rem;cursor:pointer}.offer-group input{accent-color:#3CF9AE;margin-right:.4rem}.offer-group input:disabled+small{color:#aaa}.live-offer{min-height:1.5rem;color:#3CF9AE}.related-products{margin-top:5rem}.related-products .products{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:980px){.storefront-products,.related-products .products{grid-template-columns:repeat(2,minmax(0,1fr))}.detail-layout{grid-template-columns:1fr}.detail-gallery{order:0}}
+@media(max-width:520px){.storefront-products,.related-products .products{grid-template-columns:1fr}.catalog-filters{display:grid;grid-template-columns:1fr}.catalog-filters input,.catalog-filters select{width:100%;box-sizing:border-box}.detail-copy h1{font-size:3rem}.detail-shell,.storefront-shell{padding-inline:1rem}.offer-group label{max-width:100%}}
+
+/* Accessible interaction boundaries and narrow-screen guardrails. */
+.offer-choice:has(input:focus-visible),
+.detail-thumb:focus-visible,
+.catalog-filters input:focus-visible,
+.catalog-filters select:focus-visible,
+.quantity-label input:focus-visible {
+  outline: 2px solid #3CF9AE;
+  outline-offset: 3px;
+}
+
+.offer-choice {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  min-width: 12rem;
+}
+
+.offer-choice small {
+  color: #ffcf80;
+  text-transform: uppercase;
+  font-size: .65rem;
+}
+
+.related-state {
+  border-top: 1px solid #3CF9AE;
+  color: rgba(255, 255, 255, .72);
+  padding-top: 1rem;
+}
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
 .catalog-empty { background: rgba(255, 255, 255, 0.06); color: rgba(255, 255, 255, 0.82); }
 .catalog-unavailable { background: rgba(255, 190, 80, 0.12); border: 1px solid rgba(255, 190, 80, 0.35); color: #ffe0a3; }
 .catalog-partial { background: rgba(255, 190, 80, 0.08); border: 1px solid rgba(255, 190, 80, 0.25); color: #ffe0a3; margin-bottom: 1rem; padding-block: 0.85rem; }

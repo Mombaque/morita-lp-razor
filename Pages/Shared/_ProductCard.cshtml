@@ -17,8 +17,8 @@
     @if (shuffledImagens.Count > 1)
     { <button class="prev" onclick="getImage('@carouselId', false)" aria-label="Imagem anterior">&#10094;</button><button class="next" onclick="getImage('@carouselId', true)" aria-label="Próxima imagem">&#10095;</button> }
   </div>
-  <h3>@p.Nome</h3><p>@p.Descricao</p>
+  @if (!string.IsNullOrWhiteSpace(p.Slug)) { <a class="product-card-link" href="/products/@Uri.EscapeDataString(p.Slug)"><h3>@p.Nome</h3></a> } else { <h3>@p.Nome</h3> }<p class="product-taxonomy">@(p.Modality?.Label ?? Model.Category) @if(p.Category is not null){<span>/ @p.Category.Label</span>} @if(p.Brand is not null){<span>/ @p.Brand.Label</span>}</p><p>@p.Descricao</p>
   @if (!string.IsNullOrWhiteSpace(p.FormattedPrice))
   { <partial name="_ProductPrice" model="p.FormattedPrice" /> }
-  <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="@Model.Category" data-track-selected-category="@p.Nome"><i class="fas fa-magnifying-glass"></i> Consultar disponibilidade</button>
+  @if (string.IsNullOrWhiteSpace(p.Slug)) { <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="@Model.Category" data-track-selected-category="@p.Nome"><i class="fas fa-magnifying-glass"></i> Consultar disponibilidade</button> } else { <a class="product-cta" href="/products/@p.Slug">Ver especificações</a><span class="product-availability">@(p.Availability == "available" ? "Disponível" : "Indisponível")</span> }
 </div>
