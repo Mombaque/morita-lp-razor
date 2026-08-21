@@ -41,6 +41,14 @@ public sealed class OrderClientTests
     }
 
     [Fact]
+    public async Task Get_accepts_cancellation_pending_payment_status()
+    {
+        var result = await Create(new Handler(Json("MF-0123456789ABCDEF", payment: "CancellationPending"))).GetAsync("MF-0123456789ABCDEF", Token);
+        Assert.Equal(OrderLoadState.Success, result.State);
+        Assert.Equal("cancellationpending", result.Order!.PaymentStatus);
+    }
+
+    [Fact]
     public async Task Get_maps_not_found_to_generic_unauthorized_and_timeout()
     {
         var notFound = await Create(new Handler(HttpStatusCode.NotFound)).GetAsync("MF-0123456789ABCDEF", Token);

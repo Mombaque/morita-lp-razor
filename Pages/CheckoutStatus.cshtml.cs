@@ -60,13 +60,13 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         {
             var paymentCancellation = await client.CancelPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
             if (paymentCancellation.State == PaymentLoadState.Success) return RedirectToPage(new { publicCheckoutId = PublicCheckoutId });
-            await LoadOwnedAsync(cancellationToken); PaymentState = paymentCancellation.State; Payment = paymentCancellation.Payment; Message = "O pagamento não pode ser cancelado neste momento."; return Page();
+            await LoadOwnedAsync(cancellationToken); PaymentState = paymentCancellation.State; Payment = paymentCancellation.Payment; Message = PaymentLifecycleMessage(Payment) ?? "O pagamento não pode ser cancelado neste momento."; return Page();
         }
         if (currentPayment.State != PaymentLoadState.NotFound)
         {
             await LoadOwnedAsync(cancellationToken);
             PaymentState = currentPayment.State;
-            Message = "O pagamento não pode ser cancelado neste momento.";
+            Message = PaymentLifecycleMessage(currentPayment.Payment) ?? "O pagamento não pode ser cancelado neste momento.";
             return Page();
         }
         var result = await client.CancelAsync(PublicCheckoutId, credential.Token, cancellationToken);
@@ -113,6 +113,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         {
             var payment = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
             PaymentState = payment.State; Payment = payment.Payment;
+            Message = PaymentLifecycleMessage(Payment);
             if (Payment is { PublicOrderNumber: { } number } && Payment.Status == "converted" && orderAccess.Write(number, credential.Token))
             {
                 return RedirectToPage("/Order", new { publicOrderNumber = number });
@@ -122,5 +123,6 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     }
 
     private IActionResult Inaccessible() { State = CheckoutLoadState.NotFound; Checkout = null; Message = "Esta reserva não está disponível neste dispositivo."; return Page(); }
+    private static string? PaymentLifecycleMessage(PixPayment? payment) => payment?.Status == "cancellationpending" ? "Estamos confirmando o cancelamento do pagamento. Aguarde a atualização; não é necessário tentar cancelar novamente." : null;
     private static string PaymentMessage(PaymentLoadState state) => state switch { PaymentLoadState.Timeout => "A confirmação do pagamento demorou. Tente novamente.", PaymentLoadState.Unavailable => "O pagamento está temporariamente indisponível.", PaymentLoadState.Malformed => "Não foi possível validar os dados do pagamento.", PaymentLoadState.RateLimited => "Muitas tentativas. Aguarde um pouco.", _ => "O pagamento não pôde ser iniciado agora." };
 }

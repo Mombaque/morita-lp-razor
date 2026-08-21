@@ -7,7 +7,7 @@ if (copy) copy.addEventListener('click', async () => {
   catch { copy.textContent = 'Selecione e copie o código'; }
 });
 
-if (card && ['pending', 'processing', 'approved', 'conversionpending'].includes(card.dataset.paymentStatus)) {
+if (card && ['pending', 'processing', 'approved', 'conversionpending', 'cancellationpending'].includes(card.dataset.paymentStatus)) {
   let attempts = 0;
   let timer = null;
   const poll = async () => {

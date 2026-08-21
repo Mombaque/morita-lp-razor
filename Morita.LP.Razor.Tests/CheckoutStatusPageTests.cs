@@ -48,6 +48,19 @@ public sealed class CheckoutStatusPageTests
         Assert.Equal(1, api.PaymentCancelCount);
     }
 
+    [Fact]
+    public async Task Cancellation_pending_does_not_call_cancel_again_and_exposes_safe_message()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout { Checkout = Checkout(id, "paymentpending"), Payment = new(PaymentLoadState.Success, new PixPayment { Status = "cancellationpending", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5) }) };
+        var page = Create(id, api, new FakeOrderAccess());
+
+        await page.OnGetAsync(CancellationToken.None);
+        Assert.Equal(0, api.PaymentCancelCount);
+        Assert.Contains("confirmando o cancelamento", page.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("provider", page.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("paymentpending", "pending")]
     [InlineData("cancelled", "cancelled")]
