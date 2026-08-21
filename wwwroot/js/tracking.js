@@ -94,6 +94,7 @@ function sendPageViewEvent() {
 }
 
 sendPageViewEvent();
+window.sendWebsiteUsageEvent = sendWebsiteUsageEvent;
 
 document.addEventListener('click', (event) => {
   if (!(event.target instanceof Element)) return;

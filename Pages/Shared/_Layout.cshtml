@@ -1,5 +1,6 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.CatalogApiOptions> CatalogApiOptions
+@inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.StorefrontOptions> StorefrontOptions
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @using System.Text.Json
 @{
@@ -11,6 +12,7 @@
     var hasOgImage = !ViewData.ContainsKey("OgImage") || ViewData["OgImage"] is string;
     var ogImage = ViewData["OgImage"] as string ?? $"{canonicalBase.TrimEnd('/')}/images/favicon.png";
     var robots = ViewData["Robots"] as string ?? "index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1";
+    var publicAssistantEnabled = StorefrontOptions.Value.PublicAssistantEnabled;
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -25,6 +27,7 @@
     <link rel="icon" href="~/images/favicon.png" type="image/png">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true">
+    @if (publicAssistantEnabled) { <link rel="stylesheet" href="~/css/public-assistant.css" asp-append-version="true"> }
     
     <meta property="og:type" content="website">
     <meta property="og:locale" content="pt_BR">
@@ -75,6 +78,8 @@
 
     @RenderBody()
 
+    @if (publicAssistantEnabled) { <div id="public-assistant-root"></div> }
+
     <div id="footer-container">
         <h2 style="text-align: center; color: white; margin-top: 2rem;">Como chegar</h2>
         <div style="position: relative; width: 100%; height: 400px;">
@@ -96,6 +101,7 @@
         window.CUSTOMER_REQUEST_RELAY_URL = "/customer-product-request";
     </script>
     <script type="module" src="~/js/customer-product-request.js" asp-append-version="true"></script>
+    @if (publicAssistantEnabled) { <script type="module" src="~/js/public-assistant.js" asp-append-version="true"></script> }
     <script type="module" src="~/js/tracking.js" asp-append-version="true"></script>
     @RenderSection("Scripts", required: false)
 </body>

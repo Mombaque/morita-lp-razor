@@ -24,9 +24,17 @@ builder.Services.AddOptions<StorefrontOptions>()
         string.Equals(options.ProductSource, "Api", StringComparison.OrdinalIgnoreCase),
         "Storefront:ProductSource must be Legacy or Api.")
     .Validate(options =>
-        !options.UseRelayForCustomerRequests ||
+        !options.UseRelayForCustomerRequests && !options.PublicAssistantEnabled ||
         !string.IsNullOrWhiteSpace(builder.Configuration[$"{CatalogApiOptions.SectionName}:ProxySecret"]),
-        "CatalogApi:ProxySecret is required when the customer-request relay is enabled.")
+        "CatalogApi:ProxySecret is required when a public relay is enabled.")
+    .Validate(options => options.PublicAssistantTimeoutSeconds is >= 5 and <= 60,
+        "Storefront:PublicAssistantTimeoutSeconds must be between 5 and 60.")
+    .Validate(options =>
+        !options.PublicAssistantEnabled ||
+        builder.Environment.IsDevelopment() ||
+        builder.Environment.IsEnvironment("E2E") ||
+        !string.IsNullOrWhiteSpace(options.DataProtectionKeyDirectory) && Path.IsPathRooted(options.DataProtectionKeyDirectory),
+        "Storefront:DataProtectionKeyDirectory must be an absolute durable-storage path when the public assistant is enabled.")
     .ValidateOnStart();
 builder.Services.AddOptions<CatalogApiOptions>().BindConfiguration(CatalogApiOptions.SectionName).PostConfigure(options =>
 {
@@ -53,13 +61,14 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Morita.LP.Razor");
 var keyDirectory = builder.Configuration[$"{StorefrontOptions.SectionName}:DataProtectionKeyDirectory"];
 if (!string.IsNullOrWhiteSpace(keyDirectory))
-    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
+    dataProtection.PersistKeysToFileSystem(Directory.CreateDirectory(keyDirectory));
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddScoped<ICartCookieStore, CartCookieStore>();
 builder.Services.AddScoped<ICheckoutDraftCookieStore, CheckoutDraftCookieStore>();
 builder.Services.AddScoped<ICheckoutAccessCookieStore, CheckoutAccessCookieStore>();
 builder.Services.AddScoped<IPaymentAttemptCookieStore, PaymentAttemptCookieStore>();
 builder.Services.AddScoped<IOrderAccessCookieStore, OrderAccessCookieStore>();
+builder.Services.AddScoped<IPublicAssistantCookieStore, PublicAssistantCookieStore>();
 builder.Services.AddSingleton<CheckoutRateLimiter>();
 builder.Services.AddScoped<CatalogService>();
 builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, client) =>
@@ -69,6 +78,12 @@ builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, 
     client.Timeout = Timeout.InfiniteTimeSpan;
 });
 builder.Services.AddHttpClient<ICheckoutClient, CheckoutClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+builder.Services.AddHttpClient<IPublicAssistantClient, PublicAssistantClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
@@ -95,6 +110,16 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 12,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+    options.AddPolicy("public-assistant-relay", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ClientIdentityResolver.Resolve(httpContext, builder.Environment),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
@@ -202,6 +227,113 @@ app.MapPost("/customer-product-request", async (HttpContext context, IHttpClient
         return Results.StatusCode(StatusCodes.Status502BadGateway);
     }
 }).RequireRateLimiting("customer-request-relay").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(32 * 1024));
+
+app.MapPost("/assistant/session", async (HttpContext context, IPublicAssistantClient assistant, IPublicAssistantCookieStore cookies, IOptions<StorefrontOptions> storefrontOptions, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
+{
+    if (!storefrontOptions.Value.PublicAssistantEnabled) return Results.NotFound();
+    if (!await ValidateAssistantRequest(context, antiforgery)) return Results.BadRequest(new { error = "invalid_request" });
+    var payload = await ReadAssistantPayload<CreatePublicAssistantSessionRequest>(context, cancellationToken);
+    if (payload is null || !ValidSessionPayload(payload)) return Results.BadRequest(new { error = "invalid_request" });
+    var result = await assistant.CreateSessionAsync(payload, cancellationToken);
+    if (!result.IsSuccess) return AssistantFailure(result.Failure, result.Message);
+    var created = result.Value!;
+    if (!cookies.Write(new PublicAssistantCredentials(created.Session.PublicId, created.AccessToken, DateTimeOffset.UtcNow, created.Session.ExpiresAt))) return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    return Results.Json(created.Session);
+}).RequireRateLimiting("public-assistant-relay").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(16 * 1024));
+
+app.MapGet("/assistant/session", async (IPublicAssistantClient assistant, IPublicAssistantCookieStore cookies, IOptions<StorefrontOptions> storefrontOptions, CancellationToken cancellationToken) =>
+{
+    if (!storefrontOptions.Value.PublicAssistantEnabled) return Results.NotFound();
+    var result = await assistant.GetSessionAsync(cancellationToken);
+    if (result.Failure is PublicAssistantFailureKind.NotFound or PublicAssistantFailureKind.Expired) cookies.Clear();
+    if (result.IsSuccess && result.Value is not null) cookies.Refresh(result.Value.ExpiresAt);
+    return result.IsSuccess ? Results.Json(result.Value) : AssistantFailure(result.Failure, result.Message);
+}).RequireRateLimiting("public-assistant-relay");
+
+app.MapPost("/assistant/message", async (HttpContext context, IPublicAssistantClient assistant, IPublicAssistantCookieStore cookies, IOptions<StorefrontOptions> storefrontOptions, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
+{
+    if (!storefrontOptions.Value.PublicAssistantEnabled) return Results.NotFound();
+    if (!await ValidateAssistantRequest(context, antiforgery)) return Results.BadRequest(new { error = "invalid_request" });
+    var payload = await ReadAssistantPayload<PublicAssistantMessageRequest>(context, cancellationToken);
+    if (payload is null || payload.ClientMessageId == Guid.Empty || payload.ExpectedRevision < 0 || string.IsNullOrWhiteSpace(payload.Text) || payload.Text.Length > 1000) return Results.BadRequest(new { error = "invalid_request" });
+    var result = await assistant.SendMessageAsync(payload, cancellationToken);
+    if (result.Failure is PublicAssistantFailureKind.NotFound or PublicAssistantFailureKind.Expired) cookies.Clear();
+    if (result.IsSuccess) cookies.Refresh(DateTimeOffset.UtcNow.AddDays(30));
+    return result.IsSuccess ? Results.Json(result.Value) : AssistantFailure(result.Failure, result.Message);
+}).RequireRateLimiting("public-assistant-relay").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(16 * 1024));
+
+app.MapPost("/assistant/submit", async (HttpContext context, IPublicAssistantClient assistant, IPublicAssistantCookieStore cookies, IOptions<StorefrontOptions> storefrontOptions, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
+{
+    if (!storefrontOptions.Value.PublicAssistantEnabled) return Results.NotFound();
+    if (!await ValidateAssistantRequest(context, antiforgery)) return Results.BadRequest(new { error = "invalid_request" });
+    var payload = await ReadAssistantPayload<PublicAssistantSubmitRequest>(context, cancellationToken);
+    if (payload is null || payload.ExpectedRevision < 0 || string.IsNullOrWhiteSpace(payload.ConfirmationToken) || payload.ConfirmationToken.Length > 500 || string.IsNullOrWhiteSpace(payload.CustomerName) || payload.CustomerName.Length > 120 || string.IsNullOrWhiteSpace(payload.CustomerWhatsapp) || payload.CustomerWhatsapp.Length > 40 || !payload.AcceptedPrivacyPolicy) return Results.BadRequest(new { error = "invalid_request" });
+    var idempotencyKey = context.Request.Headers["Idempotency-Key"].ToString();
+    if (idempotencyKey.Length is < 32 or > 200) return Results.UnprocessableEntity(new[] { "A chave de idempotência é inválida." });
+    var result = await assistant.SubmitAsync(payload, idempotencyKey, cancellationToken);
+    if (result.Failure is PublicAssistantFailureKind.NotFound or PublicAssistantFailureKind.Expired) cookies.Clear();
+    if (result.IsSuccess) cookies.Refresh(DateTimeOffset.UtcNow.AddDays(30));
+    return result.IsSuccess ? Results.Json(result.Value) : AssistantFailure(result.Failure, result.Message);
+}).RequireRateLimiting("public-assistant-relay").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(16 * 1024));
+
+app.MapPost("/assistant/reset", async (HttpContext context, IPublicAssistantClient assistant, IPublicAssistantCookieStore cookies, IOptions<StorefrontOptions> storefrontOptions, IAntiforgery antiforgery, CancellationToken cancellationToken) =>
+{
+    if (!await ValidateAssistantRequest(context, antiforgery)) return Results.BadRequest(new { error = "invalid_request" });
+    if (!storefrontOptions.Value.PublicAssistantEnabled)
+    {
+        cookies.Clear();
+        return Results.NoContent();
+    }
+    var result = await assistant.CloseAsync(cancellationToken);
+    if (result.IsSuccess || result.Failure is PublicAssistantFailureKind.NotFound or PublicAssistantFailureKind.Expired)
+    {
+        cookies.Clear();
+        return Results.NoContent();
+    }
+    return AssistantFailure(result.Failure, result.Message);
+}).RequireRateLimiting("public-assistant-relay").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(1024));
+
+static async Task<bool> ValidateAssistantRequest(HttpContext context, IAntiforgery antiforgery)
+{
+    try { await antiforgery.ValidateRequestAsync(context); return true; }
+    catch (AntiforgeryValidationException) { return false; }
+}
+
+static async Task<T?> ReadAssistantPayload<T>(HttpContext context, CancellationToken cancellationToken) where T : class
+{
+    const int maximumRequestBytes = 16 * 1024;
+    if (context.Request.ContentLength is 0 or > maximumRequestBytes) return null;
+    var bodyBytes = new byte[maximumRequestBytes + 1];
+    var bytesRead = 0;
+    while (bytesRead < bodyBytes.Length)
+    {
+        var read = await context.Request.Body.ReadAsync(bodyBytes.AsMemory(bytesRead), cancellationToken);
+        if (read == 0) break;
+        bytesRead += read;
+    }
+    if (bytesRead == 0 || bytesRead > maximumRequestBytes) return null;
+    try { return JsonSerializer.Deserialize<T>(bodyBytes.AsSpan(0, bytesRead), new JsonSerializerOptions(JsonSerializerDefaults.Web)); }
+    catch (JsonException) { return null; }
+}
+
+static bool ValidSessionPayload(CreatePublicAssistantSessionRequest payload) =>
+    payload.AcceptedAiNotice &&
+    string.Equals(payload.AiNoticeVersion, "public-assistant-v1", StringComparison.Ordinal) &&
+    (payload.LandingPage is null || payload.LandingPage.Length <= 500) &&
+    (payload.Campaign is null || payload.Campaign.Length <= 150) &&
+    (payload.InitialProductSlug is null || payload.InitialProductSlug.Length <= 200) &&
+    (payload.Website is null || payload.Website.Length <= 200);
+
+static IResult AssistantFailure(PublicAssistantFailureKind failure, string? message) => failure switch
+{
+    PublicAssistantFailureKind.NotFound => Results.NotFound(),
+    PublicAssistantFailureKind.Conflict => Results.Conflict(new[] { message ?? "A conversa foi atualizada." }),
+    PublicAssistantFailureKind.Expired => Results.StatusCode(StatusCodes.Status410Gone),
+    PublicAssistantFailureKind.Validation => Results.UnprocessableEntity(new[] { message ?? "Revise os dados informados." }),
+    PublicAssistantFailureKind.RateLimited => Results.StatusCode(StatusCodes.Status429TooManyRequests),
+    PublicAssistantFailureKind.Unavailable or PublicAssistantFailureKind.Timeout => Results.StatusCode(StatusCodes.Status503ServiceUnavailable),
+    _ => Results.StatusCode(StatusCodes.Status502BadGateway)
+};
 
 app.MapRazorPages();
 

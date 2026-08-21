@@ -8,6 +8,17 @@ primary_region = 'gru'
 
 [build]
 
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  Storefront__DataProtectionKeyDirectory = "/var/morita/data-protection-keys"
+  Storefront__PublicAssistantEnabled = "false"
+
+# Provision before deploying this mount:
+# fly volumes create data_protection --app morita-lp-razor --region gru --size 1
+[[mounts]]
+  source = "data_protection"
+  destination = "/var/morita/data-protection-keys"
+
 [http_service]
   internal_port = 8080
   force_https = true

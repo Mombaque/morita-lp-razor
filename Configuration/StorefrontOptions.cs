@@ -5,6 +5,8 @@ public sealed class StorefrontOptions
     public const string SectionName = "Storefront";
     public string ProductSource { get; set; } = "Legacy";
     public bool UseRelayForCustomerRequests { get; set; }
+    public bool PublicAssistantEnabled { get; set; }
+    public int PublicAssistantTimeoutSeconds { get; set; } = 25;
     public string? DataProtectionKeyDirectory { get; set; }
 }
 
