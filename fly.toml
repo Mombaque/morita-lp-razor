@@ -6,6 +6,10 @@
 app = 'morita-lp-razor'
 primary_region = 'gru'
 
+# Configure the server-only proxy credential in Fly secrets. The value must
+# match the API's ClientIdentity__ProxySecret; never expose it to the browser.
+# fly secrets set DeliveryTracking__ProxySecret="<same-api-proxy-secret>"
+
 [build]
 
 [http_service]

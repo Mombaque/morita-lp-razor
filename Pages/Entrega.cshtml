@@ -1,0 +1,143 @@
+@page "/entrega/{publicToken}"
+@model Morita.LP.Razor.Pages.EntregaModel
+@using System.Globalization
+@{
+    Layout = "_DeliveryLayout";
+    ViewData["Title"] = Model.Delivery is null ? "Acompanhamento de entrega | Morita" : $"{Model.StatusLabel} | Morita";
+    ViewData["DeliveryTerminal"] = Model.IsTerminal;
+    var statusClass = Model.IsTerminal ? (EntregaModel.IsDelivered(Model.Delivery?.Status) ? "is-delivered" : "is-cancelled") : "is-active";
+}
+
+@if (Model.DeliveryNotFound)
+{
+    <section class="delivery-card state-card" aria-labelledby="missing-title">
+        <span class="status-mark">?</span>
+        <p class="eyebrow">Link de entrega</p>
+        <h1 id="missing-title">Não encontramos essa entrega</h1>
+        <p>Confira se o link está completo. Se precisar, fale com a Morita pelo WhatsApp.</p>
+        <a class="button button-primary" href="@Model.WhatsAppUrl" target="_blank" rel="noopener noreferrer">Falar com a Morita</a>
+    </section>
+}
+else if (!string.IsNullOrWhiteSpace(Model.ErrorMessage))
+{
+    <section class="delivery-card state-card" aria-labelledby="error-title">
+        <span class="status-mark">!</span>
+        <p class="eyebrow">Acompanhamento temporariamente indisponível</p>
+        <h1 id="error-title">Tente novamente em instantes</h1>
+        <p>@Model.ErrorMessage</p>
+        <a class="button button-primary" href="" rel="nofollow">Atualizar</a>
+    </section>
+}
+else if (Model.Delivery is not null)
+{
+    <section class="delivery-hero @statusClass" aria-labelledby="delivery-title">
+        <p class="eyebrow">Acompanhamento da entrega</p>
+        <h1 id="delivery-title">@Model.StatusLabel</h1>
+        <p class="status-copy">@(string.IsNullOrWhiteSpace(Model.RecipientFirstName) ? "Acompanhe os detalhes da sua entrega." : $"Oi, {Model.RecipientFirstName}. Acompanhe os detalhes da sua entrega.")</p>
+        <div class="delivery-meta" aria-label="Detalhes da entrega">
+            @if (!string.IsNullOrWhiteSpace(Model.OrderNumber))
+            {
+                <div>
+                    <span>Pedido</span>
+                    <strong class="order-number">Pedido @Model.OrderNumber</strong>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(Model.DestinationLabel))
+            {
+                <div>
+                    <span>Destino</span>
+                    <strong class="destination">@Model.DestinationLabel</strong>
+                </div>
+            }
+            <div class="estimate-panel">
+                <span>Previsão</span>
+                <strong>@Model.EstimateLabel</strong>
+            </div>
+        </div>
+    </section>
+
+    <div class="delivery-content @(Model.Items.Count == 0 ? "is-single" : "")">
+        <section class="delivery-card timeline-card" aria-labelledby="timeline-title">
+            <div class="section-heading">
+                <div>
+                    <p class="eyebrow">Passo a passo</p>
+                    <h2 id="timeline-title">Status da entrega</h2>
+                </div>
+                @if (!Model.IsTerminal)
+                {
+                    <span class="live-badge"><i aria-hidden="true"></i> Atualização automática</span>
+                }
+            </div>
+            @if (Model.Timeline.Count > 0)
+            {
+                <ol class="timeline">
+                    @foreach (var entry in Model.Timeline)
+                    {
+                        <li class="timeline-item @(entry.IsCurrent ? "current" : "")">
+                            <span class="timeline-dot" aria-hidden="true"></span>
+                            <div class="timeline-content">
+                                <strong>@(string.IsNullOrWhiteSpace(entry.Title) ? Model.StatusLabel : entry.Title)</strong>
+                                @if (!string.IsNullOrWhiteSpace(entry.Description))
+                                {
+                                    <p>@entry.Description</p>
+                                }
+                                @if (entry.OccurredAt is not null)
+                                {
+                                    <time datetime="@entry.OccurredAt.Value.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)">@Model.EventDate(entry.OccurredAt)</time>
+                                }
+                            </div>
+                        </li>
+                    }
+                </ol>
+            }
+            else
+            {
+                <div class="timeline-empty"><span class="timeline-dot" aria-hidden="true"></span><p>Estamos preparando as próximas atualizações.</p></div>
+            }
+        </section>
+
+        @if (Model.Items.Count > 0)
+        {
+            <section class="delivery-card items-card" aria-labelledby="items-title">
+                <p class="eyebrow">Resumo</p>
+                <h2 id="items-title">Itens da entrega</h2>
+                <ul class="item-list">
+                    @foreach (var item in Model.Items)
+                    {
+                        <li><span>@(string.IsNullOrWhiteSpace(item.Name) ? item.ProductName : item.Name)@(string.IsNullOrWhiteSpace(item.Size) ? "" : $" · {item.Size}")@(string.IsNullOrWhiteSpace(item.Color) ? "" : $" · {item.Color}")</span><b>×@Math.Max(1, item.Quantity)</b></li>
+                    }
+                </ul>
+            </section>
+        }
+    </div>
+
+    <section class="delivery-card help-card" aria-labelledby="help-title">
+        <div>
+            <p class="eyebrow">Precisa de ajuda?</p>
+            <h2 id="help-title">Fale direto com a Morita</h2>
+            <p>Se algo mudou ou você tem uma dúvida, chame a gente no WhatsApp.</p>
+        </div>
+        <a class="button whatsapp primary-cta button-primary" href="@Model.WhatsAppUrl" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>
+    </section>
+
+    <section class="delivery-actions" aria-label="Mais opções">
+        @if (Model.GoogleReviewUrl is not null)
+        {
+            <a class="button button-review" href="@Model.GoogleReviewUrl" target="_blank" rel="noopener noreferrer">Avaliar a Morita <span aria-hidden="true">↗</span></a>
+        }
+        <div class="secondary-links">
+            <a href="@Model.CatalogUrl" target="_blank" rel="noopener noreferrer">Ver catálogo</a>
+            <a href="@Model.WhatsAppUrl" target="_blank" rel="noopener noreferrer">WhatsApp</a>
+            <a href="@Model.InstagramUrl" target="_blank" rel="noopener noreferrer">Instagram</a>
+        </div>
+    </section>
+}
+
+@section Scripts {
+    @if (Model.Delivery is not null && !Model.IsTerminal && string.IsNullOrWhiteSpace(Model.ErrorMessage))
+    {
+        <script>
+            window.setTimeout(function () { window.location.reload(); }, 45000);
+        </script>
+    }
+}

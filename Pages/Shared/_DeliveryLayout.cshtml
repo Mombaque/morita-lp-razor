@@ -1,0 +1,25 @@
+@using Morita.LP.Razor.Pages
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow,noarchive">
+    <meta name="referrer" content="no-referrer">
+    <title>@(ViewData["Title"] ?? "Acompanhe sua entrega | Morita")</title>
+    <link rel="icon" href="~/images/favicon.png" type="image/png">
+    <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true">
+    <link rel="stylesheet" href="~/css/delivery.css" asp-append-version="true">
+</head>
+<body class="delivery-shell" data-terminal="@(ViewData["DeliveryTerminal"] is true ? "true" : "false")">
+    <header class="delivery-header">
+        <a class="delivery-brand" href="/" aria-label="Morita - início">
+            <img src="~/images/logo.png" alt="Morita">
+        </a>
+    </header>
+    <main class="delivery-main">@RenderBody()</main>
+    <footer class="delivery-footer">Morita · Equipamentos para artes marciais em Sorocaba</footer>
+    @RenderSection("Scripts", required: false)
+</body>
+</html>
