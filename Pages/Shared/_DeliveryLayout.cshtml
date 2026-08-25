@@ -9,6 +9,7 @@
     <meta name="referrer" content="no-referrer">
     <title>@(ViewData["Title"] ?? "Acompanhe sua entrega | Morita")</title>
     <link rel="icon" href="~/images/favicon.png" type="image/png">
+    <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true">
     <link rel="stylesheet" href="~/css/delivery.css" asp-append-version="true">
 </head>
 <body class="delivery-shell" data-terminal="@(ViewData["DeliveryTerminal"] is true ? "true" : "false")">
@@ -16,10 +17,9 @@
         <a class="delivery-brand" href="/" aria-label="Morita - início">
             <img src="~/images/logo.png" alt="Morita">
         </a>
-        <span class="delivery-header-label">ENTREGA</span>
     </header>
     <main class="delivery-main">@RenderBody()</main>
-    <footer class="delivery-footer">Morita · Sorocaba, SP</footer>
+    <footer class="delivery-footer">Morita · Equipamentos para artes marciais em Sorocaba</footer>
     @RenderSection("Scripts", required: false)
 </body>
 </html>

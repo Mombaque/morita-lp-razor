@@ -9,9 +9,17 @@ services:
       - "5173:5173"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - DeliveryTracking__ApiBaseUrl=http://api:5001
     volumes:
       - ..:/src
+      - ../appsettings.Development.json:/app/appsettings.Development.json:ro
+    networks:
+      - backend-dev-network
     develop:
       watch:
         - action: rebuild
           path: ..
+
+networks:
+  backend-dev-network:
+    external: true
