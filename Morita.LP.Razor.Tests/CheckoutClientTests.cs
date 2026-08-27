@@ -24,7 +24,7 @@ public sealed class CheckoutClientTests
         var offer = Guid.NewGuid();
         using var handler = new RecordingHandler("""{"publicCheckoutId":"11111111-1111-1111-1111-111111111111","status":"active","expiresAt":"2026-08-20T12:30:00Z","accessExpiresAt":"2026-09-19T12:00:00Z","lines":[{"publicOfferId":"00000000-0000-0000-0000-000000000001","quantity":1,"presentation":"Item","unitPrice":10,"lineTotal":9}],"merchandiseTotal":9,"discountTotal":0,"freightTotal":0,"total":9,"currency":"BRL","pickup":{"publicPickupId":"22222222-2222-2222-2222-222222222222","displayName":"Loja","address":{},"hours":"Dia","instructions":""},"contact":{"name":"N","email":"e@e.com","phone":"1"}}""");
         var client = Create(handler);
-        var result = await client.CreateAsync(new([new(offer, 1)], new CheckoutContact { Name = "N", Email = "e@e.com", Phone = "1" }, Guid.NewGuid()), new string('i', 32), new string('a', 32));
+        var result = await client.CreateAsync(new([new(offer, 1)], new CheckoutContact { Name = "N", Email = "e@e.com", Phone = "1" }, new CheckoutFulfillment("pickup", Guid.NewGuid())), new string('i', 32), new string('a', 32));
         Assert.Equal(CheckoutLoadState.Malformed, result.State);
         Assert.Equal(new string('i', 32), handler.Request!.Headers.GetValues("Idempotency-Key").Single());
         Assert.Equal(new string('a', 32), handler.Request.Headers.GetValues("X-Checkout-Access-Token").Single());
@@ -48,9 +48,9 @@ public sealed class CheckoutClientTests
     {
         var offer = Guid.NewGuid();
         var pickup = Guid.NewGuid();
-        var body = $$$"""{"publicCheckoutId":"11111111-1111-1111-1111-111111111111","status":"active","expiresAt":"2026-08-20T12:30:00Z","accessExpiresAt":"2026-09-19T12:00:00Z","lines":[{"publicOfferId":"{{{offer}}}","quantity":1,"presentation":"Item","unitPrice":10,"lineTotal":10}],"merchandiseTotal":10,"discountTotal":0,"freightTotal":0,"total":10,"currency":"BRL","pickup":{"publicPickupId":"{{{pickup}}}","displayName":"Loja","address":{"street":"Rua A","number":"1","neighborhood":"Centro","city":"Sorocaba","state":"SP","postalCode":"18000-000"},"hours":"09:00-18:00","instructions":"Documento"},"contact":{"name":"Ana","email":"ana@example.com","phone":"+5515999999999"}}""";
+        var body = $$$"""{"publicCheckoutId":"11111111-1111-1111-1111-111111111111","status":"active","expiresAt":"2026-08-20T12:30:00Z","accessExpiresAt":"2026-09-19T12:00:00Z","lines":[{"publicOfferId":"{{{offer}}}","quantity":1,"presentation":"Item","unitPrice":10,"lineTotal":10}],"merchandiseTotal":10,"discountTotal":0,"freightTotal":0,"total":10,"currency":"BRL","fulfillmentMethod":"pickup","pickup":{"publicPickupId":"{{{pickup}}}","displayName":"Loja","address":{"street":"Rua A","number":"1","neighborhood":"Centro","city":"Sorocaba","state":"SP","postalCode":"18000-000"},"hours":"09:00-18:00","instructions":"Documento"},"contact":{"name":"Ana","email":"ana@example.com","phone":"+5515999999999"}}""";
         var result = await Create(new RecordingHandler(body)).CreateAsync(
-            new([new(offer, 1)], new CheckoutContact { Name = "Ana", Email = "ana@example.com", Phone = "15999999999" }, pickup),
+            new([new(offer, 1)], new CheckoutContact { Name = "Ana", Email = "ana@example.com", Phone = "15999999999" }, new CheckoutFulfillment("pickup", pickup)),
             new string('i', 32),
             new string('a', 32));
 
@@ -58,10 +58,70 @@ public sealed class CheckoutClientTests
         Assert.Equal(10, result.Checkout?.Total);
 
         var wrongPickupResult = await Create(new RecordingHandler(body)).CreateAsync(
-            new([new(offer, 1)], new CheckoutContact { Name = "Ana", Email = "ana@example.com", Phone = "15999999999" }, Guid.NewGuid()),
+            new([new(offer, 1)], new CheckoutContact { Name = "Ana", Email = "ana@example.com", Phone = "15999999999" }, new CheckoutFulfillment("pickup", Guid.NewGuid())),
             new string('i', 32),
             new string('a', 32));
         Assert.Equal(CheckoutLoadState.Malformed, wrongPickupResult.State);
+    }
+
+    [Fact]
+    public async Task Shipping_quote_sends_opaque_lines_and_maps_authoritative_options()
+    {
+        var offer = Guid.NewGuid();
+        var quoteId = Guid.NewGuid();
+        using var handler = new RecordingHandler(JsonSerializer.Serialize(new
+        {
+            expiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+            currency = "BRL",
+            options = new[] { new { publicShippingQuoteId = quoteId, serviceName = "PAC", carrierName = "Correios", price = 18.5m, minimumDeliveryDays = 4, maximumDeliveryDays = 7 } }
+        }));
+
+        var result = await Create(handler).QuoteShippingAsync(new([new(offer, 2)], "01310-100"));
+
+        Assert.Equal(CheckoutLoadState.Success, result.State);
+        Assert.Equal(quoteId, Assert.Single(result.Quote!.Options).PublicShippingQuoteId);
+        Assert.Equal("https://api.test/v1/storefront/checkout/shipping/quotes", handler.Request!.RequestUri!.ToString());
+        Assert.Contains($"\"publicOfferId\":\"{offer}\"", handler.Body);
+        Assert.Contains("\"destinationPostalCode\":\"01310-100\"", handler.Body);
+    }
+
+    [Fact]
+    public async Task Shipping_checkout_submits_quote_and_address_and_maps_freight_snapshot()
+    {
+        var offer = Guid.NewGuid();
+        var quoteId = Guid.NewGuid();
+        var checkoutJson = JsonSerializer.Serialize(new
+        {
+            publicCheckoutId = Guid.NewGuid(), status = "active", expiresAt = DateTimeOffset.UtcNow.AddHours(1), accessExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
+            lines = new[] { new { publicOfferId = offer, quantity = 1, presentation = "Kimono / M1", unitPrice = 100m, lineTotal = 100m } },
+            merchandiseTotal = 100m, discountTotal = 0m, freightTotal = 18.5m, total = 118.5m, currency = "BRL", fulfillmentMethod = "shipping",
+            shipping = new { carrierName = "Correios", serviceName = "PAC", price = 18.5m, minimumDeliveryDays = 4, maximumDeliveryDays = 7, address = new { recipient = "Ana", street = "Avenida Paulista", number = "1000", neighborhood = "Bela Vista", city = "São Paulo", state = "SP", postalCode = "01310100", countryCode = "BR" } },
+            contact = new { name = "Ana", email = "ana@example.com", phone = "11999999999" }
+        });
+        using var handler = new RecordingHandler(checkoutJson);
+        var address = new CheckoutAddress { Recipient = "Ana", Street = "Avenida Paulista", Number = "1000", Neighborhood = "Bela Vista", City = "São Paulo", State = "sp", PostalCode = "01310-100", CountryCode = "BR" };
+
+        var result = await Create(handler).CreateAsync(
+            new([new(offer, 1)], new CheckoutContact { Name = "Ana", Email = "ana@example.com", Phone = "11999999999" }, new CheckoutFulfillment("shipping", PublicShippingQuoteId: quoteId, ShippingAddress: address)),
+            new string('i', 32), new string('a', 32));
+
+        Assert.Equal(CheckoutLoadState.Success, result.State);
+        Assert.Equal("shipping", result.Checkout!.FulfillmentMethod);
+        Assert.Equal(18.5m, result.Checkout.FreightTotal);
+        Assert.Equal("01310100", result.Checkout.Shipping!.Address.PostalCode);
+        Assert.Contains($"\"publicShippingQuoteId\":\"{quoteId}\"", handler.Body);
+        Assert.Contains("\"method\":\"shipping\"", handler.Body);
+    }
+
+    [Fact]
+    public async Task Configuration_exposes_shipping_without_requiring_pickup()
+    {
+        var result = await Create(new RecordingHandler("{\"pickupEnabled\":false,\"shippingEnabled\":true,\"currency\":\"BRL\"}"))
+            .GetConfigurationAsync();
+
+        Assert.Equal(CheckoutLoadState.Success, result.State);
+        Assert.True(result.Configuration!.ShippingEnabled);
+        Assert.Null(result.Configuration.Pickup);
     }
 
     [Fact]
@@ -139,7 +199,7 @@ public sealed class CheckoutClientTests
     }
 
     private static string PaymentJson(string status, DateTimeOffset expires, string? order = null, string? qr = null, bool includePix = true) => JsonSerializer.Serialize(new { status, amount = 10.00m, currency = "BRL", expiresAt = expires, pixCopyPaste = includePix ? "000201010212" : null, qrCodePngBase64 = includePix ? qr ?? PngBase64 : null, publicOrderNumber = order });
-    private static string CheckoutJson(string status) => JsonSerializer.Serialize(new { publicCheckoutId = Guid.Parse("11111111-1111-1111-1111-111111111111"), status, expiresAt = DateTimeOffset.UtcNow.AddHours(1), accessExpiresAt = DateTimeOffset.UtcNow.AddDays(30), lines = new[] { new { publicOfferId = Guid.Parse("22222222-2222-2222-2222-222222222222"), quantity = 1, presentation = "Item", unitPrice = 10m, lineTotal = 10m } }, merchandiseTotal = 10m, discountTotal = 0m, freightTotal = 0m, total = 10m, currency = "BRL", pickup = new { publicPickupId = Guid.Parse("33333333-3333-3333-3333-333333333333"), displayName = "Loja", address = new { street = "Rua", number = "1", neighborhood = "Centro", city = "Sorocaba", state = "SP", postalCode = "18000-000" }, hours = "09:00", instructions = "" }, contact = new { name = "Ana", email = "ana@example.com", phone = "1" } });
+    private static string CheckoutJson(string status) => JsonSerializer.Serialize(new { publicCheckoutId = Guid.Parse("11111111-1111-1111-1111-111111111111"), status, expiresAt = DateTimeOffset.UtcNow.AddHours(1), accessExpiresAt = DateTimeOffset.UtcNow.AddDays(30), lines = new[] { new { publicOfferId = Guid.Parse("22222222-2222-2222-2222-222222222222"), quantity = 1, presentation = "Item", unitPrice = 10m, lineTotal = 10m } }, merchandiseTotal = 10m, discountTotal = 0m, freightTotal = 0m, total = 10m, currency = "BRL", fulfillmentMethod = "pickup", pickup = new { publicPickupId = Guid.Parse("33333333-3333-3333-3333-333333333333"), displayName = "Loja", address = new { street = "Rua", number = "1", neighborhood = "Centro", city = "Sorocaba", state = "SP", postalCode = "18000-000" }, hours = "09:00", instructions = "" }, contact = new { name = "Ana", email = "ana@example.com", phone = "1" } });
     private const string PngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAElEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
     private static CheckoutClient Create(HttpMessageHandler handler)

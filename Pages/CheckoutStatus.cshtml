@@ -1,7 +1,7 @@
 @page "/checkout/{publicCheckoutId:guid}"
 @model Morita.LP.Razor.Pages.CheckoutStatusModel
 @{
-    ViewData["Title"] = "Sua reserva | Morita Fight";
+    ViewData["Title"] = "Seu checkout | Morita Fight";
     ViewData["Robots"] = "noindex,nofollow";
 }
 <main class="checkout-shell" data-checkout="status">
@@ -11,11 +11,14 @@
     }
     else
     {
-        <h1>Sua reserva</h1>
+        <h1>Seu checkout</h1>
         <p data-checkout="status">Status: <strong>@(Model.Checkout.Status switch { "active" => "Aguardando pagamento", "cancelled" => "Cancelada", "expired" => "Expirada", "paymentpending" => "Pagamento pendente", "conversionpending" => "Conversão do pagamento em andamento", "refundpending" => "Estorno em andamento", "completed" => "Pedido concluído", "refunded" => "Pagamento estornado", _ => "Atualização da reserva" })</strong></p>
         @if (Model.Message is not null) { <p class="@(Model.Payment?.Status == "cancellationpending" ? "payment-lifecycle-message" : "validation-error")" role="@(Model.Payment?.Status == "cancellationpending" ? "status" : "alert")">@Model.Message</p> }
-        <section aria-labelledby="reservation-summary"><h2 id="reservation-summary">Resumo confirmado</h2><p>Total: <strong>@Model.Checkout.Currency @Model.Checkout.Total.ToString("0.00")</strong></p><p>Validade da reserva: <time datetime="@Model.Checkout.ExpiresAt.ToString("O")">@Model.Checkout.ExpiresAt.ToLocalTime().ToString("g")</time></p><ul>@foreach (var line in Model.Checkout.Lines) { <li>@line.Presentation — @line.Quantity × @Model.Checkout.Currency @line.UnitPrice.ToString("0.00")</li> }</ul></section>
-        <section aria-labelledby="pickup-summary"><h2 id="pickup-summary">Retirada</h2><p><strong>@Model.Checkout.Pickup.DisplayName</strong></p><p>@Model.Checkout.Pickup.Address.Street, @Model.Checkout.Pickup.Address.Number - @Model.Checkout.Pickup.Address.Neighborhood, @Model.Checkout.Pickup.Address.City/@Model.Checkout.Pickup.Address.State</p><p>@Model.Checkout.Pickup.Hours</p>@if (!string.IsNullOrWhiteSpace(Model.Checkout.Pickup.Instructions)) { <p>@Model.Checkout.Pickup.Instructions</p> }</section>
+        <section aria-labelledby="reservation-summary"><h2 id="reservation-summary">Resumo confirmado</h2><p>Produtos: <strong>@Model.Checkout.Currency @Model.Checkout.MerchandiseTotal.ToString("0.00")</strong></p>@if(Model.Checkout.FreightTotal > 0){<p>Frete: <strong>@Model.Checkout.Currency @Model.Checkout.FreightTotal.ToString("0.00")</strong></p>}<p>Total: <strong>@Model.Checkout.Currency @Model.Checkout.Total.ToString("0.00")</strong></p><p>Validade da reserva: <time datetime="@Model.Checkout.ExpiresAt.ToString("O")">@Model.Checkout.ExpiresAt.ToLocalTime().ToString("g")</time></p><ul>@foreach (var line in Model.Checkout.Lines) { <li>@line.Presentation — @line.Quantity × @Model.Checkout.Currency @line.UnitPrice.ToString("0.00")</li> }</ul></section>
+        @if (Model.Checkout.FulfillmentMethod == "pickup" && Model.Checkout.Pickup is { } pickup)
+        { <section aria-labelledby="pickup-summary"><h2 id="pickup-summary">Retirada</h2><p><strong>@pickup.DisplayName</strong></p><p>@pickup.Address.Street, @pickup.Address.Number - @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</p><p>@pickup.Hours</p>@if (!string.IsNullOrWhiteSpace(pickup.Instructions)) { <p>@pickup.Instructions</p> }</section> }
+        else if (Model.Checkout.Shipping is { } shipping)
+        { <section aria-labelledby="shipping-summary"><h2 id="shipping-summary">Entrega</h2><p><strong>@shipping.ServiceName · @shipping.CarrierName</strong></p><p>Prazo estimado: @shipping.MinimumDeliveryDays a @shipping.MaximumDeliveryDays dias úteis.</p><p>@shipping.Address.Recipient<br>@shipping.Address.Street, @shipping.Address.Number @shipping.Address.Complement<br>@shipping.Address.Neighborhood · @shipping.Address.City/@shipping.Address.State · CEP @shipping.Address.PostalCode</p></section> }
         @if (Model.Checkout.Status == "active" && Model.Payment is null)
         {
             @if (Model.PaymentState is PaymentLoadState.NotFound or PaymentLoadState.Success)

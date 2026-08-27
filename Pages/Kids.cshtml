@@ -1,0 +1,50 @@
+@page "/kids"
+@model KidsModel
+@inject Microsoft.Extensions.Configuration.IConfiguration Configuration
+@{
+    var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
+    ViewData["Title"] = "Equipamentos infantis para artes marciais | Morita Fight";
+    ViewData["Description"] = "Kimonos, faixas e equipamentos infantis para jovens atletas, com tamanhos e estoque confirmados.";
+    ViewData["Canonical"] = $"{canonicalBase.TrimEnd('/')}/kids";
+    ViewData["Robots"] = string.IsNullOrWhiteSpace(Model.Modality) ? "index,follow" : "noindex,follow";
+    ViewData["BodyClass"] = "collection-page commerce-page kids-page";
+}
+
+<main class="commerce-shell collection-shell">
+  <section class="collection-hero kids-hero" aria-labelledby="collection-title">
+    <div>
+      <p class="fight-label">Jovens atletas / Grandes começos</p>
+      <h1 id="collection-title">Kids<span>.</span></h1>
+      <p>Equipamento infantil separado de verdade: proporções, tamanhos e opções pensadas para crianças treinarem com conforto.</p>
+      <a class="commerce-button commerce-button-primary" href="#catalog">Ver produtos ↓</a>
+    </div>
+    @if (Model.HeroProduct is not null)
+    {
+      <a class="collection-hero-image" href="/products/@Uri.EscapeDataString(Model.HeroProduct.Slug ?? "")"><img src="@Model.HeroProduct.Imagens[0]" alt="@Model.HeroProduct.Alt"><span>@Model.HeroProduct.Nome</span></a>
+    }
+    else
+    {
+      <div class="collection-mark" aria-hidden="true">K</div>
+    }
+  </section>
+
+  <nav class="collection-filters" aria-label="Modalidades infantis">
+    <a class="@(Model.Modality is null ? "active" : "")" href="/kids">Todos</a>
+    @foreach (var modality in Model.Filters.Modalities)
+    {
+      <a class="@(Model.Modality == modality.Slug ? "active" : "")" href="/kids?modality=@Uri.EscapeDataString(modality.Slug ?? "")">@modality.Label</a>
+    }
+  </nav>
+
+  <section id="catalog" class="collection-catalog" aria-labelledby="catalog-title">
+    <div class="section-heading section-heading-row"><div><p class="fight-label">Catálogo infantil</p><h2 id="catalog-title">@(Model.Modality is null ? "Para jovens atletas" : Model.Filters.Modalities.FirstOrDefault(x => x.Slug == Model.Modality)?.Label ?? "Produtos")</h2></div><span>@Model.Catalog.TotalCount produto(s)</span></div>
+    @if (Model.Catalog.State == CatalogLoadState.Unavailable)
+    { <div class="catalog-state catalog-unavailable" role="status"><h3>Catálogo temporariamente indisponível</h3><p>Tente novamente em instantes.</p></div> }
+    else if (Model.Catalog.State == CatalogLoadState.Empty)
+    { <div class="catalog-state catalog-empty" role="status"><h3>Nenhum produto infantil encontrado</h3><p>A seleção está sendo atualizada. Fale com a equipe para consultar tamanhos na loja.</p></div> }
+    else
+    { <div class="products storefront-products">@for (var index = 0; index < Model.Catalog.Items.Count; index++) { <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Catalog.Items[index], "kids", index))" /> }</div> }
+  </section>
+</main>
+
+@section Scripts { <script src="~/js/carousel.js" asp-append-version="true"></script> }

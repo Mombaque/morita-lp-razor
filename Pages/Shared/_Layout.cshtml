@@ -7,7 +7,7 @@
     var apiBaseUrl = CatalogApiOptions.Value.BaseUrl;
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
     var title = ViewData["Title"] ?? "Morita - Equipamentos para Artes Marciais em Sorocaba";
-    var description = ViewData["Description"] ?? "Equipamentos para Jiu-Jitsu e Muay Thai em Sorocaba. Kimonos, luvas, rashguards, shorts e acessórios com atendimento pelo WhatsApp e retirada na loja.";
+    var description = ViewData["Description"] ?? "Equipamentos para Jiu-Jitsu e Muay Thai com retirada em Sorocaba e entrega para todo o Brasil.";
     var canonical = ViewData["Canonical"] ?? $"{canonicalBase.TrimEnd('/')}{ViewContext.HttpContext.Request.Path}";
     var hasOgImage = !ViewData.ContainsKey("OgImage") || ViewData["OgImage"] is string;
     var ogImage = ViewData["OgImage"] as string ?? $"{canonicalBase.TrimEnd('/')}/images/favicon.png";
@@ -25,6 +25,9 @@
     <link rel="canonical" href="@canonical">
     <link rel="alternate" hreflang="pt-BR" href="@canonical">
     <link rel="icon" href="~/images/favicon.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@@0,600;0,700;0,800;0,900;1,700&family=IBM+Plex+Sans:wght@@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true">
     @if (publicAssistantEnabled) { <link rel="stylesheet" href="~/css/public-assistant.css" asp-append-version="true"> }
@@ -67,36 +70,39 @@
         var isHome = string.IsNullOrEmpty(currentPath);
         var isJiuJitsu = currentPath == "/jiu-jitsu";
         var isMuayThai = currentPath == "/muay-thai";
+        var isKids = currentPath == "/kids";
+        var isProducts = currentPath == "/products" || currentPath?.StartsWith("/products/") == true;
     }
-    <nav class="main-nav">
-        <a href="/" class="nav-link @(isHome ? "active" : "")" aria-current="@(isHome ? "page" : null)">Home</a>
-        <a href="/jiu-jitsu" class="nav-link @(isJiuJitsu ? "active" : "")" aria-current="@(isJiuJitsu ? "page" : null)">Jiu-Jitsu</a>
-        <a href="/muay-thai" class="nav-link @(isMuayThai ? "active" : "")" aria-current="@(isMuayThai ? "page" : null)">Muay Thai</a>
-        <a href="/products" class="nav-link @(currentPath == "/products" || currentPath?.StartsWith("/products/") == true ? "active" : "")" aria-current="@(currentPath == "/products" || currentPath?.StartsWith("/products/") == true ? "page" : null)">Produtos</a>
-        @await Component.InvokeAsync("CartIndicator")
-    </nav>
+    <header class="commerce-site-header">
+        <div class="commerce-utility"><span>Fight supply / Sorocaba</span><span>Retirada na loja · Entrega para todo o Brasil</span></div>
+        <div class="commerce-nav-row">
+            <a class="commerce-logo" href="/" aria-label="Morita Fight - início"><img src="~/images/logo.png" alt="Morita Fight"></a>
+            <form class="commerce-search" method="get" action="/products" role="search">
+                <label class="visually-hidden" for="site-search">Buscar no catálogo</label>
+                <input id="site-search" name="search" type="search" placeholder="Buscar kimono, luva, faixa..." maxlength="100">
+                <button type="submit" aria-label="Buscar"><i class="fas fa-magnifying-glass" aria-hidden="true"></i></button>
+            </form>
+            <div class="commerce-cart">@await Component.InvokeAsync("CartIndicator")</div>
+        </div>
+        <nav class="main-nav" aria-label="Navegação principal">
+            <a href="/" class="nav-link @(isHome ? "active" : "")" aria-current="@(isHome ? "page" : null)">Início</a>
+            <a href="/products" class="nav-link @(isProducts ? "active" : "")" aria-current="@(isProducts ? "page" : null)">Todos os produtos</a>
+            <a href="/jiu-jitsu" class="nav-link @(isJiuJitsu ? "active" : "")" aria-current="@(isJiuJitsu ? "page" : null)">Jiu-Jitsu</a>
+            <a href="/muay-thai" class="nav-link @(isMuayThai ? "active" : "")" aria-current="@(isMuayThai ? "page" : null)">Muay Thai</a>
+            <a href="/kids" class="nav-link @(isKids ? "active" : "")" aria-current="@(isKids ? "page" : null)">Kids</a>
+        </nav>
+    </header>
 
     @RenderBody()
 
     @if (publicAssistantEnabled) { <div id="public-assistant-root"></div> }
 
-    @if (isHome)
-    {
-        <div id="footer-container">
-            <h2 style="text-align: center; color: white; margin-top: 2rem;">Como chegar</h2>
-            <div style="position: relative; width: 100%; height: 400px;">
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8018589048047!2d-47.448025699999995!3d-23.5036453!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cf617d35af8a47%3A0x9305c5aada5d6b5e!2sMorita!5e0!3m2!1spt-BR!2sbr!4v1754033972086!5m2!1spt-BR!2sbr"
-                width="100%"
-                height="400"
-                style="border:0;"
-                allowfullscreen=""
-                loading="lazy"
-                referrerpolicy="no-referrer-when-downgrade">
-              </iframe>
-            </div>
-        </div>
-    }
+    <footer class="commerce-footer">
+        <div><img src="~/images/logo.png" alt="Morita Fight"><p>Equipamento para quem leva o treino a sério.</p></div>
+        <div><strong>Loja</strong><a href="/products">Catálogo</a><a href="/jiu-jitsu">Jiu-Jitsu</a><a href="/muay-thai">Muay Thai</a><a href="/kids">Kids</a></div>
+        <div><strong>Visite</strong><a href="https://maps.app.goo.gl/pNYYiMimWGa4actz7">Rua Coronel Nogueira Padilha, 429<br>Sorocaba, SP</a><a href="https://wa.me/5515981079332">WhatsApp (15) 98107-9332</a></div>
+        <p class="commerce-footer-mark">M / F</p>
+    </footer>
 
     <script>
         window.API_BASE_URL = @Html.Raw(JsonSerializer.Serialize(apiBaseUrl));

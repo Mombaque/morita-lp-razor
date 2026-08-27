@@ -27,7 +27,7 @@ public sealed class OrderClientTests
         Assert.Equal(OrderLoadState.Success, result.State);
         Assert.Equal("https://api.test/v1/storefront/orders/MF-0123456789ABCDEF", handler.Request!.RequestUri!.ToString());
         Assert.Equal(new string('t', 32), handler.Request.Headers.GetValues("X-Order-Access-Token").Single());
-        Assert.Equal("Rua A", result.Order!.PickupAddress.Street);
+        Assert.Equal("Rua A", result.Order!.PickupAddress!.Street);
     }
 
     [Fact]
@@ -49,6 +49,21 @@ public sealed class OrderClientTests
     }
 
     [Fact]
+    public async Task Get_maps_shipping_freight_address_and_tracking_snapshot()
+    {
+        const string number = "MF-0123456789ABCDEF";
+        var json = $$$"""{"publicOrderNumber":"{{{number}}}","paymentStatus":"Converted","fulfillmentStatus":"Pending","fulfillmentMethod":"shipping","amount":23,"currency":"BRL","createdAt":"2026-08-20T12:00:00Z","pickupAddressJson":"{}","shipping":{"carrierName":"Correios","serviceName":"PAC","price":13,"minimumDeliveryDays":3,"maximumDeliveryDays":5,"address":{"recipient":"Ana","street":"Avenida Paulista","number":"1000","neighborhood":"Bela Vista","city":"São Paulo","state":"SP","postalCode":"01310100","countryCode":"BR"}},"shipment":{"status":"InTransit","carrierName":"Correios","serviceName":"PAC","trackingCode":"BR123","updatedAt":"2026-08-21T12:00:00Z","shippedAt":"2026-08-21T10:00:00Z"},"lines":[{"description":"Item","presentation":"Item","quantity":1,"unitPrice":10,"total":10}]}""";
+
+        var result = await Create(new Handler(json)).GetAsync(number, Token);
+
+        Assert.Equal(OrderLoadState.Success, result.State);
+        Assert.Equal("shipping", result.Order!.FulfillmentMethod);
+        Assert.Equal(13, result.Order.Shipping!.Price);
+        Assert.Equal("BR123", result.Order.Shipment!.TrackingCode);
+        Assert.Null(result.Order.PickupAddress);
+    }
+
+    [Fact]
     public async Task Get_maps_not_found_to_generic_unauthorized_and_timeout()
     {
         var notFound = await Create(new Handler(HttpStatusCode.NotFound)).GetAsync("MF-0123456789ABCDEF", Token);
@@ -59,7 +74,7 @@ public sealed class OrderClientTests
 
     private const string Token = "tttttttttttttttttttttttttttttttt";
     private static OrderClient Create(HttpMessageHandler handler) => new(new HttpClient(handler) { BaseAddress = new("https://api.test/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.test", TimeoutSeconds = 2 }), new HttpContextAccessor { HttpContext = new DefaultHttpContext() }, new TestEnvironment(), NullLogger<OrderClient>.Instance);
-    private static string Json(string number, string payment = "Converted", decimal amount = 10, string address = "{\"street\":\"Rua A\",\"number\":\"1\",\"neighborhood\":\"Centro\",\"city\":\"Sorocaba\",\"state\":\"SP\",\"postalCode\":\"18000-000\"}") => $$$"""{"publicOrderNumber":"{{{number}}}","paymentStatus":"{{{payment}}}","fulfillmentStatus":"Pending","amount":{{{amount}}},"currency":"BRL","createdAt":"2026-08-20T12:00:00Z","pickupDisplayName":"Loja","pickupAddressJson":{{{JsonSerializer.Serialize(address)}}},"pickupHours":"09:00-18:00","pickupInstructions":"Documento","lines":[{"description":"Item","presentation":"Item","quantity":1,"unitPrice":10,"total":10}]}""";
+    private static string Json(string number, string payment = "Converted", decimal amount = 10, string address = "{\"street\":\"Rua A\",\"number\":\"1\",\"neighborhood\":\"Centro\",\"city\":\"Sorocaba\",\"state\":\"SP\",\"postalCode\":\"18000-000\"}") => $$$"""{"publicOrderNumber":"{{{number}}}","paymentStatus":"{{{payment}}}","fulfillmentStatus":"Pending","fulfillmentMethod":"pickup","amount":{{{amount}}},"currency":"BRL","createdAt":"2026-08-20T12:00:00Z","pickupDisplayName":"Loja","pickupAddressJson":{{{JsonSerializer.Serialize(address)}}},"pickupHours":"09:00-18:00","pickupInstructions":"Documento","lines":[{"description":"Item","presentation":"Item","quantity":1,"unitPrice":10,"total":10}]}""";
     private sealed class Handler : HttpMessageHandler
     {
         private readonly string? body; private readonly HttpStatusCode status;

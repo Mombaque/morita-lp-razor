@@ -3,105 +3,48 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
 @{
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
-    ViewData["Title"] = "Equipamentos de Muay Thai e Boxe Sorocaba | Luvas e Shorts";
-    ViewData["Description"] = "Na Morita em Sorocaba, você compra luvas de Muay Thai e Boxe, bandagens, protetores bucais, caneleiras e shorts tailandeses com excelente preço. Atendimento pelo WhatsApp para acertar no tamanho e retirar na loja. Confira os modelos!";
-    ViewData["OgTitle"] = "Equipamentos Muay Thai e Boxe | Sorocaba";
-    ViewData["OgDescription"] = "Luvas de Muay Thai e Boxe de 12oz, 14oz e 16oz, shorts tailandeses e acessórios. Retire no Nogueira Padilha ou receba em Sorocaba.";
-    ViewData["BodyClass"] = "category-page muay-thai-page";
+    ViewData["Title"] = "Luvas, shorts e equipamentos de Muay Thai | Morita Fight";
+    ViewData["Description"] = "Luvas, shorts, caneleiras e acessórios de Muay Thai e Boxe com estoque confirmado na Morita Fight.";
+    ViewData["Canonical"] = $"{canonicalBase.TrimEnd('/')}/muay-thai";
+    ViewData["Robots"] = string.IsNullOrWhiteSpace(Model.Category) ? "index,follow" : "noindex,follow";
+    ViewData["BodyClass"] = "collection-page commerce-page";
 }
 
-@section Header {
-  <meta name="keywords" content="morita fight, morita, loja de artes marciais sorocaba, equipamentos de muay thai sorocaba, equipamentos de boxe sorocaba, luva de boxe sorocaba, luva de muay thai sorocaba, shorts de muay thai sorocaba, bandagem sorocaba, protetor bucal sorocaba, caneleira sorocaba, comprar luva de boxe, comprar shorts muay thai, luva 12oz sorocaba, luva 14oz sorocaba, luva 16oz sorocaba, loja nogueira padilha, artes marciais em sorocaba">
-  <script type="application/ld+json">
+<main class="commerce-shell collection-shell">
+  <section class="collection-hero striking-hero" aria-labelledby="collection-title">
+    <div>
+      <p class="fight-label">Striking / Oito armas</p>
+      <h1 id="collection-title">Muay<br><span>Thai</span></h1>
+      <p>Luvas, shorts e proteção para rounds mais seguros e intensos, do primeiro treino à preparação para lutar.</p>
+      <a class="commerce-button commerce-button-primary" href="#catalog">Ver produtos ↓</a>
+    </div>
+    @if (Model.HeroProduct is not null)
     {
-      "@@context": "https://schema.org",
-      "@@type": "SportingGoodsStore",
-      "name": "Morita Muay Thai & Boxe Sorocaba",
-       "url": "@($"{canonicalBase.TrimEnd('/')}/muay-thai")",
-      "image": "@($"{canonicalBase.TrimEnd('/')}/images/favicon.png")",
-      "logo": "@($"{canonicalBase.TrimEnd('/')}/images/favicon.png")",
-      "telephone": "+55-15-98107-9332",
-      "address": {
-        "@@type": "PostalAddress",
-        "streetAddress": "Rua Coronel Nogueira Padilha, 429",
-        "addressLocality": "Sorocaba",
-        "addressRegion": "SP",
-        "postalCode": "18020-000",
-        "addressCountry": "BR"
-      },
-      "openingHours": ["Mo-Fr 09:00-18:00", "Sa 09:00-13:00"],
-      "areaServed": "Sorocaba - Nogueira Padilha",
-      "priceRange": "$$",
-      "sameAs": [
-        "https://www.instagram.com/morita.fight"
-      ]
+      <a class="collection-hero-image" href="/products/@Uri.EscapeDataString(Model.HeroProduct.Slug ?? "")"><img src="@Model.HeroProduct.Imagens[0]" alt="@Model.HeroProduct.Alt"><span>@Model.HeroProduct.Nome</span></a>
     }
-  </script>
-}
+    else
+    {
+      <div class="collection-mark" aria-hidden="true">MT</div>
+    }
+  </section>
 
-<header class="category-header">
-    <img class="logo" src="~/images/logo.png" alt="Morita">
-</header>
+  <nav class="collection-filters" aria-label="Categorias de Muay Thai">
+    <a class="@(Model.Category is null ? "active" : "")" href="/muay-thai">Todos</a>
+    @foreach (var category in Model.Filters.Categories)
+    {
+      <a class="@(Model.Category == category.Slug ? "active" : "")" href="/muay-thai?category=@Uri.EscapeDataString(category.Slug ?? "")">@category.Label</a>
+    }
+  </nav>
 
-<main class="category-main">
-    <section class="category-hero" aria-labelledby="category-title">
-      <div class="category-hero-copy">
-        <p class="eyebrow">Muay Thai / Boxe em Sorocaba</p>
-        <h1 id="category-title">Luvas, shorts e caneleiras para o seu treino</h1>
-        <p class="category-lead">
-          Equipamentos confortáveis e resistentes para treinar forte, com ajuda no WhatsApp para escolher tamanho e modelo.
-        </p>
-        <div class="hero-actions">
-          <a class="button whatsapp primary-cta" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Abrir catálogo de Muay Thai da Morita no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="muay-thai">
-            <i class="fas fa-phone"></i>
-            Falar no WhatsApp
-          </a>
-          <button class="button request-hero-cta" type="button" data-request-open data-track-event="customer_product_request_open" data-track-category="muay-thai">
-            <i class="fas fa-magnifying-glass"></i>
-            Encontrar meu tamanho
-          </button>
-          <a class="button instagram secondary-cta" href="https://www.instagram.com/morita.fight/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Morita" data-track-event="instagram_click" data-track-category="muay-thai">
-            <i class="fab fa-instagram"></i>
-            Instagram
-          </a>
-        </div>
-        <ul class="trust-list" aria-label="Diferenciais para Muay Thai">
-          <li>Loja física em Sorocaba</li>
-          <li>Ajuda na escolha do tamanho</li>
-          <li>Atendimento em Sorocaba e região</li>
-          <li>Retirada ou envio</li>
-        </ul>
-      </div>
-      <div class="category-hero-media" aria-hidden="true">
-        <img src="~/images/muay-thai/luva-st.jpg" alt="" class="category-hero-img category-hero-img-main">
-        <img src="~/images/muay-thai/short-thailandia.png" alt="" class="category-hero-img category-hero-img-accent">
-      </div>
-    </section>
-
-    <section class="quick-nav" aria-label="Categorias de Muay Thai">
-      <span>Luvas</span>
-      <span>Shorts</span>
-      <span>Caneleiras</span>
-      <span>Acessórios</span>
-    </section>
-
-    <section class="products-intro" aria-labelledby="products-title">
-      <p class="eyebrow">Catálogo</p>
-      <h2 id="products-title">Produtos de Muay Thai e Boxe</h2>
-    </section>
-
-    <section id="products" class="products" data-track-category="muay-thai">
-        @if (Model.CatalogState == CatalogLoadState.Empty)
-        { <div class="catalog-state catalog-empty" role="status"><h3>Catálogo em atualização</h3><p>Não encontramos produtos publicados nesta modalidade no momento.</p></div> }
-        else if (Model.CatalogState == CatalogLoadState.Unavailable)
-        { <div class="catalog-state catalog-unavailable" role="status"><h3>Catálogo temporariamente indisponível</h3><p>Tente novamente em instantes ou fale conosco pelo WhatsApp.</p></div> }
-        @for (var index = 0; index < Model.Products.Count; index++)
-        {
-            <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Products[index], "muay-thai", index))" />
-        }
-    </section>
+  <section id="catalog" class="collection-catalog" aria-labelledby="catalog-title">
+    <div class="section-heading section-heading-row"><div><p class="fight-label">Estoque online</p><h2 id="catalog-title">@(Model.Category is null ? "Todo o Muay Thai" : Model.Filters.Categories.FirstOrDefault(x => x.Slug == Model.Category)?.Label ?? "Produtos")</h2></div><span>@Model.Catalog.TotalCount produto(s)</span></div>
+    @if (Model.Catalog.State == CatalogLoadState.Unavailable)
+    { <div class="catalog-state catalog-unavailable" role="status"><h3>Catálogo temporariamente indisponível</h3><p>Tente novamente em instantes.</p></div> }
+    else if (Model.Catalog.State == CatalogLoadState.Empty)
+    { <div class="catalog-state catalog-empty" role="status"><h3>Nenhum produto encontrado</h3><p>Esta seleção ainda não tem itens publicados. Veja todo o Muay Thai ou fale com a equipe.</p></div> }
+    else
+    { <div class="products storefront-products">@for (var index = 0; index < Model.Catalog.Items.Count; index++) { <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Catalog.Items[index], "muay-thai", index))" /> }</div> }
+  </section>
 </main>
 
-@section Scripts {
-<script src="~/js/carousel.js" asp-append-version="true"></script>
-}
+@section Scripts { <script src="~/js/carousel.js" asp-append-version="true"></script> }

@@ -44,6 +44,7 @@ public sealed class CatalogFilters
     public List<CatalogFilter> Categories { get; set; } = [];
     public List<CatalogFilter> Modalities { get; set; } = [];
     public List<CatalogFilter> Brands { get; set; } = [];
+    public List<CatalogFilter> Audiences { get; set; } = [];
     public List<CatalogFilter> Sizes { get; set; } = [];
     public List<CatalogFilter> Colors { get; set; } = [];
 }
@@ -57,7 +58,13 @@ public sealed record CatalogQuery(
     int? ColorId,
     bool? Available,
     int Page,
-    string Sort = "featured")
+    string Sort = "featured",
+    string? Category = null,
+    string? Modality = null,
+    string? Brand = null,
+    string? Audience = null,
+    decimal? MinimumPrice = null,
+    decimal? MaximumPrice = null)
 {
     public const int PageSize = 24;
 }
