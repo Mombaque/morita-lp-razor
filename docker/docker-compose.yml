@@ -10,9 +10,13 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - Storefront__DataProtectionKeyDirectory=/var/morita/data-protection-keys
+      - CatalogApi__BaseUrl=http://api:5001
     volumes:
       - ..:/src
       - razor-data-protection:/var/morita/data-protection-keys
+    networks:
+      - default
+      - backend-dev-network
     develop:
       watch:
         - action: rebuild
@@ -20,3 +24,7 @@ services:
 
 volumes:
   razor-data-protection:
+
+networks:
+  backend-dev-network:
+    external: true

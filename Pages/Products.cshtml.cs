@@ -22,9 +22,11 @@ public class ProductsModel(ICatalogClient client) : PageModel
     public bool HasFilters => !string.IsNullOrWhiteSpace(Search) || CategoryId.HasValue || ModalityId.HasValue || BrandId.HasValue || SizeId.HasValue || ColorId.HasValue || Available.HasValue || Sort != "featured";
     public string Query(int page) => Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString("/products", QueryValues(page));
 
-    public async Task OnGetAsync(int? page, CancellationToken cancellationToken)
+    public async Task OnGetAsync(CancellationToken cancellationToken)
     {
-        CurrentPage = Math.Max(1, page ?? 1);
+        CurrentPage = 1;
+        if (Request.Query.TryGetValue("page", out var pageValue) && int.TryParse(pageValue.ToString(), out var requestedPage) && requestedPage > 1)
+            CurrentPage = requestedPage;
         Search = NormalizeSearch(Search);
         Sort = SortOptions.Contains(Sort?.Trim().ToLowerInvariant()) ? Sort!.Trim().ToLowerInvariant() : "featured";
         if (Sort == "relevance" && string.IsNullOrWhiteSpace(Search)) Sort = "featured";
