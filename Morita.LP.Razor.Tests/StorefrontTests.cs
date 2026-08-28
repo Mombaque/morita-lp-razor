@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Linq;
 using System.Threading.Tasks;
 using System.Threading;
 using Microsoft.AspNetCore.Hosting;
@@ -22,18 +23,24 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
     {
         _client = factory.WithWebHostBuilder(builder =>
         {
-            builder.UseEnvironment("Production");
-            builder.UseSetting("Storefront:ProductSource", "Legacy");
+            builder.UseEnvironment("E2E");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<ICatalogClient>();
+                services.AddScoped<ICatalogClient>(_ => new StubCatalogClient(CatalogResult.Empty(), CatalogResult.Empty()));
+            });
+            builder.UseSetting("Storefront:ProductSource", "Api");
         }).CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
     }
 
     [Fact]
-    public async Task Legacy_mode_renders_existing_product_and_lowercase_canonical_links()
+    public async Task Commerce_pages_render_lowercase_canonical_links_and_navigation()
     {
         var response = await _client.GetAsync("/jiu-jitsu");
         var body = await response.Content.ReadAsStringAsync();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Contains("Faixas de Jiu-Jitsu", body);
+        Assert.Contains("Jiu-", body);
+        Assert.Contains("Nenhum produto encontrado", body);
         Assert.Contains("href=\"/muay-thai\"", body);
         Assert.Contains("https://moritafight.com.br/jiu-jitsu", body);
         Assert.Contains("GTM-TK3DKRF9", body);
@@ -41,7 +48,7 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains("class=\"nav-link active\"", body);
         Assert.Contains("aria-current=\"page\"", body);
         Assert.DoesNotContain("href=\"/muay-thai\" class=\"nav-link active\"", body);
-        Assert.Contains("src=\"/images/", body);
+        Assert.Contains("Entrega para todo o Brasil", body);
     }
 
     [Theory]
@@ -95,7 +102,7 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         using var factory = CreateFactory(CatalogResult.Empty(), CatalogResult.Empty());
         using var client = factory.CreateClient();
         var body = await (await client.GetAsync("/")).Content.ReadAsStringAsync();
-        Assert.Contains("Catálogo em atualização", body);
+        Assert.Contains("Novos produtos entrando no corner", body);
         Assert.DoesNotContain("random-carousel-btn", body);
     }
 
@@ -122,7 +129,7 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
 
         Assert.Contains("Parte do catálogo está temporariamente indisponível", body);
         Assert.Contains("https://objects.example/catalog/kimono.jpg", body);
-        Assert.Contains("random-carousel-btn", body);
+        Assert.Contains("API Kimono", body);
     }
 
     private static WebApplicationFactory<Program> CreateFactory(CatalogResult jiuJitsu, CatalogResult muayThai) =>
@@ -141,6 +148,21 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
     {
         public Task<CatalogResult> GetProductsAsync(string modality, CancellationToken cancellationToken = default) =>
             Task.FromResult(modality == "jiu-jitsu" ? jiuJitsu : muayThai);
+        public Task<CatalogPage> GetCatalogAsync(CatalogQuery query, CancellationToken cancellationToken = default)
+        {
+            var source = query.Modality == "jiu-jitsu" ? jiuJitsu : query.Modality == "muay-thai" ? muayThai : Combine();
+            var products = query.Audience == PublicCatalogAudience.Kids ? source.Products.Where(product => product.Audience == PublicCatalogAudience.Kids).ToList() : source.Products;
+            var state = products.Count > 0 ? source.State : source.State == CatalogLoadState.Unavailable ? CatalogLoadState.Unavailable : CatalogLoadState.Empty;
+            return Task.FromResult(new CatalogPage(products, 1, CatalogQuery.PageSize, products.Count, products.Count > 0 ? 1 : 0, state));
+        }
+        public Task<CatalogFilters?> GetFiltersAsync(CancellationToken cancellationToken = default) => Task.FromResult<CatalogFilters?>(new());
+        private CatalogResult Combine()
+        {
+            var products = jiuJitsu.Products.Concat(muayThai.Products).ToList();
+            if (products.Count > 0 && (jiuJitsu.State == CatalogLoadState.Unavailable || muayThai.State == CatalogLoadState.Unavailable)) return new(CatalogLoadState.Partial, products);
+            if (products.Count > 0) return CatalogResult.Success(products);
+            return jiuJitsu.State == CatalogLoadState.Unavailable || muayThai.State == CatalogLoadState.Unavailable ? CatalogResult.Unavailable() : CatalogResult.Empty();
+        }
     }
 
     private sealed record HealthResponse(string status);

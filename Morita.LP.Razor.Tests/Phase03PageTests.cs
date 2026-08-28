@@ -31,6 +31,38 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
+    public async Task Kids_route_uses_first_class_audience_filter_and_commerce_navigation()
+    {
+        using var factory = Create(new CatalogPage([
+            new Product { Slug = "kimono-kids", Nome = "Kimono Kids", Audience = PublicCatalogAudience.Kids }
+        ], 1, 24, 1, 1, CatalogLoadState.Success));
+        using var client = factory.CreateClient();
+
+        var html = await (await client.GetAsync("/kids?modality=jiu-jitsu")).Content.ReadAsStringAsync();
+
+        Assert.Contains("Kimono Kids", html);
+        Assert.Contains("href=\"/kids\" class=\"nav-link active\"", html);
+        Assert.Equal(PublicCatalogAudience.Kids, Stub.LastCatalogQuery!.Audience);
+        Assert.Equal("jiu-jitsu", Stub.LastCatalogQuery.Modality);
+        Assert.True(Stub.LastCatalogQuery.Available);
+    }
+
+    [Fact]
+    public async Task Home_uses_catalog_products_and_renders_honest_empty_state()
+    {
+        using var productFactory = Create(new CatalogPage([
+            new Product { Slug = "luva", Nome = "Luva catálogo", Imagens = ["https://cdn.example/luva.jpg"] }
+        ], 1, 24, 1, 1, CatalogLoadState.Success));
+        var productHtml = WebUtility.HtmlDecode(await (await productFactory.CreateClient().GetAsync("/")).Content.ReadAsStringAsync());
+        Assert.Contains("Luva catálogo", productHtml);
+        Assert.Contains("https://cdn.example/luva.jpg", productHtml);
+
+        using var emptyFactory = Create(new CatalogPage([], 1, 24, 0, 0, CatalogLoadState.Empty));
+        var emptyHtml = await (await emptyFactory.CreateClient().GetAsync("/")).Content.ReadAsStringAsync();
+        Assert.Contains("Novos produtos entrando no corner", emptyHtml);
+    }
+
+    [Fact]
     public async Task Detail_renders_opaque_offer_matrix_and_disabled_unavailable_offer()
     {
         var available = Guid.NewGuid();
@@ -132,8 +164,9 @@ public sealed class Phase03PageTests
     private sealed class Stub(CatalogPage page, CatalogResult related, ProductDetailResult detail, CatalogQuoteResult quote) : ICatalogClient
     {
         public static CatalogQuoteRequest? LastQuoteRequest { get; private set; }
+        public static CatalogQuery? LastCatalogQuery { get; private set; }
         public Task<CatalogResult> GetProductsAsync(string modality, CancellationToken cancellationToken = default) => Task.FromResult(CatalogResult.Empty());
-        public Task<CatalogPage> GetCatalogAsync(CatalogQuery query, CancellationToken cancellationToken = default) => Task.FromResult(page);
+        public Task<CatalogPage> GetCatalogAsync(CatalogQuery query, CancellationToken cancellationToken = default) { LastCatalogQuery = query; return Task.FromResult(page); }
         public Task<CatalogFilters?> GetFiltersAsync(CancellationToken cancellationToken = default) => Task.FromResult<CatalogFilters?>(new());
         public Task<ProductDetailResult> GetProductAsync(string slug, CancellationToken cancellationToken = default) => Task.FromResult(detail);
         public Task<CatalogResult> GetRelatedAsync(string slug, int limit = 4, CancellationToken cancellationToken = default) => Task.FromResult(related);

@@ -17,5 +17,6 @@ public class Product
     public CatalogLookup? Category { get; set; }
     public CatalogLookup? Modality { get; set; }
     public CatalogLookup? Brand { get; set; }
+    public PublicCatalogAudience Audience { get; set; } = PublicCatalogAudience.Adult;
     public List<ProductVariant> Variants { get; set; } = [];
 }

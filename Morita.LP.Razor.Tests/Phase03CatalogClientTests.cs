@@ -20,13 +20,14 @@ public sealed class Phase03CatalogClientTests
     public async Task Maps_realistic_numeric_lookup_guid_offer_and_details()
     {
         const string offer = "a3b7d8aa-1f05-4b7c-8f33-7fc9c0a9ef11";
-        var json = $$"""{"items":[{"slug":"kimono-a1","name":"Kimono A1","description":"Leve","details":["Algodão","Gramatura 400"],"category":{"id":7,"slug":"kimonos","label":"Kimonos"},"modality":{"id":2,"slug":"jiu-jitsu","label":"Jiu-Jitsu"},"brand":{"id":4,"slug":"itg","label":"In The Guard"},"price":249.9,"currency":"BRL","availability":"available","variants":[{"colorId":3,"colorLabel":"Azul","images":["/catalog/a.jpg","//bad.test/a.jpg","javascript:bad"],"offers":[{"publicOfferId":"{{offer}}","sizeId":11,"sizeLabel":"A1","unitPrice":249.9,"currency":"BRL","availability":"available"}]}]}],"page":1,"pageSize":24,"totalCount":1,"totalPages":1}""";
+        var json = $$"""{"items":[{"slug":"kimono-a1","name":"Kimono A1","description":"Leve","details":["Algodão","Gramatura 400"],"category":{"id":7,"slug":"kimonos","label":"Kimonos"},"modality":{"id":2,"slug":"jiu-jitsu","label":"Jiu-Jitsu"},"brand":{"id":4,"slug":"itg","label":"In The Guard"},"audience":"kids","price":249.9,"currency":"BRL","availability":"available","variants":[{"colorId":3,"colorLabel":"Azul","images":["/catalog/a.jpg","//bad.test/a.jpg","javascript:bad"],"offers":[{"publicOfferId":"{{offer}}","sizeId":11,"sizeLabel":"A1","unitPrice":249.9,"currency":"BRL","availability":"available"}]}]}],"page":1,"pageSize":24,"totalCount":1,"totalPages":1}""";
         var client = Create(HttpStatusCode.OK, json);
         var result = await client.GetCatalogAsync(new CatalogQuery("kimono azul", 7, 2, 4, 11, 3, true, 1));
         var product = Assert.Single(result.Items);
         Assert.Equal(7, product.Category!.Id);
         Assert.Equal(Guid.Parse(offer), Assert.Single(product.Variants[0].Offers).PublicOfferId);
         Assert.Equal(["Algodão", "Gramatura 400"], product.Details);
+        Assert.Equal("kids", product.Audience);
         Assert.Single(product.Imagens);
         Assert.Contains("catalog/a.jpg", product.Imagens[0]);
     }
@@ -36,12 +37,28 @@ public sealed class Phase03CatalogClientTests
     {
         var handler = new RecordingHandler("[]", HttpStatusCode.OK);
         var client = Create(handler);
-        await client.GetCatalogAsync(new CatalogQuery("a b&c", 12, null, null, null, null, null, 2, "price-desc"));
+        await client.GetCatalogAsync(new CatalogQuery("a b&c", 12, null, null, null, null, null, 2, "price-desc", "kimonos", "jiu-jitsu", "in-the-guard", "kids", 100, 500));
         await client.GetProductAsync("slug with space");
         Assert.Contains("search=a%20b%26c", handler.Paths[0]);
         Assert.Contains("categoryId=12", handler.Paths[0]);
         Assert.Contains("pageSize=24", handler.Paths[0]);
+        Assert.Contains("category=kimonos", handler.Paths[0]);
+        Assert.Contains("modality=jiu-jitsu", handler.Paths[0]);
+        Assert.Contains("brand=in-the-guard", handler.Paths[0]);
+        Assert.Contains("audience=kids", handler.Paths[0]);
+        Assert.Contains("minimumPrice=100", handler.Paths[0]);
+        Assert.Contains("maximumPrice=500", handler.Paths[0]);
         Assert.Contains("slug%20with%20space", handler.Paths[1]);
+    }
+
+    [Fact]
+    public async Task Maps_audience_filters()
+    {
+        var result = await Create("{\"audiences\":[{\"id\":0,\"slug\":\"kids\",\"label\":\"Infantil\"}]}").GetFiltersAsync();
+
+        var audience = Assert.Single(result!.Audiences);
+        Assert.Equal("kids", audience.Slug);
+        Assert.Equal("Infantil", audience.Label);
     }
 
     [Fact]

@@ -41,10 +41,13 @@ public sealed class PublicOrder
     public string Currency { get; init; } = "";
     public DateTimeOffset CreatedAt { get; init; }
     public DateTimeOffset? FulfillmentUpdatedAt { get; init; }
+    public string FulfillmentMethod { get; init; } = "pickup";
     public string PickupDisplayName { get; init; } = "";
-    public CheckoutAddress PickupAddress { get; init; } = new();
+    public CheckoutAddress? PickupAddress { get; init; }
     public string PickupHours { get; init; } = "";
     public string PickupInstructions { get; init; } = "";
+    public ShippingSnapshot? Shipping { get; init; }
+    public PublicShipment? Shipment { get; init; }
     public IReadOnlyList<PublicOrderLine> Lines { get; init; } = [];
 }
 
@@ -65,6 +68,7 @@ public sealed record CheckoutConfigurationResult(CheckoutLoadState State, Checko
 public sealed class CheckoutConfiguration
 {
     public bool PickupEnabled { get; init; }
+    public bool ShippingEnabled { get; init; }
     public Guid? PublicPickupId { get; init; }
     public string Currency { get; init; } = "BRL";
     public PickupSnapshot? Pickup { get; init; }
@@ -82,7 +86,9 @@ public sealed class CheckoutResponse
     public decimal FreightTotal { get; init; }
     public decimal Total { get; init; }
     public string Currency { get; init; } = "";
-    public PickupSnapshot Pickup { get; init; } = new();
+    public string FulfillmentMethod { get; init; } = "pickup";
+    public PickupSnapshot? Pickup { get; init; }
+    public ShippingSnapshot? Shipping { get; init; }
     public CheckoutContact Contact { get; init; } = new();
 }
 
@@ -107,6 +113,7 @@ public sealed class PickupSnapshot
 
 public sealed class CheckoutAddress
 {
+    public string Recipient { get; init; } = "";
     public string Street { get; init; } = "";
     public string Number { get; init; } = "";
     public string? Complement { get; init; }
@@ -114,6 +121,28 @@ public sealed class CheckoutAddress
     public string City { get; init; } = "";
     public string State { get; init; } = "";
     public string PostalCode { get; init; } = "";
+    public string CountryCode { get; init; } = "BR";
+}
+
+public sealed class ShippingSnapshot
+{
+    public string CarrierName { get; init; } = "";
+    public string ServiceName { get; init; } = "";
+    public decimal Price { get; init; }
+    public int MinimumDeliveryDays { get; init; }
+    public int MaximumDeliveryDays { get; init; }
+    public CheckoutAddress Address { get; init; } = new();
+}
+
+public sealed class PublicShipment
+{
+    public string Status { get; init; } = "";
+    public string CarrierName { get; init; } = "";
+    public string ServiceName { get; init; } = "";
+    public string? TrackingCode { get; init; }
+    public DateTimeOffset UpdatedAt { get; init; }
+    public DateTimeOffset? ShippedAt { get; init; }
+    public DateTimeOffset? DeliveredAt { get; init; }
 }
 
 public sealed class CheckoutContact
@@ -123,4 +152,30 @@ public sealed class CheckoutContact
     public string Phone { get; init; } = "";
 }
 
-public sealed record CheckoutCreateRequest(IReadOnlyList<CartLine> Lines, CheckoutContact Contact, Guid PublicPickupId);
+public sealed record CheckoutCreateRequest(IReadOnlyList<CartLine> Lines, CheckoutContact Contact, CheckoutFulfillment Fulfillment);
+
+public sealed record CheckoutFulfillment(string Method, Guid? PublicPickupId = null, Guid? PublicShippingQuoteId = null, CheckoutAddress? ShippingAddress = null);
+
+public sealed record ShippingQuoteRequest(IReadOnlyList<CartLine> Lines, string DestinationPostalCode);
+
+public sealed record ShippingQuoteResult(CheckoutLoadState State, ShippingQuote? Quote, string? Message = null)
+{
+    public static ShippingQuoteResult Failure(CheckoutLoadState state, string? message = null) => new(state, null, message);
+}
+
+public sealed class ShippingQuote
+{
+    public DateTimeOffset ExpiresAt { get; init; }
+    public string Currency { get; init; } = "BRL";
+    public IReadOnlyList<ShippingQuoteOption> Options { get; init; } = [];
+}
+
+public sealed class ShippingQuoteOption
+{
+    public Guid PublicShippingQuoteId { get; init; }
+    public string ServiceName { get; init; } = "";
+    public string CarrierName { get; init; } = "";
+    public decimal Price { get; init; }
+    public int MinimumDeliveryDays { get; init; }
+    public int MaximumDeliveryDays { get; init; }
+}

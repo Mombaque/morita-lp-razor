@@ -49,6 +49,39 @@ public sealed class CheckoutPageTests
         Assert.Equal(api.Credentials[0], api.Credentials[1]);
     }
 
+    [Fact]
+    public async Task Shipping_quote_and_checkout_preserve_authoritative_quote_boundary()
+    {
+        var offer = Guid.NewGuid();
+        var quoteId = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" }),
+            ShippingQuote = new(CheckoutLoadState.Success, new ShippingQuote { ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10), Options = [new() { PublicShippingQuoteId = quoteId, ServiceName = "PAC", CarrierName = "Correios", Price = 18, MinimumDeliveryDays = 4, MaximumDeliveryDays = 7 }] })
+        };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer);
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" });
+        page.ShippingAddress.PostalCode = "01310-100";
+
+        await page.OnPostQuoteShippingAsync(CancellationToken.None);
+
+        Assert.Equal("01310-100", api.LastShippingQuoteRequest!.DestinationPostalCode);
+        Assert.Equal(quoteId, Assert.Single(page.ShippingQuotes.Quote!.Options).PublicShippingQuoteId);
+
+        page.PublicShippingQuoteId = quoteId;
+        page.ShippingAddress = new() { Recipient = "Ana", Street = "Avenida Paulista", Number = "1000", Neighborhood = "Bela Vista", City = "São Paulo", State = "SP", PostalCode = "01310-100" };
+        page.Contact = new() { Name = "Ana Teste", Email = "ana@example.com", Phone = "11999999999" };
+        await page.OnPostAsync(CancellationToken.None);
+
+        var fulfillment = Assert.Single(api.Requests).Fulfillment;
+        Assert.Equal("shipping", fulfillment.Method);
+        Assert.Equal(quoteId, fulfillment.PublicShippingQuoteId);
+        Assert.Equal("01310-100", fulfillment.ShippingAddress!.PostalCode);
+    }
+
     private static CheckoutModel CreatePage(DefaultHttpContext context, TestCart cart, RecordingCheckout api, ICheckoutDraftCookieStore draft, Guid offer)
     {
         var config = new CheckoutConfigurationResult(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), Currency = "BRL", Pickup = new() { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } } });
@@ -68,9 +101,13 @@ public sealed class CheckoutPageTests
     private sealed class RecordingCheckout : ICheckoutClient
     {
         public CheckoutConfigurationResult Configuration { get; set; } = CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable);
+        public ShippingQuoteResult ShippingQuote { get; set; } = ShippingQuoteResult.Failure(CheckoutLoadState.Unavailable);
+        public ShippingQuoteRequest? LastShippingQuoteRequest { get; private set; }
         public List<(string Key, string Token)> Credentials { get; } = [];
+        public List<CheckoutCreateRequest> Requests { get; } = [];
         public Task<CheckoutConfigurationResult> GetConfigurationAsync(CancellationToken cancellationToken = default) => Task.FromResult(Configuration);
-        public Task<CheckoutResult> CreateAsync(CheckoutCreateRequest request, string idempotencyKey, string accessToken, CancellationToken cancellationToken = default) { Credentials.Add((idempotencyKey, accessToken)); return Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.Timeout, "timeout")); }
+        public Task<ShippingQuoteResult> QuoteShippingAsync(ShippingQuoteRequest request, CancellationToken cancellationToken = default) { LastShippingQuoteRequest = request; return Task.FromResult(ShippingQuote); }
+        public Task<CheckoutResult> CreateAsync(CheckoutCreateRequest request, string idempotencyKey, string accessToken, CancellationToken cancellationToken = default) { Requests.Add(request); Credentials.Add((idempotencyKey, accessToken)); return Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.Timeout, "timeout")); }
         public Task<CheckoutResult> GetAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.NotFound));
         public Task<CheckoutResult> CancelAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.NotFound));
     }

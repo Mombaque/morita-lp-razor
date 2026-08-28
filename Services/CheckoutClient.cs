@@ -21,14 +21,39 @@ public sealed class CheckoutClient(
     {
         var result = await SendAsync<ConfigurationDto>(HttpMethod.Get, "v1/storefront/checkout/configuration", null, null, cancellationToken);
         if (result.State != CheckoutLoadState.Success || result.Value is null || !ValidConfiguration(result.Value)) return CheckoutConfigurationResult.Failure(result.State == CheckoutLoadState.Success ? CheckoutLoadState.Malformed : result.State);
-        return new(CheckoutLoadState.Success, new() { PickupEnabled = result.Value.PickupEnabled, PublicPickupId = result.Value.PublicPickupId, Currency = result.Value.Currency!, Pickup = result.Value.Pickup is null ? null : Map(result.Value.Pickup) });
+        return new(CheckoutLoadState.Success, new() { PickupEnabled = result.Value.PickupEnabled, ShippingEnabled = result.Value.ShippingEnabled, PublicPickupId = result.Value.PublicPickupId, Currency = result.Value.Currency!, Pickup = result.Value.Pickup is null ? null : Map(result.Value.Pickup) });
+    }
+
+    public async Task<ShippingQuoteResult> QuoteShippingAsync(ShippingQuoteRequest request, CancellationToken cancellationToken = default)
+    {
+        var body = new ShippingQuoteRequestDto
+        {
+            DestinationPostalCode = request.DestinationPostalCode,
+            Lines = request.Lines.Select(x => new LineRequestDto { PublicOfferId = x.PublicOfferId, Quantity = x.Quantity }).ToList()
+        };
+        var result = await SendAsync<ShippingQuoteDto>(HttpMethod.Post, "v1/storefront/checkout/shipping/quotes", body, null, cancellationToken);
+        if (result.State != CheckoutLoadState.Success) return ShippingQuoteResult.Failure(result.State, result.Message);
+        return result.Value is not null && TryMapShippingQuote(result.Value, out var quote)
+            ? new(CheckoutLoadState.Success, quote)
+            : ShippingQuoteResult.Failure(CheckoutLoadState.Malformed, "Não foi possível validar as opções de entrega.");
     }
 
     public async Task<CheckoutResult> CreateAsync(CheckoutCreateRequest request, string idempotencyKey, string accessToken, CancellationToken cancellationToken = default)
     {
-        var body = new CreateDto { Lines = request.Lines.Select(x => new LineRequestDto { PublicOfferId = x.PublicOfferId, Quantity = x.Quantity }).ToList(), Contact = new() { Name = request.Contact.Name, Email = request.Contact.Email, Phone = request.Contact.Phone }, Fulfillment = new() { Method = "pickup", PublicPickupId = request.PublicPickupId } };
+        var body = new CreateDto
+        {
+            Lines = request.Lines.Select(x => new LineRequestDto { PublicOfferId = x.PublicOfferId, Quantity = x.Quantity }).ToList(),
+            Contact = new() { Name = request.Contact.Name, Email = request.Contact.Email, Phone = request.Contact.Phone },
+            Fulfillment = new()
+            {
+                Method = request.Fulfillment.Method,
+                PublicPickupId = request.Fulfillment.PublicPickupId ?? Guid.Empty,
+                PublicShippingQuoteId = request.Fulfillment.PublicShippingQuoteId ?? Guid.Empty,
+                ShippingAddress = request.Fulfillment.ShippingAddress is null ? null : Map(request.Fulfillment.ShippingAddress)
+            }
+        };
         var result = await SendAsync<ResponseDto>(HttpMethod.Post, "v1/storefront/checkout", body, ("Idempotency-Key", idempotencyKey), cancellationToken, accessToken);
-        return MapResult(result, request.Lines, request.PublicPickupId);
+        return MapResult(result, request.Lines, request.Fulfillment);
     }
 
     public async Task<CheckoutResult> GetAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default)
@@ -64,10 +89,10 @@ public sealed class CheckoutClient(
     private CheckoutResult MapResult(
         ReadResult<ResponseDto> result,
         IReadOnlyList<CartLine>? expectedLines = null,
-        Guid? expectedPickupId = null)
+        CheckoutFulfillment? expectedFulfillment = null)
     {
         if (result.State != CheckoutLoadState.Success) return CheckoutResult.Failure(result.State, result.Message);
-        return result.Value is not null && TryMap(result.Value, expectedLines, expectedPickupId, out var checkout) ? new(CheckoutLoadState.Success, checkout) : CheckoutResult.Failure(CheckoutLoadState.Malformed);
+        return result.Value is not null && TryMap(result.Value, expectedLines, expectedFulfillment, out var checkout) ? new(CheckoutLoadState.Success, checkout) : CheckoutResult.Failure(CheckoutLoadState.Malformed);
     }
 
     private static PaymentResult MapPayment(ReadResult<PaymentDto> result)
@@ -133,31 +158,70 @@ public sealed class CheckoutClient(
         catch (JsonException exception) { logger.LogWarning(exception, "Checkout API response malformed"); return new(null, CheckoutLoadState.Malformed, default, "A resposta do serviço não pôde ser validada."); }
     }
 
-    private static bool ValidConfiguration(ConfigurationDto x) => !string.IsNullOrWhiteSpace(x.Currency) && (!x.PickupEnabled || x.PublicPickupId is not null && x.PublicPickupId != Guid.Empty && x.Pickup is not null && ValidPickup(x.Pickup));
+    private static bool ValidConfiguration(ConfigurationDto x) => Currency(x.Currency) && (!x.PickupEnabled || x.PublicPickupId is not null && x.PublicPickupId != Guid.Empty && x.Pickup is not null && ValidPickup(x.Pickup));
     private static bool ValidPickup(PickupDto x) => x.PublicPickupId != Guid.Empty && !string.IsNullOrWhiteSpace(x.DisplayName) && x.Address is not null && !string.IsNullOrWhiteSpace(x.Address.Street) && !string.IsNullOrWhiteSpace(x.Address.Number) && !string.IsNullOrWhiteSpace(x.Address.Neighborhood) && !string.IsNullOrWhiteSpace(x.Address.City) && !string.IsNullOrWhiteSpace(x.Address.State) && !string.IsNullOrWhiteSpace(x.Address.PostalCode);
+    private static bool ValidAddress(AddressDto? x, bool recipientRequired) => x is not null && (!recipientRequired || Text(x.Recipient, 120)) && Text(x.Street, 160) && Text(x.Number, 40) && x.Complement?.Length is null or <= 160 && Text(x.Neighborhood, 120) && Text(x.City, 120) && x.State?.Trim().Length == 2 && Digits(x.PostalCode).Length == 8 && (!recipientRequired || string.Equals(x.CountryCode?.Trim(), "BR", StringComparison.OrdinalIgnoreCase));
+    private static bool ValidShipping(ShippingDto? x) => x is not null && Text(x.CarrierName, 120) && Text(x.ServiceName, 120) && x.Price >= 0 && x.Price == decimal.Round(x.Price, 2) && x.MinimumDeliveryDays >= 0 && x.MaximumDeliveryDays >= x.MinimumDeliveryDays && ValidAddress(x.Address, true);
     private static bool TryMap(
         ResponseDto x,
         IReadOnlyList<CartLine>? expectedLines,
-        Guid? expectedPickupId,
+        CheckoutFulfillment? expectedFulfillment,
         out CheckoutResponse? result)
     {
         result = null;
-        if (x.PublicCheckoutId == Guid.Empty || string.IsNullOrWhiteSpace(x.Status) || x.Status.ToLowerInvariant() is not ("active" or "cancelled" or "expired" or "paymentpending" or "conversionpending" or "refundpending" or "completed" or "refunded") || x.ExpiresAt == default || x.AccessExpiresAt <= x.ExpiresAt || string.IsNullOrWhiteSpace(x.Currency) || x.Lines is null || x.Pickup is null || x.Contact is null || !ValidPickup(x.Pickup) || string.IsNullOrWhiteSpace(x.Contact.Name) || string.IsNullOrWhiteSpace(x.Contact.Email) || string.IsNullOrWhiteSpace(x.Contact.Phone) || x.Lines.Count == 0 || x.Lines.Any(l => l is null || l.PublicOfferId == Guid.Empty || l.Quantity is < 1 or > 10 || l.UnitPrice < 0 || l.LineTotal < 0 || l.LineTotal != l.UnitPrice * l.Quantity || !SafeImage(l.ImageUrl))) return false;
-        if (x.Lines.GroupBy(x => x.PublicOfferId).Any(g => g.Count() != 1) || expectedLines is not null && (expectedLines.Count != x.Lines.Count || expectedLines.Any(expected => !x.Lines.Any(actual => actual.PublicOfferId == expected.PublicOfferId && actual.Quantity == expected.Quantity))) || expectedPickupId.HasValue && x.Pickup.PublicPickupId != expectedPickupId.Value || x.MerchandiseTotal < 0 || x.DiscountTotal < 0 || x.FreightTotal < 0 || x.Total < 0 || x.Total != x.MerchandiseTotal - x.DiscountTotal + x.FreightTotal || x.Lines.Sum(x => x.LineTotal) != x.MerchandiseTotal) return false;
-        result = new() { PublicCheckoutId = x.PublicCheckoutId, Status = x.Status.ToLowerInvariant(), ExpiresAt = x.ExpiresAt, AccessExpiresAt = x.AccessExpiresAt, Currency = x.Currency, MerchandiseTotal = x.MerchandiseTotal, DiscountTotal = x.DiscountTotal, FreightTotal = x.FreightTotal, Total = x.Total, Pickup = Map(x.Pickup), Contact = new() { Name = x.Contact.Name ?? "", Email = x.Contact.Email ?? "", Phone = x.Contact.Phone ?? "" }, Lines = x.Lines.Select(l => new CheckoutLine { PublicOfferId = l.PublicOfferId, Quantity = l.Quantity, Presentation = l.Presentation ?? "", ImageUrl = l.ImageUrl, UnitPrice = l.UnitPrice, LineTotal = l.LineTotal }).ToList() };
+        var method = x.FulfillmentMethod?.Trim().ToLowerInvariant();
+        var validFulfillment = method == "pickup"
+            ? x.Pickup is not null && ValidPickup(x.Pickup) && x.Shipping is null && x.FreightTotal == 0
+            : method == "shipping" && x.Pickup is null && ValidShipping(x.Shipping) && x.FreightTotal == x.Shipping!.Price;
+        if (x.PublicCheckoutId == Guid.Empty || string.IsNullOrWhiteSpace(x.Status) || x.Status.ToLowerInvariant() is not ("active" or "cancelled" or "expired" or "paymentpending" or "conversionpending" or "refundpending" or "completed" or "refunded") || x.ExpiresAt == default || x.AccessExpiresAt <= x.ExpiresAt || !Currency(x.Currency) || x.Lines is null || x.Contact is null || !validFulfillment || string.IsNullOrWhiteSpace(x.Contact.Name) || string.IsNullOrWhiteSpace(x.Contact.Email) || string.IsNullOrWhiteSpace(x.Contact.Phone) || x.Lines.Count == 0 || x.Lines.Any(l => l is null || l.PublicOfferId == Guid.Empty || l.Quantity is < 1 or > 10 || l.UnitPrice < 0 || l.LineTotal < 0 || l.LineTotal != l.UnitPrice * l.Quantity || !SafeImage(l.ImageUrl))) return false;
+        if (x.Lines.GroupBy(x => x.PublicOfferId).Any(g => g.Count() != 1) || expectedLines is not null && (expectedLines.Count != x.Lines.Count || expectedLines.Any(expected => !x.Lines.Any(actual => actual.PublicOfferId == expected.PublicOfferId && actual.Quantity == expected.Quantity))) || !Matches(expectedFulfillment, method!, x) || x.MerchandiseTotal < 0 || x.DiscountTotal < 0 || x.FreightTotal < 0 || x.Total < 0 || x.Total != x.MerchandiseTotal - x.DiscountTotal + x.FreightTotal || x.Lines.Sum(x => x.LineTotal) != x.MerchandiseTotal) return false;
+        result = new() { PublicCheckoutId = x.PublicCheckoutId, Status = x.Status.ToLowerInvariant(), ExpiresAt = x.ExpiresAt, AccessExpiresAt = x.AccessExpiresAt, Currency = x.Currency!.Trim().ToUpperInvariant(), MerchandiseTotal = x.MerchandiseTotal, DiscountTotal = x.DiscountTotal, FreightTotal = x.FreightTotal, Total = x.Total, FulfillmentMethod = method!, Pickup = x.Pickup is null ? null : Map(x.Pickup), Shipping = x.Shipping is null ? null : Map(x.Shipping), Contact = new() { Name = x.Contact.Name ?? "", Email = x.Contact.Email ?? "", Phone = x.Contact.Phone ?? "" }, Lines = x.Lines.Select(l => new CheckoutLine { PublicOfferId = l.PublicOfferId, Quantity = l.Quantity, Presentation = l.Presentation ?? "", ImageUrl = l.ImageUrl, UnitPrice = l.UnitPrice, LineTotal = l.LineTotal }).ToList() };
+        return true;
+    }
+    private static bool Matches(CheckoutFulfillment? expected, string method, ResponseDto response)
+    {
+        if (expected is null) return true;
+        if (!string.Equals(expected.Method, method, StringComparison.OrdinalIgnoreCase)) return false;
+        if (method == "pickup") return expected.PublicPickupId.HasValue && response.Pickup!.PublicPickupId == expected.PublicPickupId.Value;
+        return expected.ShippingAddress is { } address && response.Shipping is { } shipping && SameAddress(address, shipping.Address!);
+    }
+    private static bool TryMapShippingQuote(ShippingQuoteDto x, out ShippingQuote? quote)
+    {
+        quote = null;
+        if (x.ExpiresAt <= DateTimeOffset.UtcNow.AddMinutes(-1) || !Currency(x.Currency) || x.Options is null || x.Options.Count == 0 || x.Options.GroupBy(option => option.PublicShippingQuoteId).Any(group => group.Key == Guid.Empty || group.Count() > 1) || x.Options.Any(option => !Text(option.ServiceName, 120) || !Text(option.CarrierName, 120) || option.Price < 0 || option.Price != decimal.Round(option.Price, 2) || option.MinimumDeliveryDays < 0 || option.MaximumDeliveryDays < option.MinimumDeliveryDays)) return false;
+        quote = new() { ExpiresAt = x.ExpiresAt, Currency = x.Currency!.Trim().ToUpperInvariant(), Options = x.Options.Select(option => new ShippingQuoteOption { PublicShippingQuoteId = option.PublicShippingQuoteId, ServiceName = option.ServiceName!.Trim(), CarrierName = option.CarrierName!.Trim(), Price = option.Price, MinimumDeliveryDays = option.MinimumDeliveryDays, MaximumDeliveryDays = option.MaximumDeliveryDays }).ToList() };
         return true;
     }
     private static bool SafeImage(string? value) => string.IsNullOrWhiteSpace(value) || !value.TrimStart().StartsWith("//", StringComparison.Ordinal) && Uri.TryCreate(value.Trim(), UriKind.RelativeOrAbsolute, out var uri) && (value.TrimStart().StartsWith('/') || uri.IsAbsoluteUri && (uri.Scheme == "http" || uri.Scheme == "https"));
-    private static PickupSnapshot Map(PickupDto x) => new() { PublicPickupId = x.PublicPickupId, DisplayName = x.DisplayName ?? "", Hours = x.Hours ?? "", Instructions = x.Instructions ?? "", Address = new() { Street = x.Address?.Street ?? "", Number = x.Address?.Number ?? "", Complement = x.Address?.Complement, Neighborhood = x.Address?.Neighborhood ?? "", City = x.Address?.City ?? "", State = x.Address?.State ?? "", PostalCode = x.Address?.PostalCode ?? "" } };
+    private static PickupSnapshot Map(PickupDto x) => new() { PublicPickupId = x.PublicPickupId, DisplayName = x.DisplayName ?? "", Hours = x.Hours ?? "", Instructions = x.Instructions ?? "", Address = Map(x.Address!) };
+    private static ShippingSnapshot Map(ShippingDto x) => new() { CarrierName = x.CarrierName ?? "", ServiceName = x.ServiceName ?? "", Price = x.Price, MinimumDeliveryDays = x.MinimumDeliveryDays, MaximumDeliveryDays = x.MaximumDeliveryDays, Address = Map(x.Address!) };
+    private static CheckoutAddress Map(AddressDto x) => new() { Recipient = x.Recipient ?? "", Street = x.Street ?? "", Number = x.Number ?? "", Complement = x.Complement, Neighborhood = x.Neighborhood ?? "", City = x.City ?? "", State = x.State ?? "", PostalCode = x.PostalCode ?? "", CountryCode = x.CountryCode ?? "BR" };
+    private static AddressDto Map(CheckoutAddress x) => new() { Recipient = x.Recipient, Street = x.Street, Number = x.Number, Complement = x.Complement, Neighborhood = x.Neighborhood, City = x.City, State = x.State, PostalCode = x.PostalCode, CountryCode = x.CountryCode };
+    private static string Digits(string? value) => new((value ?? "").Where(char.IsAsciiDigit).ToArray());
+    private static bool Text(string? value, int maximumLength) => !string.IsNullOrWhiteSpace(value) && value.Length <= maximumLength;
+    private static bool SameAddress(CheckoutAddress expected, AddressDto actual) =>
+        string.Equals(expected.Recipient.Trim(), actual.Recipient?.Trim(), StringComparison.Ordinal) &&
+        string.Equals(expected.Street.Trim(), actual.Street?.Trim(), StringComparison.Ordinal) &&
+        string.Equals(expected.Number.Trim(), actual.Number?.Trim(), StringComparison.Ordinal) &&
+        string.Equals(expected.Complement?.Trim() ?? "", actual.Complement?.Trim() ?? "", StringComparison.Ordinal) &&
+        string.Equals(expected.Neighborhood.Trim(), actual.Neighborhood?.Trim(), StringComparison.Ordinal) &&
+        string.Equals(expected.City.Trim(), actual.City?.Trim(), StringComparison.Ordinal) &&
+        string.Equals(expected.State.Trim(), actual.State?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+        Digits(expected.PostalCode) == Digits(actual.PostalCode) &&
+        string.Equals(expected.CountryCode.Trim(), actual.CountryCode?.Trim(), StringComparison.OrdinalIgnoreCase);
     private sealed record ReadResult<T>(HttpStatusCode? Status, CheckoutLoadState State, T? Value, string? Message);
     private sealed class CreateDto { public List<LineRequestDto> Lines { get; set; } = []; public ContactDto Contact { get; set; } = new(); public FulfillmentDto Fulfillment { get; set; } = new(); }
     private sealed class LineRequestDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } }
     private sealed class ContactDto { public string? Name { get; set; } public string? Email { get; set; } public string? Phone { get; set; } }
-    private sealed class FulfillmentDto { public string? Method { get; set; } public Guid PublicPickupId { get; set; } }
-    private sealed class ConfigurationDto { public bool PickupEnabled { get; set; } public Guid? PublicPickupId { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } }
+    private sealed class FulfillmentDto { public string? Method { get; set; } public Guid PublicPickupId { get; set; } public Guid PublicShippingQuoteId { get; set; } public AddressDto? ShippingAddress { get; set; } }
+    private sealed class ConfigurationDto { public bool PickupEnabled { get; set; } public bool ShippingEnabled { get; set; } public Guid? PublicPickupId { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } }
     private sealed class PickupDto { public Guid PublicPickupId { get; set; } public string? DisplayName { get; set; } public AddressDto? Address { get; set; } public string? Hours { get; set; } public string? Instructions { get; set; } }
-    private sealed class AddressDto { public string? Street { get; set; } public string? Number { get; set; } public string? Complement { get; set; } public string? Neighborhood { get; set; } public string? City { get; set; } public string? State { get; set; } public string? PostalCode { get; set; } }
-    private sealed class ResponseDto { public Guid PublicCheckoutId { get; set; } public string? Status { get; set; } public DateTimeOffset ExpiresAt { get; set; } public DateTimeOffset AccessExpiresAt { get; set; } public List<LineDto>? Lines { get; set; } public decimal MerchandiseTotal { get; set; } public decimal DiscountTotal { get; set; } public decimal FreightTotal { get; set; } public decimal Total { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } public ContactDto? Contact { get; set; } }
+    private sealed class AddressDto { public string? Recipient { get; set; } public string? Street { get; set; } public string? Number { get; set; } public string? Complement { get; set; } public string? Neighborhood { get; set; } public string? City { get; set; } public string? State { get; set; } public string? PostalCode { get; set; } public string? CountryCode { get; set; } }
+    private sealed class ShippingDto { public string? CarrierName { get; set; } public string? ServiceName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } public AddressDto? Address { get; set; } }
+    private sealed class ResponseDto { public Guid PublicCheckoutId { get; set; } public string? Status { get; set; } public DateTimeOffset ExpiresAt { get; set; } public DateTimeOffset AccessExpiresAt { get; set; } public List<LineDto>? Lines { get; set; } public decimal MerchandiseTotal { get; set; } public decimal DiscountTotal { get; set; } public decimal FreightTotal { get; set; } public decimal Total { get; set; } public string? Currency { get; set; } public string? FulfillmentMethod { get; set; } public PickupDto? Pickup { get; set; } public ShippingDto? Shipping { get; set; } public ContactDto? Contact { get; set; } }
     private sealed class LineDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } public string? Presentation { get; set; } public string? ImageUrl { get; set; } public decimal UnitPrice { get; set; } public decimal LineTotal { get; set; } }
     private sealed class PaymentDto { public string? Status { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? PublicOrderNumber { get; set; } }
+    private sealed class ShippingQuoteRequestDto { public List<LineRequestDto> Lines { get; set; } = []; public string DestinationPostalCode { get; set; } = ""; }
+    private sealed class ShippingQuoteDto { public DateTimeOffset ExpiresAt { get; set; } public string? Currency { get; set; } public List<ShippingQuoteOptionDto>? Options { get; set; } }
+    private sealed class ShippingQuoteOptionDto { public Guid PublicShippingQuoteId { get; set; } public string? ServiceName { get; set; } public string? CarrierName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } }
 }

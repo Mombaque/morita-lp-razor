@@ -1,24 +1,24 @@
 @model ProductCardViewModel
 @{
     var p = Model.Product;
-    var cleanName = System.Text.RegularExpressions.Regex.Replace(p.Nome.ToLower(), @"[^\w-]", "");
+    var cleanName = System.Text.RegularExpressions.Regex.Replace(p.Nome.ToLowerInvariant(), @"[^\w-]", "");
     var carouselId = $"carousel-{cleanName}-{Model.Index}";
-    var shuffledImagens = p.Imagens.OrderBy(_ => Random.Shared.Next()).ToList();
+    var images = p.Imagens;
 }
 <div class="product">
   <div class="carousel" id="@carouselId">
-    @if (shuffledImagens.Count == 0)
+    @if (images.Count == 0)
     { <div class="product-image-empty" role="img" aria-label="@p.Alt">Imagem indisponível</div> }
     else
     {
-      @for (var i = 0; i < shuffledImagens.Count; i++)
-      { <img src="@(shuffledImagens[i].StartsWith("/", StringComparison.Ordinal) ? Url.Content("~" + shuffledImagens[i]) : shuffledImagens[i])" alt="@p.Alt" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i"> }
+      @for (var i = 0; i < images.Count; i++)
+      { <img src="@(images[i].StartsWith("/", StringComparison.Ordinal) ? Url.Content("~" + images[i]) : images[i])" alt="@(i == 0 ? p.Alt : "")" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i" loading="@(Model.Index > 3 ? "lazy" : "eager")"> }
     }
-    @if (shuffledImagens.Count > 1)
+    @if (images.Count > 1)
     { <button class="prev" onclick="getImage('@carouselId', false)" aria-label="Imagem anterior">&#10094;</button><button class="next" onclick="getImage('@carouselId', true)" aria-label="Próxima imagem">&#10095;</button> }
   </div>
-  @if (!string.IsNullOrWhiteSpace(p.Slug)) { <a class="product-card-link" href="/products/@Uri.EscapeDataString(p.Slug)"><h3>@p.Nome</h3></a> } else { <h3>@p.Nome</h3> }<p class="product-taxonomy">@(p.Modality?.Label ?? Model.Category) @if(p.Category is not null){<span>/ @p.Category.Label</span>} @if(p.Brand is not null){<span>/ @p.Brand.Label</span>}</p><p>@p.Descricao</p>
+  <div class="product-card-body"><p class="product-taxonomy">@(p.Modality?.Label ?? Model.Category) @if(p.Category is not null){<span>/ @p.Category.Label</span>} @if(p.Audience == PublicCatalogAudience.Kids){<span>/ Infantil</span>}</p>@if (!string.IsNullOrWhiteSpace(p.Slug)) { <a class="product-card-link" href="/products/@Uri.EscapeDataString(p.Slug)"><h3>@p.Nome</h3></a> } else { <h3>@p.Nome</h3> }<p class="product-description">@p.Descricao</p>
   @if (!string.IsNullOrWhiteSpace(p.FormattedPrice))
   { <partial name="_ProductPrice" model="p.FormattedPrice" /> }
-  @if (string.IsNullOrWhiteSpace(p.Slug)) { <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="@Model.Category" data-track-selected-category="@p.Nome"><i class="fas fa-magnifying-glass"></i> Consultar disponibilidade</button> } else { <a class="product-cta" href="/products/@p.Slug">Ver especificações</a><span class="product-availability">@(p.Availability == "available" ? "Disponível" : "Indisponível")</span> }
+  @if (string.IsNullOrWhiteSpace(p.Slug)) { <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="@Model.Category" data-track-selected-category="@p.Nome"><i class="fas fa-magnifying-glass"></i> Consultar disponibilidade</button> } else { <div class="product-card-footer"><a class="product-cta" href="/products/@Uri.EscapeDataString(p.Slug)">Ver produto</a><span class="product-availability">@(p.Availability == "available" ? "Em estoque" : "Indisponível")</span></div> }</div>
 </div>
