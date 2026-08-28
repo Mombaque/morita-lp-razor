@@ -151,7 +151,7 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         public Task<CatalogPage> GetCatalogAsync(CatalogQuery query, CancellationToken cancellationToken = default)
         {
             var source = query.Modality == "jiu-jitsu" ? jiuJitsu : query.Modality == "muay-thai" ? muayThai : Combine();
-            var products = query.Audience == "kids" ? source.Products.Where(product => product.Audience == "kids").ToList() : source.Products;
+            var products = query.Audience == PublicCatalogAudience.Kids ? source.Products.Where(product => product.Audience == PublicCatalogAudience.Kids).ToList() : source.Products;
             var state = products.Count > 0 ? source.State : source.State == CatalogLoadState.Unavailable ? CatalogLoadState.Unavailable : CatalogLoadState.Empty;
             return Task.FromResult(new CatalogPage(products, 1, CatalogQuery.PageSize, products.Count, products.Count > 0 ? 1 : 0, state));
         }

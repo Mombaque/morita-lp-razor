@@ -15,7 +15,7 @@ public class ProductsModel(ICatalogClient client) : PageModel
     [BindProperty(SupportsGet = true)] public int? SizeId { get; set; }
     [BindProperty(SupportsGet = true)] public int? ColorId { get; set; }
     [BindProperty(SupportsGet = true)] public bool? Available { get; set; }
-    [BindProperty(SupportsGet = true)] public string? Audience { get; set; }
+    [BindProperty(SupportsGet = true)] public PublicCatalogAudience? Audience { get; set; }
     [BindProperty(SupportsGet = true)] public decimal? MinimumPrice { get; set; }
     [BindProperty(SupportsGet = true)] public decimal? MaximumPrice { get; set; }
     [BindProperty(SupportsGet = true)] public string? Sort { get; set; }
@@ -31,7 +31,6 @@ public class ProductsModel(ICatalogClient client) : PageModel
         if (Request.Query.TryGetValue("page", out var pageValue) && int.TryParse(pageValue.ToString(), out var requestedPage) && requestedPage > 1)
             CurrentPage = requestedPage;
         Search = NormalizeSearch(Search);
-        Audience = Audience is "adult" or "kids" or "all" ? Audience : null;
         MinimumPrice = MinimumPrice is >= 0 ? MinimumPrice : null;
         MaximumPrice = MaximumPrice is >= 0 ? MaximumPrice : null;
         if (MinimumPrice > MaximumPrice) MaximumPrice = null;
@@ -48,7 +47,7 @@ public class ProductsModel(ICatalogClient client) : PageModel
     private Dictionary<string, string?> QueryValues(int page) => new Dictionary<string, string?>
     {
         ["search"] = Search, ["categoryId"] = CategoryId?.ToString(), ["modalityId"] = ModalityId?.ToString(), ["brandId"] = BrandId?.ToString(),
-        ["sizeId"] = SizeId?.ToString(), ["colorId"] = ColorId?.ToString(), ["available"] = Available?.ToString().ToLowerInvariant(), ["audience"] = Audience,
+        ["sizeId"] = SizeId?.ToString(), ["colorId"] = ColorId?.ToString(), ["available"] = Available?.ToString().ToLowerInvariant(), ["audience"] = Audience?.ToString().ToLowerInvariant(),
         ["minimumPrice"] = MinimumPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture), ["maximumPrice"] = MaximumPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture), ["sort"] = Sort, ["page"] = page.ToString()
     }.Where(x => !string.IsNullOrWhiteSpace(x.Value)).ToDictionary(x => x.Key, x => x.Value);
 

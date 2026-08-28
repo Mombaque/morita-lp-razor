@@ -34,7 +34,7 @@ public sealed class Phase03PageTests
     public async Task Kids_route_uses_first_class_audience_filter_and_commerce_navigation()
     {
         using var factory = Create(new CatalogPage([
-            new Product { Slug = "kimono-kids", Nome = "Kimono Kids", Audience = "kids" }
+            new Product { Slug = "kimono-kids", Nome = "Kimono Kids", Audience = PublicCatalogAudience.Kids }
         ], 1, 24, 1, 1, CatalogLoadState.Success));
         using var client = factory.CreateClient();
 
@@ -42,7 +42,7 @@ public sealed class Phase03PageTests
 
         Assert.Contains("Kimono Kids", html);
         Assert.Contains("href=\"/kids\" class=\"nav-link active\"", html);
-        Assert.Equal("kids", Stub.LastCatalogQuery!.Audience);
+        Assert.Equal(PublicCatalogAudience.Kids, Stub.LastCatalogQuery!.Audience);
         Assert.Equal("jiu-jitsu", Stub.LastCatalogQuery.Modality);
         Assert.True(Stub.LastCatalogQuery.Available);
     }

@@ -62,7 +62,7 @@ public sealed record CatalogQuery(
     string? Category = null,
     string? Modality = null,
     string? Brand = null,
-    string? Audience = null,
+    PublicCatalogAudience? Audience = null,
     decimal? MinimumPrice = null,
     decimal? MaximumPrice = null)
 {

@@ -17,7 +17,7 @@ public class KidsModel(ICatalogClient catalog) : PageModel
     {
         Modality = NormalizeSlug(Modality);
         var products = catalog.GetCatalogAsync(
-            new CatalogQuery(null, null, null, null, null, null, true, 1, Modality: Modality, Audience: "kids"),
+            new CatalogQuery(null, null, null, null, null, null, true, 1, Modality: Modality, Audience: PublicCatalogAudience.Kids),
             cancellationToken);
         var filters = catalog.GetFiltersAsync(cancellationToken);
         await Task.WhenAll(products, filters);

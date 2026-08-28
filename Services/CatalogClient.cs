@@ -26,7 +26,7 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
         var parameters = new List<string>();
         Add("search", query.Search); Add("categoryId", query.CategoryId); Add("modalityId", query.ModalityId); Add("brandId", query.BrandId);
         Add("sizeId", query.SizeId); Add("colorId", query.ColorId); Add("available", query.Available?.ToString().ToLowerInvariant());
-        Add("category", query.Category); Add("modality", query.Modality); Add("brand", query.Brand); Add("audience", query.Audience);
+        Add("category", query.Category); Add("modality", query.Modality); Add("brand", query.Brand); Add("audience", query.Audience?.ToString().ToLowerInvariant());
         Add("minimumPrice", query.MinimumPrice); Add("maximumPrice", query.MaximumPrice);
         Add("page", Math.Max(1, query.Page)); Add("pageSize", CatalogQuery.PageSize); Add("sort", query.Sort);
         var result = await ReadAsync<PagedResponse>($"v1/storefront/catalog/products?{string.Join('&', parameters)}", cancellationToken);
@@ -139,8 +139,9 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
     private Product Map(ProductResponse p)
     {
         var variants = (p.Variants ?? []).Select(v => { foreach (var offer in v.Offers) { offer.ColorId = v.ColorId; offer.ColorLabel = v.ColorLabel; } v.Images = v.Images.Select(NormalizeImage).OfType<string>().ToList(); return v; }).ToList();
-        return new() { Slug = p.Slug?.Trim(), Nome = p.Name?.Trim() ?? "", Alt = p.Name?.Trim() ?? "", Descricao = p.Description?.Trim() ?? "", Details = p.Details ?? [], FabricType = p.FabricType, WeightGsm = p.WeightGsm, Price = p.Price, Currency = p.Currency, Availability = p.Availability ?? "unavailable", Category = p.Category, Modality = p.Modality, Brand = p.Brand, Audience = p.Audience ?? "adult", FormattedPrice = p.Price is null ? null : $"{p.Currency ?? "R$"} {p.Price:0.00}", Variants = variants, Imagens = variants.SelectMany(v => v.Images).Distinct().ToList() };
+        return new() { Slug = p.Slug?.Trim(), Nome = p.Name?.Trim() ?? "", Alt = p.Name?.Trim() ?? "", Descricao = p.Description?.Trim() ?? "", Details = p.Details ?? [], FabricType = p.FabricType, WeightGsm = p.WeightGsm, Price = p.Price, Currency = p.Currency, Availability = p.Availability ?? "unavailable", Category = p.Category, Modality = p.Modality, Brand = p.Brand, Audience = ParseAudience(p.Audience), FormattedPrice = p.Price is null ? null : $"{p.Currency ?? "R$"} {p.Price:0.00}", Variants = variants, Imagens = variants.SelectMany(v => v.Images).Distinct().ToList() };
     }
+    private static PublicCatalogAudience ParseAudience(string? value) => value?.Trim().ToLowerInvariant() switch { "kids" => PublicCatalogAudience.Kids, "all" => PublicCatalogAudience.All, _ => PublicCatalogAudience.Adult };
     private Product MapLegacy(PublicCatalogProductResponse p) => new()
     {
         Nome = p.Name?.Trim() ?? "",
