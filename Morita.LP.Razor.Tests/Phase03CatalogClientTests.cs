@@ -27,7 +27,7 @@ public sealed class Phase03CatalogClientTests
         Assert.Equal(7, product.Category!.Id);
         Assert.Equal(Guid.Parse(offer), Assert.Single(product.Variants[0].Offers).PublicOfferId);
         Assert.Equal(["Algodão", "Gramatura 400"], product.Details);
-        Assert.Equal("kids", product.Audience);
+        Assert.Equal(PublicCatalogAudience.Kids, product.Audience);
         Assert.Single(product.Imagens);
         Assert.Contains("catalog/a.jpg", product.Imagens[0]);
     }
@@ -37,7 +37,7 @@ public sealed class Phase03CatalogClientTests
     {
         var handler = new RecordingHandler("[]", HttpStatusCode.OK);
         var client = Create(handler);
-        await client.GetCatalogAsync(new CatalogQuery("a b&c", 12, null, null, null, null, null, 2, "price-desc", "kimonos", "jiu-jitsu", "in-the-guard", "kids", 100, 500));
+        await client.GetCatalogAsync(new CatalogQuery("a b&c", 12, null, null, null, null, null, 2, "price-desc", "kimonos", "jiu-jitsu", "in-the-guard", PublicCatalogAudience.Kids, 100, 500));
         await client.GetProductAsync("slug with space");
         Assert.Contains("search=a%20b%26c", handler.Paths[0]);
         Assert.Contains("categoryId=12", handler.Paths[0]);

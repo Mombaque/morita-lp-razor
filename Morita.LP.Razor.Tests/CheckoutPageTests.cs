@@ -82,11 +82,62 @@ public sealed class CheckoutPageTests
         Assert.Equal("01310-100", fulfillment.ShippingAddress!.PostalCode);
     }
 
-    private static CheckoutModel CreatePage(DefaultHttpContext context, TestCart cart, RecordingCheckout api, ICheckoutDraftCookieStore draft, Guid offer)
+    [Fact]
+    public async Task Signed_in_checkout_locks_email_forwards_session_and_preserves_pickup_address_on_save()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout { CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()]) };
+        var account = new RecordingAccount();
+        var accountCookies = new RecordingAccountCookie();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, accountCookies);
+
+        await page.OnGetAsync(CancellationToken.None);
+        Assert.True(page.AccountPrefilled);
+        Assert.Equal("customer@example.com", page.Contact.Email);
+
+        page.Contact.Email = "tampered@example.com";
+        page.SaveAccountDetails = true;
+        await page.OnPostAsync(CancellationToken.None);
+
+        Assert.Equal("customer@example.com", Assert.Single(api.Requests).Contact.Email);
+        Assert.Equal(accountCookies.Session!.Token, Assert.Single(api.AccountSessions));
+        Assert.Equal("Saved street", account.SavedAddress!.Street);
+    }
+
+    [Fact]
+    public async Task Expired_account_during_checkout_retries_once_as_guest()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            CreateResults = new Queue<CheckoutResult>([
+                CheckoutResult.Failure(CheckoutLoadState.Unauthorized),
+                SuccessfulCheckout()
+            ])
+        };
+        var accountCookies = new RecordingAccountCookie();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, new RecordingAccount(), accountCookies);
+        page.Contact = new() { Name = "Customer", Email = "customer@example.com", Phone = "15999999999" };
+
+        await page.OnPostAsync(CancellationToken.None);
+
+        Assert.Equal(2, api.AccountSessions.Count);
+        Assert.NotNull(api.AccountSessions[0]);
+        Assert.Null(api.AccountSessions[1]);
+        Assert.Equal(1, accountCookies.ClearCalls);
+    }
+
+    private static CheckoutModel CreatePage(DefaultHttpContext context, TestCart cart, RecordingCheckout api, ICheckoutDraftCookieStore draft, Guid offer, ICustomerAccountClient? account = null, ICustomerAccountCookieStore? accountCookies = null)
     {
         var config = new CheckoutConfigurationResult(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), Currency = "BRL", Pickup = new() { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } } });
         var quote = CatalogQuoteResult.Success("BRL", 10, [new CatalogQuoteLine { PublicOfferId = offer, Quantity = 1, Availability = "available", Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = 10 }]);
-        var page = new CheckoutModel(cart, new StubCatalog(quote), api, draft, new NoopAccess(), new CheckoutRateLimiter(TimeProvider.System))
+        var page = new CheckoutModel(cart, new StubCatalog(quote), api, draft, new NoopAccess(), new CheckoutRateLimiter(TimeProvider.System), account ?? new NoopAccount(), accountCookies ?? new NoopAccountCookie())
         {
             Contact = new CheckoutModel.ContactInput()
         };
@@ -95,6 +146,15 @@ public sealed class CheckoutPageTests
         page.PageContext.ViewData = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary());
         return page;
     }
+
+    private static CheckoutResult SuccessfulCheckout() => new(CheckoutLoadState.Success, new CheckoutResponse
+    {
+        PublicCheckoutId = Guid.NewGuid(),
+        Status = "active",
+        ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30),
+        AccessExpiresAt = DateTimeOffset.UtcNow.AddDays(30),
+        Currency = "BRL"
+    });
 
     private static IServiceProvider Services() => new ServiceCollection().AddSingleton<IHostEnvironment>(new TestEnvironment()).BuildServiceProvider();
 
@@ -105,9 +165,18 @@ public sealed class CheckoutPageTests
         public ShippingQuoteRequest? LastShippingQuoteRequest { get; private set; }
         public List<(string Key, string Token)> Credentials { get; } = [];
         public List<CheckoutCreateRequest> Requests { get; } = [];
+        public List<string?> AccountSessions { get; } = [];
+        public Queue<CheckoutResult>? CreateResults { get; set; }
         public Task<CheckoutConfigurationResult> GetConfigurationAsync(CancellationToken cancellationToken = default) => Task.FromResult(Configuration);
         public Task<ShippingQuoteResult> QuoteShippingAsync(ShippingQuoteRequest request, CancellationToken cancellationToken = default) { LastShippingQuoteRequest = request; return Task.FromResult(ShippingQuote); }
         public Task<CheckoutResult> CreateAsync(CheckoutCreateRequest request, string idempotencyKey, string accessToken, CancellationToken cancellationToken = default) { Requests.Add(request); Credentials.Add((idempotencyKey, accessToken)); return Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.Timeout, "timeout")); }
+        public Task<CheckoutResult> CreateForAccountAsync(CheckoutCreateRequest request, string idempotencyKey, string accessToken, string? storefrontSession, CancellationToken cancellationToken = default)
+        {
+            Requests.Add(request);
+            Credentials.Add((idempotencyKey, accessToken));
+            AccountSessions.Add(storefrontSession);
+            return Task.FromResult(CreateResults is { Count: > 0 } ? CreateResults.Dequeue() : CheckoutResult.Failure(CheckoutLoadState.Timeout, "timeout"));
+        }
         public Task<CheckoutResult> GetAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.NotFound));
         public Task<CheckoutResult> CancelAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.NotFound));
     }
@@ -132,6 +201,46 @@ public sealed class CheckoutPageTests
         public CheckoutAccess? Read(Guid publicCheckoutId) => null;
         public bool Write(CheckoutResponse checkout, string token) => true;
         public void Clear() { }
+    }
+
+    private sealed class NoopAccountCookie : ICustomerAccountCookieStore
+    {
+        public CustomerAccountSession? Read() => null;
+        public bool Write(string token, DateTimeOffset expiresAt) => true;
+        public void Clear() { }
+    }
+
+    private sealed class RecordingAccountCookie : ICustomerAccountCookieStore
+    {
+        public CustomerAccountSession? Session { get; private set; } = new(new string('s', 32), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(1));
+        public int ClearCalls { get; private set; }
+        public CustomerAccountSession? Read() => Session;
+        public bool Write(string token, DateTimeOffset expiresAt) => true;
+        public void Clear() { ClearCalls++; Session = null; }
+    }
+
+    private sealed class RecordingAccount : NoopAccount
+    {
+        private readonly CustomerAccountAddress address = new() { Recipient = "Customer", Street = "Saved street", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000000" };
+        public CustomerAccountAddress? SavedAddress { get; private set; }
+        public override Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999", Address = address }));
+        public override Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, CustomerAccountAddress? savedAddress, CancellationToken cancellationToken = default) { SavedAddress = savedAddress; return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true)); }
+    }
+
+    private class NoopAccount : ICustomerAccountClient
+    {
+        public Task<AccountResult<AccountCodeChallenge>> RequestCodeAsync(string email, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable));
+        public Task<AccountResult<(CustomerAccountSession Session, CustomerAccountProfile Profile)>> VerifyCodeAsync(Guid challengeId, string code, bool acceptedPrivacyPolicy, string privacyPolicyVersion, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<(CustomerAccountSession, CustomerAccountProfile)>.Failure(AccountLoadState.Unavailable));
+        public virtual Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<CustomerAccountProfile>.Failure(AccountLoadState.Unauthorized));
+        public virtual Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, CustomerAccountAddress? address, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        public Task<AccountResult<AccountCodeChallenge>> RequestEmailCodeAsync(string token, string email, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable));
+        public Task<AccountResult<bool>> VerifyEmailCodeAsync(string token, Guid challengeId, string code, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        public Task<AccountResult<AccountCodeChallenge>> RequestClosureCodeAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable));
+        public Task<AccountResult<bool>> VerifyClosureCodeAsync(string token, Guid challengeId, string code, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        public Task<AccountResult<IReadOnlyList<PublicOrder>>> GetOrdersAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<IReadOnlyList<PublicOrder>>(AccountLoadState.Success, []));
+        public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<PublicOrder>.Failure(AccountLoadState.NotFound));
+        public Task<AccountResult<bool>> ClaimOrderAsync(string token, string number, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
     }
 
     private sealed class TestEnvironment : IHostEnvironment

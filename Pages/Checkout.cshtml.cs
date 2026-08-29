@@ -12,18 +12,23 @@ public sealed class CheckoutModel(
     ICheckoutClient checkout,
     ICheckoutDraftCookieStore draft,
     ICheckoutAccessCookieStore access,
-    CheckoutRateLimiter rateLimiter) : PageModel
+    CheckoutRateLimiter rateLimiter,
+    ICustomerAccountClient account,
+    ICustomerAccountCookieStore accountCookies) : PageModel
 {
     public CartState Cart { get; private set; } = new(DateTimeOffset.UtcNow, []);
     public CatalogQuoteResult Quote { get; private set; } = CatalogQuoteResult.Unavailable();
     public CheckoutConfigurationResult Configuration { get; private set; } = CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable);
     public CheckoutLoadState? ErrorState { get; private set; }
     public string? ErrorMessage { get; private set; }
+    public string? AccountMessage { get; private set; }
+    public bool AccountPrefilled { get; private set; }
     public ShippingQuoteResult ShippingQuotes { get; private set; } = ShippingQuoteResult.Failure(CheckoutLoadState.Validation);
     [BindProperty] public ContactInput Contact { get; set; } = new();
     [BindProperty] public string FulfillmentMethod { get; set; } = "pickup";
     [BindProperty] public Guid? PublicShippingQuoteId { get; set; }
     [BindProperty] public ShippingAddressInput ShippingAddress { get; set; } = new();
+    [BindProperty] public bool SaveAccountDetails { get; set; }
     public bool Empty => Cart.Lines.Count == 0;
     public bool CanSubmit => !Empty && Quote.State == CatalogLoadState.Success && Configuration.State == CheckoutLoadState.Success &&
         (FulfillmentMethod == "pickup" && Configuration.Configuration?.PickupEnabled == true ||
@@ -73,7 +78,19 @@ public sealed class CheckoutModel(
                 Complement = string.IsNullOrWhiteSpace(ShippingAddress.Complement) ? null : ShippingAddress.Complement.Trim(), Neighborhood = Clean(ShippingAddress.Neighborhood),
                 City = Clean(ShippingAddress.City), State = Clean(ShippingAddress.State).ToUpperInvariant(), PostalCode = Clean(ShippingAddress.PostalCode), CountryCode = "BR"
             });
-        var result = await checkout.CreateAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = Contact.Email.Trim(), Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, cancellationToken);
+        var session = accountCookies.Read();
+        var profile = session is null ? null : await account.GetProfileAsync(session.Token, cancellationToken);
+        if (profile?.State == AccountLoadState.Unauthorized) { accountCookies.Clear(); session = null; AccountMessage = "Sua sessão expirou; o checkout continua como convidado."; }
+        else if (profile?.State != AccountLoadState.Success) { session = null; if (profile is not null) AccountMessage = "Não foi possível carregar sua conta; o checkout continuará como convidado."; }
+        var email = profile?.Value?.Email ?? Contact.Email.Trim();
+        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = email, Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, session?.Token, cancellationToken);
+        if (result.State == CheckoutLoadState.Unauthorized && session is not null)
+        {
+            accountCookies.Clear();
+            session = null;
+            AccountMessage = "Sua sessão expirou; o checkout continuará como convidado.";
+            result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = Contact.Email.Trim(), Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, null, cancellationToken);
+        }
         if (result.State == CheckoutLoadState.Success && result.Checkout is not null)
         {
             if (!access.Write(result.Checkout, credentials.AccessToken))
@@ -85,6 +102,18 @@ public sealed class CheckoutModel(
 
             draft.Clear();
             cart.Clear();
+            if (SaveAccountDetails && session is not null)
+            {
+                var saveAddress = fulfillment.ShippingAddress is { } submitted
+                    ? new CustomerAccountAddress { Recipient = submitted.Recipient, Street = submitted.Street, Number = submitted.Number, Complement = submitted.Complement, Neighborhood = submitted.Neighborhood, City = submitted.City, State = submitted.State, PostalCode = submitted.PostalCode, CountryCode = submitted.CountryCode }
+                    : profile?.Value?.Address;
+                var saved = await account.UpdateProfileAsync(session.Token, Contact.Name.Trim(), Contact.Phone.Trim(), saveAddress, cancellationToken);
+                if (!saved.Value)
+                {
+                    if (saved.State == AccountLoadState.Unauthorized) accountCookies.Clear();
+                    TempData["CheckoutAccountMessage"] = "Reserva criada. Não foi possível salvar seus dados na conta; sua compra não foi afetada.";
+                }
+            }
             return RedirectToPage("/CheckoutStatus", new { publicCheckoutId = result.Checkout.PublicCheckoutId });
         }
         ErrorState = result.State; ErrorMessage = result.Message ?? Message(result.State);
@@ -96,7 +125,19 @@ public sealed class CheckoutModel(
         return Page();
     }
 
-    private async Task LoadAsync(CancellationToken cancellationToken) { Cart = cart.Read(); await LoadConfigurationAsync(cancellationToken); await LoadQuoteAsync(cancellationToken); }
+    private async Task LoadAsync(CancellationToken cancellationToken) { Cart = cart.Read(); await LoadConfigurationAsync(cancellationToken); await LoadQuoteAsync(cancellationToken); await LoadAccountAsync(cancellationToken); }
+    private async Task LoadAccountAsync(CancellationToken cancellationToken)
+    {
+        if (accountCookies.Read() is not { } session) return;
+        var result = await account.GetProfileAsync(session.Token, cancellationToken);
+        if (result.State == AccountLoadState.Success && result.Value is { } profile)
+        {
+            AccountPrefilled = true;
+            Contact.Name = profile.Name ?? Contact.Name; Contact.Email = profile.Email; Contact.Phone = profile.Phone ?? Contact.Phone;
+            if (profile.Address is { } address) ShippingAddress = new() { Recipient = address.Recipient, Street = address.Street, Number = address.Number, Complement = address.Complement ?? "", Neighborhood = address.Neighborhood, City = address.City, State = address.State, PostalCode = address.PostalCode };
+        }
+        else if (result.State == AccountLoadState.Unauthorized) { accountCookies.Clear(); AccountMessage = "Sua sessão expirou; você pode continuar como convidado."; }
+    }
     private async Task LoadConfigurationAsync(CancellationToken cancellationToken) { Configuration = await checkout.GetConfigurationAsync(cancellationToken); if (Configuration.State != CheckoutLoadState.Success) { ErrorState = Configuration.State; ErrorMessage = Message(Configuration.State); } }
     private async Task LoadQuoteAsync(CancellationToken cancellationToken)
     {
