@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Morita.LP.Razor.Models;
 using Morita.LP.Razor.Services;
 
@@ -10,6 +11,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public CheckoutResponse? Checkout { get; private set; }
     public CheckoutLoadState State { get; private set; } = CheckoutLoadState.NotFound;
     public string? Message { get; private set; }
+    public string? AccountMessage { get; private set; }
     public PixPayment? Payment { get; private set; }
     public PaymentLoadState PaymentState { get; private set; } = PaymentLoadState.NotFound;
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
@@ -17,6 +19,8 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         ViewData["Robots"] = "noindex,nofollow";
+        var tempDataFactory = HttpContext.RequestServices.GetService<ITempDataDictionaryFactory>();
+        AccountMessage = tempDataFactory?.GetTempData(HttpContext)["CheckoutAccountMessage"] as string;
         return await LoadOwnedAsync(cancellationToken) ?? Page();
     }
 

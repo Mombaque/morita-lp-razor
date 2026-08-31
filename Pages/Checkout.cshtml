@@ -17,7 +17,7 @@
   }
   else
   {
-    @if (Model.ErrorMessage is not null) { <p class="validation-error" data-checkout="error" role="alert">@Model.ErrorMessage</p> }
+     @if (Model.ErrorMessage is not null) { <p class="validation-error" data-checkout="error" role="alert">@Model.ErrorMessage</p> } @if (Model.AccountMessage is not null) { <p class="account-status" role="status">@Model.AccountMessage</p> }
     <form method="post" class="checkout-layout" data-fulfillment-form>
       <div class="checkout-form-column">
         <div asp-validation-summary="All" class="validation-error" role="alert"></div>
@@ -75,12 +75,13 @@
           <div class="checkout-step-content checkout-contact">
             <h2 id="contact-heading">Seus dados</h2>
             <label>Nome<input asp-for="Contact.Name" autocomplete="name"></label><span asp-validation-for="Contact.Name" class="validation-error"></span>
-            <label>E-mail<input asp-for="Contact.Email" autocomplete="email" type="email"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
+             <label>E-mail<input asp-for="Contact.Email" autocomplete="email" type="email" readonly="@(Model.AccountPrefilled ? "readonly" : null)"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
             <label>Telefone<input asp-for="Contact.Phone" autocomplete="tel" inputmode="tel"></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
           </div>
         </section>
 
-        <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")">Continuar para o PIX <span aria-hidden="true">→</span></button>
+         @if (Model.AccountPrefilled) { <label class="account-check"><input asp-for="SaveAccountDetails" type="checkbox"> Salvar estes dados na minha conta</label> }
+         <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")">Continuar para o PIX <span aria-hidden="true">→</span></button>
         <p class="checkout-security"><i class="fas fa-lock" aria-hidden="true"></i> Preço, estoque e frete são reconfirmados pelo servidor antes da reserva.</p>
       </div>
 

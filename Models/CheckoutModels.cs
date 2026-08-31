@@ -2,7 +2,7 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Models;
 
-public enum CheckoutLoadState { Success, Validation, Conflict, NotFound, RateLimited, Unavailable, Timeout, Malformed }
+public enum CheckoutLoadState { Success, Validation, Conflict, NotFound, Unauthorized, RateLimited, Unavailable, Timeout, Malformed }
 
 public sealed record CheckoutResult(CheckoutLoadState State, CheckoutResponse? Checkout, string? Message = null)
 {

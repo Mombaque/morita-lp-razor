@@ -5,6 +5,7 @@
     ViewData["Robots"] = "noindex,nofollow";
 }
 <main class="checkout-shell" data-checkout="status">
+        @if (Model.AccountMessage is not null) { <p class="account-status" role="status">@Model.AccountMessage</p> }
     @if (Model.Checkout is null)
     {
         <div class="catalog-state catalog-unavailable" data-checkout="inaccessible" role="alert"><h1>Reserva indisponível</h1><p>@Model.Message</p><a class="button" href="/products">Voltar aos produtos</a></div>

@@ -1,0 +1,86 @@
+@page "/conta"
+@model Morita.LP.Razor.Pages.AccountModel
+@{
+    ViewData["Title"] = "Minha conta | Morita Fight";
+    ViewData["Robots"] = "noindex,nofollow";
+    ViewData["BodyClass"] = "commerce-page account-page";
+}
+<main class="account-shell">
+    <header class="checkout-heading">
+        <p class="fight-label">Registro de treino / conta</p>
+        <h1>Minha conta</h1>
+        <p>Um histórico compacto dos seus pedidos, sem senha e sem complicação.</p>
+    </header>
+    <div asp-validation-summary="All" class="validation-error" role="alert"></div>
+    @if (Model.Error is not null) { <p class="validation-error" role="alert">@Model.Error</p> }
+    @if (Model.Message is not null) { <p class="account-status" role="status">@Model.Message</p> }
+    @if (!Model.SignedIn)
+    {
+        <section class="account-panel">
+            <h2>Entrar por e-mail</h2><p>Enviaremos um código de uso único. Não guardamos senha.</p>
+            <form method="post" asp-page-handler="RequestCode">
+                <label>E-mail<input asp-for="EmailForm.Email" autocomplete="email" type="email"></label>
+                <span asp-validation-for="EmailForm.Email" class="validation-error"></span>
+                <button class="commerce-button commerce-button-primary">Enviar código</button>
+            </form>
+            <form method="post" asp-page-handler="VerifyCode">
+                <input type="hidden" asp-for="Verification.ChallengeId" value="@Model.ChallengeId">
+                <label>Código recebido<input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code"></label>
+                <span asp-validation-for="Verification.Code" class="validation-error"></span>
+                <label class="account-check"><input asp-for="AcceptedPrivacyPolicy" type="checkbox"> Aceito a política de privacidade da conta.</label>
+                <button class="commerce-button commerce-button-secondary">Confirmar entrada</button>
+            </form>
+        </section>
+    }
+    else
+    {
+        <div class="account-ledger">
+            <section class="account-panel">
+                <h2>Dados do corner</h2><p class="account-email">@Model.Profile!.Email</p>
+                <form method="post" asp-page-handler="SaveProfile">
+                    <label>Nome<input asp-for="ProfileForm.Name" autocomplete="name"></label>
+                    <label>Telefone<input asp-for="ProfileForm.Phone" autocomplete="tel"></label>
+                    <h3>Endereço padrão</h3>
+                    <div class="address-grid">
+                        <label class="full">Destinatário<input asp-for="ProfileForm.Address.Recipient"></label>
+                        <label class="wide">Rua<input asp-for="ProfileForm.Address.Street"></label><label>Número<input asp-for="ProfileForm.Address.Number"></label>
+                        <label class="full">Complemento<input asp-for="ProfileForm.Address.Complement"></label><label>Bairro<input asp-for="ProfileForm.Address.Neighborhood"></label>
+                        <label>Cidade<input asp-for="ProfileForm.Address.City"></label><label>UF<input asp-for="ProfileForm.Address.State" maxlength="2"></label><label>CEP<input asp-for="ProfileForm.Address.PostalCode"></label>
+                    </div>
+                    <button class="commerce-button commerce-button-primary">Salvar dados</button>
+                </form>
+            </section>
+            <section class="account-panel account-orders">
+                <h2>Pedidos próprios</h2>
+                @if (Model.Orders.Count == 0) { <p>Ainda não há pedidos vinculados a esta conta.</p> }
+                else
+                {
+                    <ol class="order-ledger">
+                    @foreach (var order in Model.Orders)
+                    {
+                        <li><a href="/conta?publicOrderNumber=@order.PublicOrderNumber"><strong>@order.PublicOrderNumber</strong><span>@order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy") · @order.Currency @order.Amount.ToString("0.00")</span><em>@order.FulfillmentStatus</em></a></li>
+                    }
+                    </ol>
+                }
+                @if (Model.SelectedOrder is { } selected)
+                {
+                    <div class="account-order-detail"><h3>@selected.PublicOrderNumber</h3><p>Total: <strong>@selected.Currency @selected.Amount.ToString("0.00")</strong></p>@foreach (var line in selected.Lines) { <p>@line.Quantity × @line.Presentation</p> }</div>
+                }
+            </section>
+        </div>
+        <section class="account-panel">
+            <h2>Trocar e-mail</h2>
+            <form method="post" asp-page-handler="RequestEmailCode"><label>Novo e-mail<input asp-for="EmailChange.Email" type="email" autocomplete="email"></label><span asp-validation-for="EmailChange.Email" class="validation-error"></span><button class="commerce-button commerce-button-secondary">Enviar código</button></form>
+            <form method="post" asp-page-handler="VerifyEmailCode"><input type="hidden" asp-for="Verification.ChallengeId" value="@Model.ChallengeId"><label>Código<input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code"></label><button class="commerce-button commerce-button-secondary">Confirmar novo e-mail</button></form>
+        </section>
+        <section class="account-panel account-actions">
+            <h2>Controle da sessão</h2>
+            <form method="post" asp-page-handler="Logout"><button class="commerce-button commerce-button-secondary">Sair deste dispositivo</button></form>
+            <form method="post" asp-page-handler="Logout"><input type="hidden" name="all" value="true"><button class="commerce-button commerce-button-secondary">Sair de todos os dispositivos</button></form>
+            <details><summary>Encerrar conta permanentemente</summary><p>Essa ação é definitiva. Pedidos já realizados podem continuar sujeitos às obrigações legais de registro.</p>
+                <form method="post" asp-page-handler="RequestClosureCode"><label class="account-check"><input asp-for="ConfirmClosure" type="checkbox"> Confirmo que quero encerrar minha conta permanentemente.</label><span asp-validation-for="ConfirmClosure" class="validation-error"></span><button class="commerce-button commerce-button-danger">Enviar código de encerramento</button></form>
+                <form method="post" asp-page-handler="VerifyClosureCode"><input type="hidden" asp-for="Verification.ChallengeId" value="@Model.ChallengeId"><input type="hidden" asp-for="ConfirmClosure"><label>Código<input asp-for="Verification.Code" inputmode="numeric"></label><button class="commerce-button commerce-button-danger">Confirmar encerramento</button></form>
+            </details>
+        </section>
+    }
+</main>

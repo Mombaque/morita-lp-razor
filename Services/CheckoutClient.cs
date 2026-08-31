@@ -39,6 +39,9 @@ public sealed class CheckoutClient(
     }
 
     public async Task<CheckoutResult> CreateAsync(CheckoutCreateRequest request, string idempotencyKey, string accessToken, CancellationToken cancellationToken = default)
+        => await CreateForAccountAsync(request, idempotencyKey, accessToken, null, cancellationToken);
+
+    public async Task<CheckoutResult> CreateForAccountAsync(CheckoutCreateRequest request, string idempotencyKey, string accessToken, string? storefrontSession, CancellationToken cancellationToken = default)
     {
         var body = new CreateDto
         {
@@ -52,7 +55,7 @@ public sealed class CheckoutClient(
                 ShippingAddress = request.Fulfillment.ShippingAddress is null ? null : Map(request.Fulfillment.ShippingAddress)
             }
         };
-        var result = await SendAsync<ResponseDto>(HttpMethod.Post, "v1/storefront/checkout", body, ("Idempotency-Key", idempotencyKey), cancellationToken, accessToken);
+        var result = await SendAsync<ResponseDto>(HttpMethod.Post, "v1/storefront/checkout", body, ("Idempotency-Key", idempotencyKey), cancellationToken, accessToken, storefrontSession);
         return MapResult(result, request.Lines, request.Fulfillment);
     }
 
@@ -124,7 +127,7 @@ public sealed class CheckoutClient(
         catch (FormatException) { return false; }
     }
 
-    private async Task<ReadResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, (string Name, string Value)? header, CancellationToken callerToken, string? accessToken = null)
+    private async Task<ReadResult<T>> SendAsync<T>(HttpMethod method, string path, object? body, (string Name, string Value)? header, CancellationToken callerToken, string? accessToken = null, string? storefrontSession = null)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30)));
@@ -134,6 +137,7 @@ public sealed class CheckoutClient(
             if (body is not null) request.Content = JsonContent.Create(body, options: JsonOptions);
             if (header is not null) request.Headers.TryAddWithoutValidation(header.Value.Name, header.Value.Value);
             if (!string.IsNullOrWhiteSpace(accessToken)) request.Headers.TryAddWithoutValidation("X-Checkout-Access-Token", accessToken);
+            if (!string.IsNullOrWhiteSpace(storefrontSession)) request.Headers.TryAddWithoutValidation("X-Storefront-Session", storefrontSession);
             if (httpContextAccessor.HttpContext is { } context)
             {
                 request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, environment));
@@ -143,6 +147,7 @@ public sealed class CheckoutClient(
                 request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", options.ProxySecret);
             }
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (response.StatusCode == HttpStatusCode.Unauthorized) return new(response.StatusCode, CheckoutLoadState.Unauthorized, default, "Sua sessão expirou. O checkout continuará como convidado.");
             if (response.StatusCode == HttpStatusCode.NoContent) return new(response.StatusCode, CheckoutLoadState.Success, default, null);
             if (response.StatusCode == HttpStatusCode.UnprocessableEntity) return new(response.StatusCode, CheckoutLoadState.Validation, default, "Não foi possível reservar os itens com os dados atuais.");
             if (response.StatusCode == HttpStatusCode.Conflict) return new(response.StatusCode, CheckoutLoadState.Conflict, default, "A tentativa de checkout mudou. Tente novamente.");

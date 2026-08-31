@@ -68,6 +68,7 @@ builder.Services.AddScoped<ICheckoutDraftCookieStore, CheckoutDraftCookieStore>(
 builder.Services.AddScoped<ICheckoutAccessCookieStore, CheckoutAccessCookieStore>();
 builder.Services.AddScoped<IPaymentAttemptCookieStore, PaymentAttemptCookieStore>();
 builder.Services.AddScoped<IOrderAccessCookieStore, OrderAccessCookieStore>();
+builder.Services.AddScoped<ICustomerAccountCookieStore, CustomerAccountCookieStore>();
 builder.Services.AddScoped<IPublicAssistantCookieStore, PublicAssistantCookieStore>();
 builder.Services.AddSingleton<CheckoutRateLimiter>();
 builder.Services.AddScoped<CatalogService>();
@@ -90,6 +91,12 @@ builder.Services.AddHttpClient<IPublicAssistantClient, PublicAssistantClient>((s
     client.Timeout = Timeout.InfiniteTimeSpan;
 });
 builder.Services.AddHttpClient<IOrderClient, OrderClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
+builder.Services.AddHttpClient<ICustomerAccountClient, CustomerAccountClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
