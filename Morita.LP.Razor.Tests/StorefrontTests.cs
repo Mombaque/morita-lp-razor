@@ -48,7 +48,8 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains("class=\"nav-link active\"", body);
         Assert.Contains("aria-current=\"page\"", body);
         Assert.DoesNotContain("href=\"/muay-thai\" class=\"nav-link active\"", body);
-        Assert.Contains("Entrega para todo o Brasil", body);
+        Assert.Contains("class=\"commerce-site-header\"", body);
+        Assert.DoesNotContain("class=\"commerce-utility\"", body);
     }
 
     [Theory]
@@ -103,6 +104,13 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         using var client = factory.CreateClient();
         var body = await (await client.GetAsync("/")).Content.ReadAsStringAsync();
         Assert.Contains("Novos produtos entrando no corner", body);
+        Assert.Contains("Estoque real", body);
+        Assert.Contains("Escolha sua modalidade", body);
+        Assert.Contains("Kimonos, rashguards, faixas e acessórios", body);
+        Assert.Contains("Prefere ver de perto?", body);
+        Assert.Contains("Veja os produtos, confira o tamanho e tire suas dúvidas antes de comprar.", body);
+        Assert.Contains("Rua Coronel Nogueira Padilha, 429", body);
+        Assert.DoesNotContain("Experimente. Compare.", body);
         Assert.DoesNotContain("random-carousel-btn", body);
     }
 
