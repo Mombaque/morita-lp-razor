@@ -1641,7 +1641,7 @@ body {
 .commerce-hero {
   align-items: stretch;
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(320px, .88fr);
+  grid-template-columns: 1fr;
   min-height: min(720px, calc(100vh - 150px));
 }
 
@@ -1746,82 +1746,6 @@ body {
   margin: .5rem 0 0;
 }
 
-.commerce-hero-product {
-  background: var(--fight-green);
-  min-height: 520px;
-  overflow: hidden;
-  position: relative;
-}
-
-.commerce-hero-product > a {
-  color: #06100c;
-  display: block;
-  height: 100%;
-  text-decoration: none;
-}
-
-.commerce-hero-product img {
-  filter: saturate(.88) contrast(1.04);
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
-}
-
-.hero-product-number {
-  background: #06100c;
-  color: var(--fight-green);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: .78rem;
-  font-weight: 800;
-  left: 1rem;
-  letter-spacing: .15em;
-  padding: .55rem .7rem;
-  position: absolute;
-  text-transform: uppercase;
-  top: 1rem;
-  z-index: 1;
-}
-
-.hero-product-caption {
-  background: var(--fight-green);
-  bottom: 0;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
-  left: 0;
-  padding: 1rem;
-  position: absolute;
-  right: 0;
-}
-
-.hero-product-caption strong {
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 1.25rem;
-  text-transform: uppercase;
-}
-
-.hero-product-placeholder {
-  align-content: space-between;
-  color: #06100c;
-  display: grid;
-  height: 100%;
-  padding: 2rem;
-}
-
-.hero-product-placeholder span {
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: clamp(12rem, 32vw, 29rem);
-  font-weight: 900;
-  letter-spacing: -.12em;
-  line-height: .8;
-}
-
-.hero-product-placeholder strong {
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 2rem;
-  text-transform: uppercase;
-}
-
 .discipline-strip,
 .featured-catalog,
 .collection-catalog {
@@ -1869,18 +1793,10 @@ body {
   transition: background .2s ease, color .2s ease, transform .2s ease;
 }
 
-.discipline-grid a:nth-child(2) {
-  transform: translateY(1.5rem);
-}
-
 .discipline-grid a:hover {
   background: var(--fight-green);
   color: #06100c;
   transform: translateY(-.4rem);
-}
-
-.discipline-grid a:nth-child(2):hover {
-  transform: translateY(1.1rem);
 }
 
 .discipline-grid span,
@@ -2052,7 +1968,7 @@ body {
 .collection-hero {
   align-items: stretch;
   display: grid;
-  grid-template-columns: 1fr minmax(320px, .72fr);
+  grid-template-columns: 1fr;
   min-height: 570px;
 }
 
@@ -2077,56 +1993,6 @@ body {
 .collection-hero .commerce-button {
   justify-self: start;
   margin-top: 1rem;
-}
-
-.collection-hero-image {
-  background: var(--fight-green);
-  color: #06100c;
-  min-height: 500px;
-  overflow: hidden;
-  position: relative;
-  text-decoration: none;
-}
-
-.collection-hero-image img {
-  height: 100%;
-  object-fit: cover;
-  width: 100%;
-}
-
-.collection-hero-image span {
-  background: var(--fight-green);
-  bottom: 0;
-  font-family: "Barlow Condensed", sans-serif;
-  font-weight: 800;
-  left: 0;
-  letter-spacing: .08em;
-  padding: .8rem 1rem;
-  position: absolute;
-  right: 0;
-  text-transform: uppercase;
-}
-
-.collection-mark {
-  align-items: center;
-  background: var(--fight-green);
-  color: #06100c;
-  display: flex;
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: clamp(11rem, 28vw, 25rem);
-  font-weight: 900;
-  justify-content: center;
-  letter-spacing: -.12em;
-  overflow: hidden;
-}
-
-.striking-hero .collection-mark {
-  font-size: clamp(9rem, 22vw, 19rem);
-}
-
-.kids-hero .collection-mark {
-  color: var(--fight-green);
-  background: var(--fight-paper);
 }
 
 .collection-filters {
@@ -2202,7 +2068,7 @@ body {
   border-top: 1px solid var(--fight-line);
   display: grid;
   gap: clamp(2rem, 6vw, 6rem);
-  grid-template-columns: 1.4fr .7fr 1fr auto;
+  grid-template-columns: 1.4fr .7fr 1fr;
   margin: auto;
   max-width: 1320px;
   padding: clamp(2rem, 6vw, 5rem) clamp(1rem, 3vw, 2.5rem);
@@ -2234,17 +2100,10 @@ body {
   text-decoration: none;
 }
 
-.commerce-footer .commerce-footer-mark {
-  color: var(--fight-green);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 3rem;
-  font-weight: 900;
-}
-
 @media (max-width: 980px) {
   .commerce-hero,
   .collection-hero {
-    grid-template-columns: 1fr 42%;
+    grid-template-columns: 1fr;
   }
 
   .commerce-hero-copy,
@@ -2260,9 +2119,6 @@ body {
     grid-template-columns: 1.3fr 1fr 1fr;
   }
 
-  .commerce-footer-mark {
-    display: none;
-  }
 }
 
 @media (max-width: 700px) {
@@ -2289,12 +2145,6 @@ body {
     min-height: 0;
   }
 
-  .commerce-hero-product,
-  .collection-hero-image,
-  .collection-mark {
-    min-height: 420px;
-  }
-
   .commerce-promises {
     grid-template-columns: 1fr;
   }
@@ -2311,8 +2161,7 @@ body {
     grid-template-columns: 1fr;
   }
 
-  .discipline-grid a,
-  .discipline-grid a:nth-child(2) {
+  .discipline-grid a {
     aspect-ratio: auto;
     min-height: 240px;
     transform: none;

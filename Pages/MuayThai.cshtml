@@ -18,14 +18,6 @@
       <p>Luvas, shorts e proteção para rounds mais seguros e intensos, do primeiro treino à preparação para lutar.</p>
       <a class="commerce-button commerce-button-primary" href="#catalog">Ver produtos ↓</a>
     </div>
-    @if (Model.HeroProduct is not null)
-    {
-      <a class="collection-hero-image" href="/products/@Uri.EscapeDataString(Model.HeroProduct.Slug ?? "")"><img src="@Model.HeroProduct.Imagens[0]" alt="@Model.HeroProduct.Alt"><span>@Model.HeroProduct.Nome</span></a>
-    }
-    else
-    {
-      <div class="collection-mark" aria-hidden="true">MT</div>
-    }
   </section>
 
   <nav class="collection-filters" aria-label="Categorias de Muay Thai">

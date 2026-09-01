@@ -34,32 +34,16 @@
 <main class="commerce-shell home-storefront">
   <section class="commerce-hero" aria-labelledby="home-title">
     <div class="commerce-hero-copy">
-      <p class="fight-label">Sorocaba / Brasil</p>
       <h1 id="home-title">Vista seu<br><span>próximo round.</span></h1>
       <p class="hero-lead">Equipamento de luta escolhido com critério, preço confirmado no catálogo e ajuda humana quando você precisar.</p>
       <div class="hero-actions">
         <a class="commerce-button commerce-button-primary" href="/products">Explorar catálogo <span aria-hidden="true">→</span></a>
-        <button class="commerce-button commerce-button-secondary" type="button" data-request-open data-track-event="customer_product_request_open" data-track-category="home">Encontrar meu tamanho</button>
       </div>
       <dl class="commerce-promises" aria-label="Benefícios da loja">
         <div><dt>Estoque real</dt><dd>Veja o que está disponível antes de comprar.</dd></div>
         <div><dt>Retire ou receba</dt><dd>Retirada em Sorocaba ou envio para todo o Brasil.</dd></div>
         <div><dt>Ajuda para escolher</dt><dd>Fale com quem conhece os produtos e o treino.</dd></div>
       </dl>
-    </div>
-    <div class="commerce-hero-product">
-      @if (Model.HeroProduct is not null)
-      {
-        <a href="/products/@Uri.EscapeDataString(Model.HeroProduct.Slug ?? "")" aria-label="Ver @Model.HeroProduct.Nome">
-          <span class="hero-product-number">Em destaque / 01</span>
-          <img src="@Model.HeroProduct.Imagens[0]" alt="@Model.HeroProduct.Alt">
-          <span class="hero-product-caption"><strong>@Model.HeroProduct.Nome</strong><span>@(Model.HeroProduct.FormattedPrice ?? "Consulte o preço")</span></span>
-        </a>
-      }
-      else
-      {
-        <div class="hero-product-placeholder" aria-hidden="true"><span>M</span><strong>Fight supply<br>Sorocaba</strong></div>
-      }
     </div>
   </section>
 
@@ -99,10 +83,13 @@
   </section>
 
   <section class="store-visit" aria-labelledby="visit-title">
-    <p class="fight-label">Morita Fight / Sorocaba</p>
-    <h2 id="visit-title">Experimente. Compare.<br>Saia pronto para treinar.</h2>
-    <p>Rua Coronel Nogueira Padilha, 429. Atendimento direto para acertar tamanho, ajuste e modalidade.</p>
-    <div class="hero-actions">
+    <div class="store-visit-copy">
+      <p class="fight-label">Loja física em Sorocaba</p>
+      <h2 id="visit-title">Prefere ver de perto?</h2>
+      <p class="store-visit-description">Veja os produtos, confira o tamanho e tire suas dúvidas antes de comprar.</p>
+      <p class="store-visit-address">Rua Coronel Nogueira Padilha, 429</p>
+    </div>
+    <div class="hero-actions store-visit-actions">
       <a class="commerce-button commerce-button-primary" href="https://maps.app.goo.gl/pNYYiMimWGa4actz7">Como chegar</a>
       <a class="commerce-button commerce-button-secondary" href="https://wa.me/5515981079332" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>
     </div>
