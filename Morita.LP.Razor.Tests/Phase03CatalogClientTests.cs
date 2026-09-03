@@ -20,7 +20,7 @@ public sealed class Phase03CatalogClientTests
     public async Task Maps_realistic_numeric_lookup_guid_offer_and_details()
     {
         const string offer = "a3b7d8aa-1f05-4b7c-8f33-7fc9c0a9ef11";
-        var json = $$"""{"items":[{"slug":"kimono-a1","name":"Kimono A1","description":"Leve","details":["Algodão","Gramatura 400"],"category":{"id":7,"slug":"kimonos","label":"Kimonos"},"modality":{"id":2,"slug":"jiu-jitsu","label":"Jiu-Jitsu"},"brand":{"id":4,"slug":"itg","label":"In The Guard"},"audience":"kids","price":249.9,"currency":"BRL","availability":"available","variants":[{"colorId":3,"colorLabel":"Azul","images":["/catalog/a.jpg","//bad.test/a.jpg","javascript:bad"],"offers":[{"publicOfferId":"{{offer}}","sizeId":11,"sizeLabel":"A1","unitPrice":249.9,"currency":"BRL","availability":"available"}]}]}],"page":1,"pageSize":24,"totalCount":1,"totalPages":1}""";
+        var json = $$"""{"items":[{"slug":"kimono-a1","name":"Kimono A1","description":"Leve","details":["Algodão","Gramatura 400"],"category":{"id":7,"slug":"kimonos","label":"Kimonos"},"modality":{"id":2,"slug":"jiu-jitsu","label":"Jiu-Jitsu"},"brand":{"id":4,"slug":"itg","label":"In The Guard"},"audience":"kids","price":249.9,"currency":"BRL","availability":"available","variants":[{"colorId":3,"colorLabel":"Azul","images":["/v1/storefront/catalog/images/3a82ed3f-a5f8-4088-9874-9e511c41f14b","/catalog/a.jpg","//bad.test/a.jpg","javascript:bad"],"offers":[{"publicOfferId":"{{offer}}","sizeId":11,"sizeLabel":"A1","unitPrice":249.9,"currency":"BRL","availability":"available"}]}]}],"page":1,"pageSize":24,"totalCount":1,"totalPages":1}""";
         var client = Create(HttpStatusCode.OK, json);
         var result = await client.GetCatalogAsync(new CatalogQuery("kimono azul", 7, 2, 4, 11, 3, true, 1));
         var product = Assert.Single(result.Items);
@@ -28,8 +28,9 @@ public sealed class Phase03CatalogClientTests
         Assert.Equal(Guid.Parse(offer), Assert.Single(product.Variants[0].Offers).PublicOfferId);
         Assert.Equal(["Algodão", "Gramatura 400"], product.Details);
         Assert.Equal(PublicCatalogAudience.Kids, product.Audience);
-        Assert.Single(product.Imagens);
-        Assert.Contains("catalog/a.jpg", product.Imagens[0]);
+        Assert.Equal(2, product.Imagens.Count);
+        Assert.Equal("/v1/storefront/catalog/images/3a82ed3f-a5f8-4088-9874-9e511c41f14b", product.Imagens[0]);
+        Assert.Contains("catalog/a.jpg", product.Imagens[1]);
     }
 
     [Fact]
@@ -125,6 +126,18 @@ public sealed class Phase03CatalogClientTests
         Assert.Equal(CatalogLoadState.Partial, result.State);
         Assert.Equal(20m, result.Total);
         Assert.Null(result.Lines[1].UnitPrice);
+    }
+
+    [Fact]
+    public async Task Keeps_catalog_image_paths_relative_for_same_origin_proxying()
+    {
+        var id = Guid.NewGuid();
+        var image = $"/v1/storefront/catalog/images/{id}";
+        var body = $$"""{"lines":[{"publicOfferId":"{{id}}","quantity":1,"unitPrice":10,"linePrice":10,"currency":"BRL","availability":"available","imageUrl":"{{image}}"}],"total":10,"currency":"BRL"}""";
+
+        var result = await Create(body).QuoteAsync(new CatalogQuoteRequest([new(id, 1)]));
+
+        Assert.Equal(image, result.Lines[0].ImageUrl);
     }
 
     [Fact]

@@ -97,6 +97,8 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
     {
         if (string.IsNullOrWhiteSpace(image)) return null;
         image = image.Trim();
+        if (image.StartsWith("/v1/storefront/catalog/images/", StringComparison.Ordinal))
+            return image;
         if (image.StartsWith("/", StringComparison.Ordinal))
             return new Uri(new Uri(_options.BaseUrl.TrimEnd('/') + "/"), image.TrimStart('/')).ToString();
         return image;
@@ -160,7 +162,7 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
             return absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps ? absolute.ToString() : null;
         return new Uri(new Uri(_options.BaseUrl.TrimEnd('/') + "/"), image).ToString();
     }
-    private string? NormalizeImage(string? image) { if (string.IsNullOrWhiteSpace(image)) return null; image = image.Trim(); if (image.StartsWith("//")) return null; if (image.StartsWith('/')) return new Uri(new Uri(_options.BaseUrl.TrimEnd('/') + "/"), image.TrimStart('/')).ToString(); return Uri.TryCreate(image, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) ? uri.ToString() : null; }
+    private string? NormalizeImage(string? image) { if (string.IsNullOrWhiteSpace(image)) return null; image = image.Trim(); if (image.StartsWith("//")) return null; if (image.StartsWith("/v1/storefront/catalog/images/", StringComparison.Ordinal)) return image; if (image.StartsWith('/')) return new Uri(new Uri(_options.BaseUrl.TrimEnd('/') + "/"), image.TrimStart('/')).ToString(); return Uri.TryCreate(image, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) ? uri.ToString() : null; }
     private sealed record ReadResult<T>(HttpStatusCode? Status, bool IsSuccess, T? Value);
     private sealed class PagedResponse { public List<ProductResponse?>? Items { get; set; } public int Page { get; set; } public int PageSize { get; set; } public int TotalCount { get; set; } public int TotalPages { get; set; } }
     private sealed class QuoteResponse
