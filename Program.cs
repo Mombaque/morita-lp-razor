@@ -78,6 +78,12 @@ builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, 
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
 });
+builder.Services.AddHttpClient("catalog-image-proxy", (serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
+});
 builder.Services.AddHttpClient<ICheckoutClient, CheckoutClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
@@ -157,6 +163,34 @@ app.UseAuthorization();
 app.MapGet("/JiuJitsu", (HttpContext context) => Results.Redirect("/jiu-jitsu" + context.Request.QueryString, permanent: true));
 app.MapGet("/MuayThai", (HttpContext context) => Results.Redirect("/muay-thai" + context.Request.QueryString, permanent: true));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/v1/storefront/catalog/images/{imageId:guid}", async (Guid imageId, IHttpClientFactory clients, CancellationToken cancellationToken) =>
+{
+    try
+    {
+        using var response = await clients.CreateClient("catalog-image-proxy").GetAsync(
+            $"v1/storefront/catalog/images/{imageId}",
+            HttpCompletionOption.ResponseHeadersRead,
+            cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+            return Results.NotFound();
+        if (!response.IsSuccessStatusCode)
+            return Results.StatusCode(StatusCodes.Status502BadGateway);
+
+        var contentType = response.Content.Headers.ContentType?.MediaType;
+        if (contentType is not ("image/jpeg" or "image/png" or "image/webp"))
+            return Results.StatusCode(StatusCodes.Status502BadGateway);
+
+        return Results.File(await response.Content.ReadAsByteArrayAsync(cancellationToken), contentType);
+    }
+    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+    {
+        return Results.StatusCode(StatusCodes.Status504GatewayTimeout);
+    }
+    catch (HttpRequestException)
+    {
+        return Results.StatusCode(StatusCodes.Status502BadGateway);
+    }
+});
 app.MapPost("/customer-product-request", async (HttpContext context, IHttpClientFactory clients, IOptions<CatalogApiOptions> catalogOptions, IOptions<StorefrontOptions> storefrontOptions, IAntiforgery antiforgery, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
 {
     var logger = loggerFactory.CreateLogger("CustomerProductRequestRelay");
