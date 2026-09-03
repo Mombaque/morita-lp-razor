@@ -110,6 +110,7 @@
         window.CUSTOMER_REQUEST_RELAY = @Html.Raw(JsonSerializer.Serialize(Configuration.GetValue<bool>("Storefront:UseRelayForCustomerRequests")));
         window.CUSTOMER_REQUEST_RELAY_URL = "/customer-product-request";
     </script>
+    <script src="~/js/carousel.js" asp-append-version="true"></script>
     <script type="module" src="~/js/customer-product-request.js" asp-append-version="true"></script>
     @if (publicAssistantEnabled) { <script type="module" src="~/js/public-assistant.js" asp-append-version="true"></script> }
     <script type="module" src="~/js/tracking.js" asp-append-version="true"></script>

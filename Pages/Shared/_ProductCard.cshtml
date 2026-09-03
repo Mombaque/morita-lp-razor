@@ -15,7 +15,7 @@
       { <img src="@(images[i].StartsWith("/", StringComparison.Ordinal) ? Url.Content("~" + images[i]) : images[i])" alt="@(i == 0 ? p.Alt : "")" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i" loading="@(Model.Index > 3 ? "lazy" : "eager")"> }
     }
     @if (images.Count > 1)
-    { <button class="prev" onclick="getImage('@carouselId', false)" aria-label="Imagem anterior">&#10094;</button><button class="next" onclick="getImage('@carouselId', true)" aria-label="Próxima imagem">&#10095;</button> }
+    { <button class="prev" type="button" onclick="getImage('@carouselId', false)" aria-label="Imagem anterior">&#10094;</button><button class="next" type="button" onclick="getImage('@carouselId', true)" aria-label="Próxima imagem">&#10095;</button> }
   </div>
   <div class="product-card-body"><p class="product-taxonomy">@(p.Modality?.Label ?? Model.Category) @if(p.Category is not null){<span>/ @p.Category.Label</span>} @if(p.Audience == PublicCatalogAudience.Kids){<span>/ Infantil</span>}</p>@if (!string.IsNullOrWhiteSpace(p.Slug)) { <a class="product-card-link" href="/products/@Uri.EscapeDataString(p.Slug)"><h3>@p.Nome</h3></a> } else { <h3>@p.Nome</h3> }<p class="product-description">@p.Descricao</p>
   @if (!string.IsNullOrWhiteSpace(p.FormattedPrice))
