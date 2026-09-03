@@ -76,6 +76,41 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
+    public async Task Product_card_carousel_script_is_shared_across_all_card_surfaces()
+    {
+        var cardProduct = new Product
+        {
+            Slug = "kimono",
+            Nome = "Kimono",
+            Imagens = ["https://cdn.example/kimono-front.jpg", "https://cdn.example/kimono-back.jpg"]
+        };
+        var related = CatalogResult.Success([
+            new Product
+            {
+                Slug = "related",
+                Nome = "Related",
+                Imagens = ["https://cdn.example/related-front.jpg", "https://cdn.example/related-back.jpg"]
+            }
+        ]);
+        using var factory = CreateDetail(
+            new Product { Slug = "detail", Nome = "Detail" },
+            page: new CatalogPage([cardProduct], 1, 24, 1, 1, CatalogLoadState.Success),
+            related: related);
+        using var client = factory.CreateClient();
+
+        foreach (var path in new[] { "/", "/products", "/jiu-jitsu", "/muay-thai", "/kids" })
+        {
+            var html = await (await client.GetAsync(path)).Content.ReadAsStringAsync();
+            AssertCarouselScriptLoadedOnce(html);
+        }
+
+        var detailHtml = await (await client.GetAsync("/products/detail")).Content.ReadAsStringAsync();
+        AssertCarouselScriptLoadedOnce(detailHtml);
+        Assert.Contains("class=\"prev\" type=\"button\"", detailHtml);
+        Assert.Contains("class=\"next\" type=\"button\"", detailHtml);
+    }
+
+    [Fact]
     public async Task Detail_renders_opaque_offer_matrix_and_disabled_unavailable_offer()
     {
         var available = Guid.NewGuid();
@@ -158,7 +193,7 @@ public sealed class Phase03PageTests
     }
 
     private static WebApplicationFactory<Program> Create(CatalogPage page) => CreateDetail(new Product { Slug = "x", Nome = "x" }, page: page);
-    private static WebApplicationFactory<Program> CreateDetail(Product? detail, ProductDetailResult? forced = null, CatalogPage? page = null, CatalogQuoteResult? quote = null)
+    private static WebApplicationFactory<Program> CreateDetail(Product? detail, ProductDetailResult? forced = null, CatalogPage? page = null, CatalogQuoteResult? quote = null, CatalogResult? related = null)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -168,10 +203,15 @@ public sealed class Phase03PageTests
                 services.RemoveAll<ICatalogClient>();
                 services.AddScoped<ICatalogClient>(_ => new Stub(
                     page ?? new CatalogPage([], 1, 24, 0, 0, CatalogLoadState.Empty),
-                    CatalogResult.Empty(),
+                    related ?? CatalogResult.Empty(),
                     forced ?? (detail is null ? ProductDetailResult.NotFound() : ProductDetailResult.Success(detail)), quote ?? CatalogQuoteResult.Unavailable()));
             });
         });
+    }
+
+    private static void AssertCarouselScriptLoadedOnce(string html)
+    {
+        Assert.Equal(1, html.Split("carousel.js", StringSplitOptions.None).Length - 1);
     }
 
     private sealed class Stub(CatalogPage page, CatalogResult related, ProductDetailResult detail, CatalogQuoteResult quote) : ICatalogClient
