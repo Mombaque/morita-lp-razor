@@ -1,6 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
+using Morita.LP.Razor.Configuration;
 using Morita.LP.Razor.Models;
 using Morita.LP.Razor.Services;
 
@@ -14,8 +16,10 @@ public sealed class CheckoutModel(
     ICheckoutAccessCookieStore access,
     CheckoutRateLimiter rateLimiter,
     ICustomerAccountClient account,
-    ICustomerAccountCookieStore accountCookies) : PageModel
+    ICustomerAccountCookieStore accountCookies,
+    IOptions<StorefrontOptions>? storefrontOptions = null) : PageModel
 {
+    private bool CustomerAccountsEnabled => storefrontOptions?.Value.CustomerAccountsEnabled ?? true;
     public CartState Cart { get; private set; } = new(DateTimeOffset.UtcNow, []);
     public CatalogQuoteResult Quote { get; private set; } = CatalogQuoteResult.Unavailable();
     public CheckoutConfigurationResult Configuration { get; private set; } = CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable);
@@ -23,12 +27,14 @@ public sealed class CheckoutModel(
     public string? ErrorMessage { get; private set; }
     public string? AccountMessage { get; private set; }
     public bool AccountPrefilled { get; private set; }
+    public bool AccountNeedsGuestConfirmation { get; private set; }
     public ShippingQuoteResult ShippingQuotes { get; private set; } = ShippingQuoteResult.Failure(CheckoutLoadState.Validation);
     [BindProperty] public ContactInput Contact { get; set; } = new();
     [BindProperty] public string FulfillmentMethod { get; set; } = "pickup";
     [BindProperty] public Guid? PublicShippingQuoteId { get; set; }
     [BindProperty] public ShippingAddressInput ShippingAddress { get; set; } = new();
     [BindProperty] public bool SaveAccountDetails { get; set; }
+    [BindProperty] public bool ContinueAsGuest { get; set; }
     public bool Empty => Cart.Lines.Count == 0;
     public bool CanSubmit => !Empty && Quote.State == CatalogLoadState.Success && Configuration.State == CheckoutLoadState.Success &&
         (FulfillmentMethod == "pickup" && Configuration.Configuration?.PickupEnabled == true ||
@@ -78,18 +84,32 @@ public sealed class CheckoutModel(
                 Complement = string.IsNullOrWhiteSpace(ShippingAddress.Complement) ? null : ShippingAddress.Complement.Trim(), Neighborhood = Clean(ShippingAddress.Neighborhood),
                 City = Clean(ShippingAddress.City), State = Clean(ShippingAddress.State).ToUpperInvariant(), PostalCode = Clean(ShippingAddress.PostalCode), CountryCode = "BR"
             });
-        var session = accountCookies.Read();
+        if (!CustomerAccountsEnabled && accountCookies.Read() is not null) accountCookies.Clear();
+        var session = !CustomerAccountsEnabled || ContinueAsGuest ? null : accountCookies.Read();
         var profile = session is null ? null : await account.GetProfileAsync(session.Token, cancellationToken);
-        if (profile?.State == AccountLoadState.Unauthorized) { accountCookies.Clear(); session = null; AccountMessage = "Sua sessão expirou; o checkout continua como convidado."; }
-        else if (profile?.State != AccountLoadState.Success) { session = null; if (profile is not null) AccountMessage = "Não foi possível carregar sua conta; o checkout continuará como convidado."; }
-        var email = profile?.Value?.Email ?? Contact.Email.Trim();
-        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = email, Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, session?.Token, cancellationToken);
-        if (result.State == CheckoutLoadState.Unauthorized && session is not null)
+        if (profile is not null && profile.State != AccountLoadState.Success)
         {
+            if (!ContinueAsGuest)
+            {
+                AccountNeedsGuestConfirmation = true;
+                AccountMessage = "Não foi possível validar sua conta agora. Seus dados foram preservados. Para continuar sem vínculo, escolha continuar como convidado; este pedido não ficará no histórico da conta.";
+                return Page();
+            }
+
             accountCookies.Clear();
             session = null;
-            AccountMessage = "Sua sessão expirou; o checkout continuará como convidado.";
-            result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = Contact.Email.Trim(), Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, null, cancellationToken);
+            AccountMessage = "Você escolheu continuar como convidado. Este pedido não ficará vinculado ao histórico da sua conta.";
+        }
+        var email = profile?.Value?.Email ?? Contact.Email.Trim();
+        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = email, Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, session?.Token, cancellationToken);
+        if (result.State == CheckoutLoadState.Unauthorized && session is not null && !ContinueAsGuest)
+        {
+            accountCookies.Clear();
+            AccountNeedsGuestConfirmation = true;
+            AccountMessage = "Sua sessão não pôde ser validada. Seus dados foram preservados. Escolha continuar como convidado para criar um pedido sem vínculo com o histórico da conta.";
+            ErrorState = result.State;
+            ErrorMessage = null;
+            return Page();
         }
         if (result.State == CheckoutLoadState.Success && result.Checkout is not null)
         {
@@ -128,6 +148,7 @@ public sealed class CheckoutModel(
     private async Task LoadAsync(CancellationToken cancellationToken) { Cart = cart.Read(); await LoadConfigurationAsync(cancellationToken); await LoadQuoteAsync(cancellationToken); await LoadAccountAsync(cancellationToken); }
     private async Task LoadAccountAsync(CancellationToken cancellationToken)
     {
+        if (!CustomerAccountsEnabled) { if (accountCookies.Read() is not null) accountCookies.Clear(); return; }
         if (accountCookies.Read() is not { } session) return;
         var result = await account.GetProfileAsync(session.Token, cancellationToken);
         if (result.State == AccountLoadState.Success && result.Value is { } profile)

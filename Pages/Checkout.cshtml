@@ -81,7 +81,8 @@
         </section>
 
          @if (Model.AccountPrefilled) { <label class="account-check"><input asp-for="SaveAccountDetails" type="checkbox"> Salvar estes dados na minha conta</label> }
-         <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")">Continuar para o PIX <span aria-hidden="true">→</span></button>
+          @if (Model.AccountNeedsGuestConfirmation) { <button class="commerce-button commerce-button-secondary" type="submit" name="ContinueAsGuest" value="true">Continuar como convidado</button><p class="account-status">O pedido não será vinculado ao histórico da sua conta.</p> }
+          else { <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")">Continuar para o PIX <span aria-hidden="true">→</span></button> }
         <p class="checkout-security"><i class="fas fa-lock" aria-hidden="true"></i> Preço, estoque e frete são reconfirmados pelo servidor antes da reserva.</p>
       </div>
 
