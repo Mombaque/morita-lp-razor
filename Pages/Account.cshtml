@@ -23,13 +23,17 @@
                 <span asp-validation-for="EmailForm.Email" class="validation-error"></span>
                 <button class="commerce-button commerce-button-primary">Enviar código</button>
             </form>
-            <form method="post" asp-page-handler="VerifyCode">
-                <input type="hidden" asp-for="Verification.ChallengeId" value="@Model.ChallengeId">
-                <label>Código recebido<input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code"></label>
-                <span asp-validation-for="Verification.Code" class="validation-error"></span>
-                <label class="account-check"><input asp-for="AcceptedPrivacyPolicy" type="checkbox"> Aceito a política de privacidade da conta.</label>
+            @if (Model.ChallengeIssued) { <form method="post" asp-page-handler="VerifyCode">
+                 <input type="hidden" asp-for="Verification.ChallengeId" value="@Model.ChallengeId">
+                 <input type="hidden" asp-for="ChallengeExpiresAt">
+                 <input type="hidden" asp-for="PrivacyPolicyVersion">
+                 <label>Código recebido<input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code"></label>
+                 <span asp-validation-for="Verification.Code" class="validation-error"></span>
+                @if (Model.ChallengeExpiresAt is { } expiresAt) { <p>O código expira às <time datetime="@expiresAt.ToString("O")">@expiresAt.ToLocalTime().ToString("t")</time>.</p> }
+                <label class="account-check"><input asp-for="AcceptedPrivacyPolicy" type="checkbox"> Aceito a @if (Model.PrivacyPolicyUrl is { Length: > 0 } privacyUrl) { <a href="@privacyUrl" target="_blank" rel="noopener">política de privacidade</a> } else { <span>política de privacidade</span> } da conta.</label>
+                <span asp-validation-for="AcceptedPrivacyPolicy" class="validation-error"></span>
                 <button class="commerce-button commerce-button-secondary">Confirmar entrada</button>
-            </form>
+            </form> }
         </section>
     }
     else
@@ -38,21 +42,22 @@
             <section class="account-panel">
                 <h2>Dados do corner</h2><p class="account-email">@Model.Profile!.Email</p>
                 <form method="post" asp-page-handler="SaveProfile">
-                    <label>Nome<input asp-for="ProfileForm.Name" autocomplete="name"></label>
-                    <label>Telefone<input asp-for="ProfileForm.Phone" autocomplete="tel"></label>
+                    <label>Nome<input asp-for="ProfileForm.Name" autocomplete="name"></label><span asp-validation-for="ProfileForm.Name" class="validation-error"></span>
+                    <label>Telefone<input asp-for="ProfileForm.Phone" autocomplete="tel"></label><span asp-validation-for="ProfileForm.Phone" class="validation-error"></span>
                     <h3>Endereço padrão</h3>
                     <div class="address-grid">
-                        <label class="full">Destinatário<input asp-for="ProfileForm.Address.Recipient"></label>
-                        <label class="wide">Rua<input asp-for="ProfileForm.Address.Street"></label><label>Número<input asp-for="ProfileForm.Address.Number"></label>
-                        <label class="full">Complemento<input asp-for="ProfileForm.Address.Complement"></label><label>Bairro<input asp-for="ProfileForm.Address.Neighborhood"></label>
-                        <label>Cidade<input asp-for="ProfileForm.Address.City"></label><label>UF<input asp-for="ProfileForm.Address.State" maxlength="2"></label><label>CEP<input asp-for="ProfileForm.Address.PostalCode"></label>
+                        <label class="full">Destinatário<input asp-for="ProfileForm.Address.Recipient"><span asp-validation-for="ProfileForm.Address.Recipient" class="validation-error"></span></label>
+                        <label class="wide">Rua<input asp-for="ProfileForm.Address.Street"><span asp-validation-for="ProfileForm.Address.Street" class="validation-error"></span></label><label>Número<input asp-for="ProfileForm.Address.Number"><span asp-validation-for="ProfileForm.Address.Number" class="validation-error"></span></label>
+                        <label class="full">Complemento<input asp-for="ProfileForm.Address.Complement"></label><label>Bairro<input asp-for="ProfileForm.Address.Neighborhood"><span asp-validation-for="ProfileForm.Address.Neighborhood" class="validation-error"></span></label>
+                        <label>Cidade<input asp-for="ProfileForm.Address.City"><span asp-validation-for="ProfileForm.Address.City" class="validation-error"></span></label><label>UF<input asp-for="ProfileForm.Address.State" maxlength="2"><span asp-validation-for="ProfileForm.Address.State" class="validation-error"></span></label><label>CEP<input asp-for="ProfileForm.Address.PostalCode"><span asp-validation-for="ProfileForm.Address.PostalCode" class="validation-error"></span></label>
                     </div>
                     <button class="commerce-button commerce-button-primary">Salvar dados</button>
                 </form>
             </section>
             <section class="account-panel account-orders">
                 <h2>Pedidos próprios</h2>
-                @if (Model.Orders.Count == 0) { <p>Ainda não há pedidos vinculados a esta conta.</p> }
+                @if (Model.OrdersError is not null) { <p class="validation-error" role="alert">@Model.OrdersError</p> }
+                else if (Model.OrdersLoaded && Model.Orders.Count == 0) { <p>Ainda não há pedidos vinculados a esta conta.</p> }
                 else
                 {
                     <ol class="order-ledger">
@@ -71,7 +76,7 @@
         <section class="account-panel">
             <h2>Trocar e-mail</h2>
             <form method="post" asp-page-handler="RequestEmailCode"><label>Novo e-mail<input asp-for="EmailChange.Email" type="email" autocomplete="email"></label><span asp-validation-for="EmailChange.Email" class="validation-error"></span><button class="commerce-button commerce-button-secondary">Enviar código</button></form>
-            <form method="post" asp-page-handler="VerifyEmailCode"><input type="hidden" asp-for="Verification.ChallengeId" value="@Model.ChallengeId"><label>Código<input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code"></label><button class="commerce-button commerce-button-secondary">Confirmar novo e-mail</button></form>
+            <form method="post" asp-page-handler="VerifyEmailCode"><input type="hidden" asp-for="Verification.ChallengeId" value="@Model.ChallengeId"><label>Código<input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code"></label><span asp-validation-for="Verification.Code" class="validation-error"></span><button class="commerce-button commerce-button-secondary">Confirmar novo e-mail</button></form>
         </section>
         <section class="account-panel account-actions">
             <h2>Controle da sessão</h2>

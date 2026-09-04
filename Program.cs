@@ -30,11 +30,17 @@ builder.Services.AddOptions<StorefrontOptions>()
     .Validate(options => options.PublicAssistantTimeoutSeconds is >= 5 and <= 60,
         "Storefront:PublicAssistantTimeoutSeconds must be between 5 and 60.")
     .Validate(options =>
-        !options.PublicAssistantEnabled ||
+        !options.PublicAssistantEnabled && !options.CustomerAccountsEnabled ||
         builder.Environment.IsDevelopment() ||
         builder.Environment.IsEnvironment("E2E") ||
         !string.IsNullOrWhiteSpace(options.DataProtectionKeyDirectory) && Path.IsPathRooted(options.DataProtectionKeyDirectory),
-        "Storefront:DataProtectionKeyDirectory must be an absolute durable-storage path when the public assistant is enabled.")
+        "Storefront:DataProtectionKeyDirectory must be an absolute durable-storage path when customer accounts or the public assistant are enabled.")
+    .Validate(options =>
+        !options.CustomerAccountsEnabled ||
+        builder.Environment.IsDevelopment() ||
+        builder.Environment.IsEnvironment("E2E") ||
+        Uri.TryCreate(options.PrivacyPolicyUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps,
+        "Storefront:PrivacyPolicyUrl must be an absolute HTTPS URL when customer accounts are enabled outside Development and E2E.")
     .ValidateOnStart();
 builder.Services.AddOptions<CatalogApiOptions>().BindConfiguration(CatalogApiOptions.SectionName).PostConfigure(options =>
 {

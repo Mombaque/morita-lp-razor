@@ -22,7 +22,7 @@ public sealed class CustomerAccountAddress
     public string CountryCode { get; init; } = "BR";
 }
 
-public sealed record AccountCodeChallenge(Guid ChallengeId, DateTimeOffset ExpiresAt);
+public sealed record AccountCodeChallenge(Guid ChallengeId, DateTimeOffset ExpiresAt, string? PrivacyPolicyVersion = null);
 public enum AccountLoadState { Success, Validation, Unauthorized, NotFound, Conflict, RateLimited, Unavailable, Timeout, Malformed }
 public sealed record AccountResult<T>(AccountLoadState State, T? Value, string? Message = null)
 {
