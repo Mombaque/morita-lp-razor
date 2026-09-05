@@ -27,25 +27,44 @@ public sealed class CheckoutModel(
     public string? ErrorMessage { get; private set; }
     public string? AccountMessage { get; private set; }
     public bool AccountPrefilled { get; private set; }
-    public bool AccountNeedsGuestConfirmation { get; private set; }
+    private CustomerAccountProfile? LoadedProfile { get; set; }
+    private CustomerAccountSession? LoadedSession { get; set; }
+    public IReadOnlyList<CustomerAccountAddress> SavedAddresses { get; private set; } = [];
     public ShippingQuoteResult ShippingQuotes { get; private set; } = ShippingQuoteResult.Failure(CheckoutLoadState.Validation);
     [BindProperty] public ContactInput Contact { get; set; } = new();
     [BindProperty] public string FulfillmentMethod { get; set; } = "pickup";
     [BindProperty] public Guid? PublicShippingQuoteId { get; set; }
     [BindProperty] public ShippingAddressInput ShippingAddress { get; set; } = new();
     [BindProperty] public bool SaveAccountDetails { get; set; }
-    [BindProperty] public bool ContinueAsGuest { get; set; }
+    [BindProperty] public Guid? SelectedAddressId { get; set; }
+    [BindProperty] public string SavedAddressLabel { get; set; } = "Meu endereço";
+    [BindProperty] public bool SetSavedAddressDefault { get; set; }
+    [BindProperty] public bool SaveShippingAddress { get; set; }
     public bool Empty => Cart.Lines.Count == 0;
     public bool CanSubmit => !Empty && Quote.State == CatalogLoadState.Success && Configuration.State == CheckoutLoadState.Success &&
         (FulfillmentMethod == "pickup" && Configuration.Configuration?.PickupEnabled == true ||
          FulfillmentMethod == "shipping" && Configuration.Configuration?.ShippingEnabled == true && PublicShippingQuoteId.HasValue);
 
-    public async Task OnGetAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         ViewData["Robots"] = "noindex,nofollow";
+        if (!CustomerAccountsEnabled)
+        {
+            accountCookies.Clear();
+            ErrorState = CheckoutLoadState.Unavailable;
+            ErrorMessage = "O checkout está temporariamente indisponível.";
+            Cart = cart.Read();
+            return Page();
+        }
+        if (accountCookies.Read() is null) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         await LoadAsync(cancellationToken);
+        if (!AccountLoadedSuccessfully())
+        {
+            if (AccountWasUnauthorized()) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
+            return Page();
+        }
         FulfillmentMethod = Configuration.Configuration?.PickupEnabled == true ? "pickup" : "shipping";
-        draft.Ensure();
+        draft.Ensure(); return Page();
     }
 
     public async Task<IActionResult> OnPostQuoteShippingAsync(CancellationToken cancellationToken)
@@ -55,7 +74,11 @@ public sealed class CheckoutModel(
         FulfillmentMethod = "shipping";
         PublicShippingQuoteId = null;
         Cart = cart.Read();
+        if (!CustomerAccountsEnabled) { accountCookies.Clear(); ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "O checkout exige uma conta de cliente."; return Page(); }
         await LoadConfigurationAsync(cancellationToken);
+        if (!await LoadAccountAsync(cancellationToken)) return AccountFailureResult();
+        ApplySelectedAddress();
+        if (!ModelState.IsValid) return Page();
         await LoadQuoteAsync(cancellationToken);
         if (Empty) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Seu carrinho está vazio."; return Page(); }
         if (Configuration.Configuration?.ShippingEnabled != true) { ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "A entrega está temporariamente indisponível."; return Page(); }
@@ -69,7 +92,11 @@ public sealed class CheckoutModel(
     {
         ViewData["Robots"] = "noindex,nofollow";
         Cart = cart.Read();
+        if (!CustomerAccountsEnabled) { accountCookies.Clear(); ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "O checkout exige uma conta de cliente."; return Page(); }
+        if (accountCookies.Read() is null) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         await LoadConfigurationAsync(cancellationToken);
+        if (!await LoadAccountAsync(cancellationToken)) return AccountFailureResult();
+        ApplySelectedAddress();
         if (Empty) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Seu carrinho está vazio."; return Page(); }
         if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "checkout-create")) { ErrorState = CheckoutLoadState.RateLimited; ErrorMessage = "Muitas tentativas. Aguarde um pouco."; await LoadQuoteAsync(cancellationToken); return Page(); }
         await LoadQuoteAsync(cancellationToken);
@@ -84,32 +111,13 @@ public sealed class CheckoutModel(
                 Complement = string.IsNullOrWhiteSpace(ShippingAddress.Complement) ? null : ShippingAddress.Complement.Trim(), Neighborhood = Clean(ShippingAddress.Neighborhood),
                 City = Clean(ShippingAddress.City), State = Clean(ShippingAddress.State).ToUpperInvariant(), PostalCode = Clean(ShippingAddress.PostalCode), CountryCode = "BR"
             });
-        if (!CustomerAccountsEnabled && accountCookies.Read() is not null) accountCookies.Clear();
-        var session = !CustomerAccountsEnabled || ContinueAsGuest ? null : accountCookies.Read();
-        var profile = session is null ? null : await account.GetProfileAsync(session.Token, cancellationToken);
-        if (profile is not null && profile.State != AccountLoadState.Success)
-        {
-            if (!ContinueAsGuest)
-            {
-                AccountNeedsGuestConfirmation = true;
-                AccountMessage = "Não foi possível validar sua conta agora. Seus dados foram preservados. Para continuar sem vínculo, escolha continuar como convidado; este pedido não ficará no histórico da conta.";
-                return Page();
-            }
-
-            accountCookies.Clear();
-            session = null;
-            AccountMessage = "Você escolheu continuar como convidado. Este pedido não ficará vinculado ao histórico da sua conta.";
-        }
-        var email = profile?.Value?.Email ?? Contact.Email.Trim();
-        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = email, Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, session?.Token, cancellationToken);
-        if (result.State == CheckoutLoadState.Unauthorized && session is not null && !ContinueAsGuest)
+        var session = LoadedSession;
+        if (session is null || LoadedProfile is null) return AccountFailureResult();
+        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = LoadedProfile.Email, Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, session.Token, cancellationToken);
+        if (result.State == CheckoutLoadState.Unauthorized)
         {
             accountCookies.Clear();
-            AccountNeedsGuestConfirmation = true;
-            AccountMessage = "Sua sessão não pôde ser validada. Seus dados foram preservados. Escolha continuar como convidado para criar um pedido sem vínculo com o histórico da conta.";
-            ErrorState = result.State;
-            ErrorMessage = null;
-            return Page();
+            return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         }
         if (result.State == CheckoutLoadState.Success && result.Checkout is not null)
         {
@@ -122,16 +130,31 @@ public sealed class CheckoutModel(
 
             draft.Clear();
             cart.Clear();
-            if (SaveAccountDetails && session is not null)
+            if (SaveAccountDetails)
             {
-                var saveAddress = fulfillment.ShippingAddress is { } submitted
-                    ? new CustomerAccountAddress { Recipient = submitted.Recipient, Street = submitted.Street, Number = submitted.Number, Complement = submitted.Complement, Neighborhood = submitted.Neighborhood, City = submitted.City, State = submitted.State, PostalCode = submitted.PostalCode, CountryCode = submitted.CountryCode }
-                    : profile?.Value?.Address;
-                var saved = await account.UpdateProfileAsync(session.Token, Contact.Name.Trim(), Contact.Phone.Trim(), saveAddress, cancellationToken);
+                var saved = await account.UpdateProfileAsync(session.Token, Contact.Name.Trim(), Contact.Phone.Trim(), cancellationToken);
                 if (!saved.Value)
                 {
                     if (saved.State == AccountLoadState.Unauthorized) accountCookies.Clear();
                     TempData["CheckoutAccountMessage"] = "Reserva criada. Não foi possível salvar seus dados na conta; sua compra não foi afetada.";
+                }
+            }
+            if (SaveShippingAddress && FulfillmentMethod == "shipping" && SelectedAddressId is null && SavedAddresses.Count < 10)
+            {
+                var created = await account.CreateAddressAsync(session.Token, new CustomerAccountAddress { Label = string.IsNullOrWhiteSpace(SavedAddressLabel) ? "Meu endereço" : SavedAddressLabel.Trim(), Recipient = ShippingAddress.Recipient.Trim(), Street = ShippingAddress.Street.Trim(), Number = ShippingAddress.Number.Trim(), Complement = string.IsNullOrWhiteSpace(ShippingAddress.Complement) ? null : ShippingAddress.Complement.Trim(), Neighborhood = ShippingAddress.Neighborhood.Trim(), City = ShippingAddress.City.Trim(), State = ShippingAddress.State.Trim().ToUpperInvariant(), PostalCode = ShippingAddress.PostalCode.Trim(), CountryCode = "BR" }, cancellationToken);
+                if (created.Value is not { } address)
+                {
+                    if (created.State == AccountLoadState.Unauthorized) accountCookies.Clear();
+                    TempData["CheckoutAccountMessage"] = "Reserva criada. Não foi possível salvar o novo endereço; sua compra não foi afetada.";
+                }
+                else if (SetSavedAddressDefault)
+                {
+                    var defaultResult = await account.SetDefaultAddressAsync(session.Token, address.PublicAddressId, cancellationToken);
+                    if (!defaultResult.Value)
+                    {
+                        if (defaultResult.State == AccountLoadState.Unauthorized) accountCookies.Clear();
+                        TempData["CheckoutAccountMessage"] = "Reserva criada. O endereço foi salvo, mas não foi possível defini-lo como padrão.";
+                    }
                 }
             }
             return RedirectToPage("/CheckoutStatus", new { publicCheckoutId = result.Checkout.PublicCheckoutId });
@@ -145,19 +168,47 @@ public sealed class CheckoutModel(
         return Page();
     }
 
-    private async Task LoadAsync(CancellationToken cancellationToken) { Cart = cart.Read(); await LoadConfigurationAsync(cancellationToken); await LoadQuoteAsync(cancellationToken); await LoadAccountAsync(cancellationToken); }
-    private async Task LoadAccountAsync(CancellationToken cancellationToken)
+    private async Task LoadAsync(CancellationToken cancellationToken) { Cart = cart.Read(); await LoadConfigurationAsync(cancellationToken); await LoadQuoteAsync(cancellationToken); if (accountCookies.Read() is not null) await LoadAccountAsync(cancellationToken); }
+    private async Task<bool> LoadAccountAsync(CancellationToken cancellationToken)
     {
-        if (!CustomerAccountsEnabled) { if (accountCookies.Read() is not null) accountCookies.Clear(); return; }
-        if (accountCookies.Read() is not { } session) return;
+        if (accountCookies.Read() is not { } session) return false;
         var result = await account.GetProfileAsync(session.Token, cancellationToken);
         if (result.State == AccountLoadState.Success && result.Value is { } profile)
         {
+            LoadedSession = session;
+            LoadedProfile = profile;
             AccountPrefilled = true;
             Contact.Name = profile.Name ?? Contact.Name; Contact.Email = profile.Email; Contact.Phone = profile.Phone ?? Contact.Phone;
-            if (profile.Address is { } address) ShippingAddress = new() { Recipient = address.Recipient, Street = address.Street, Number = address.Number, Complement = address.Complement ?? "", Neighborhood = address.Neighborhood, City = address.City, State = address.State, PostalCode = address.PostalCode };
         }
-        else if (result.State == AccountLoadState.Unauthorized) { accountCookies.Clear(); AccountMessage = "Sua sessão expirou; você pode continuar como convidado."; }
+        else { ErrorState = ToCheckoutState(result.State); if (result.State == AccountLoadState.Unauthorized) accountCookies.Clear(); AccountMessage = result.Message ?? "Não foi possível validar sua conta. Tente novamente."; ErrorMessage = AccountMessage; return false; }
+        var addresses = await account.GetAddressesAsync(session.Token, cancellationToken);
+        if (addresses.State != AccountLoadState.Success || addresses.Value is null) { ErrorState = ToCheckoutState(addresses.State); if (addresses.State == AccountLoadState.Unauthorized) accountCookies.Clear(); AccountMessage = addresses.Message ?? "Não foi possível carregar seus endereços. Tente novamente."; ErrorMessage = AccountMessage; return false; }
+        SavedAddresses = addresses.Value;
+        var defaultAddress = SavedAddresses.FirstOrDefault(x => x.IsDefault);
+        if (defaultAddress is not null && string.IsNullOrWhiteSpace(ShippingAddress.Street)) { SelectedAddressId = defaultAddress.PublicAddressId; ApplySelectedAddress(); }
+        return true;
+    }
+    private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
+    private bool AccountWasUnauthorized() => ErrorState == CheckoutLoadState.Unauthorized;
+    private IActionResult AccountFailureResult() => AccountWasUnauthorized() ? RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" }) : Page();
+    private static CheckoutLoadState ToCheckoutState(AccountLoadState state) => state switch
+    {
+        AccountLoadState.Success => CheckoutLoadState.Success,
+        AccountLoadState.Validation => CheckoutLoadState.Validation,
+        AccountLoadState.Unauthorized => CheckoutLoadState.Unauthorized,
+        AccountLoadState.NotFound => CheckoutLoadState.NotFound,
+        AccountLoadState.Conflict => CheckoutLoadState.Conflict,
+        AccountLoadState.RateLimited => CheckoutLoadState.RateLimited,
+        AccountLoadState.Timeout => CheckoutLoadState.Timeout,
+        AccountLoadState.Malformed => CheckoutLoadState.Malformed,
+        _ => CheckoutLoadState.Unavailable
+    };
+    private void ApplySelectedAddress()
+    {
+        if (SelectedAddressId is not { } id) return;
+        var address = SavedAddresses.FirstOrDefault(x => x.PublicAddressId == id);
+        if (address is null) { ModelState.AddModelError(nameof(SelectedAddressId), "Escolha um endereço salvo válido ou use outro endereço."); return; }
+        ShippingAddress = new() { Recipient = address.Recipient, Street = address.Street, Number = address.Number, Complement = address.Complement ?? "", Neighborhood = address.Neighborhood, City = address.City, State = address.State, PostalCode = address.PostalCode };
     }
     private async Task LoadConfigurationAsync(CancellationToken cancellationToken) { Configuration = await checkout.GetConfigurationAsync(cancellationToken); if (Configuration.State != CheckoutLoadState.Success) { ErrorState = Configuration.State; ErrorMessage = Message(Configuration.State); } }
     private async Task LoadQuoteAsync(CancellationToken cancellationToken)

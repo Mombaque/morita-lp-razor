@@ -41,6 +41,8 @@ builder.Services.AddOptions<StorefrontOptions>()
         builder.Environment.IsEnvironment("E2E") ||
         Uri.TryCreate(options.PrivacyPolicyUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps,
         "Storefront:PrivacyPolicyUrl must be an absolute HTTPS URL when customer accounts are enabled outside Development and E2E.")
+    .Validate(options => builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("E2E") || options.CustomerAccountsEnabled,
+        "Storefront:CustomerAccountsEnabled must be true outside Development and E2E because checkout requires an account.")
     .ValidateOnStart();
 builder.Services.AddOptions<CatalogApiOptions>().BindConfiguration(CatalogApiOptions.SectionName).PostConfigure(options =>
 {

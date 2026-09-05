@@ -1,0 +1,29 @@
+@model Morita.LP.Razor.Pages.AccountModel
+<section class="account-panel" aria-labelledby="email-change-heading">
+    <h2 id="email-change-heading">Trocar e-mail</h2>
+    <p>O novo e-mail só será usado depois da confirmação do código.</p>
+    <div asp-validation-summary="All" class="validation-error" role="alert"></div>
+    <form method="post" asp-page-handler="RequestEmailCode">
+        <input type="hidden" asp-for="Mode">
+        <input type="hidden" asp-for="ReturnUrl">
+        <label asp-for="EmailChange.Email">Novo e-mail</label>
+        <input asp-for="EmailChange.Email" type="email" autocomplete="email">
+        <span asp-validation-for="EmailChange.Email" class="validation-error"></span>
+        <button class="commerce-button commerce-button-secondary" type="submit">Enviar código</button>
+    </form>
+    @if (Model.EmailChallengeIssued)
+    {
+        <form method="post" asp-page-handler="VerifyEmailCode">
+            <input type="hidden" asp-for="Verification.ChallengeId">
+            <input type="hidden" asp-for="ChallengeId">
+            <input type="hidden" asp-for="ChallengeKind">
+            <input type="hidden" asp-for="ChallengeExpiresAt">
+            <input type="hidden" asp-for="ChallengeTargetEmail">
+            <p>Enviamos um código para <strong>@Model.ChallengeTargetEmail</strong>. Ele expira em @Model.ChallengeExpiresAt?.ToLocalTime().ToString("t").</p>
+            <label asp-for="Verification.Code">Código recebido</label>
+            <input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code">
+            <span asp-validation-for="Verification.Code" class="validation-error"></span>
+            <button class="commerce-button commerce-button-secondary" type="submit">Confirmar novo e-mail</button>
+        </form>
+    }
+</section>

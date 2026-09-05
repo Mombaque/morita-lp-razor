@@ -34,6 +34,121 @@ public sealed class CustomerAccountTests
     private static readonly DateTimeOffset Now = new(2026, 8, 29, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    public void Account_presentation_uses_customer_facing_portuguese_labels()
+    {
+        Assert.Equal("Pagamento aprovado", AccountPresentation.PaymentStatus("converted"));
+        Assert.Equal("Em trânsito", AccountPresentation.FulfillmentStatus("intransit"));
+        Assert.Equal("Entrega", AccountPresentation.FulfillmentMethod("shipping"));
+    }
+
+    [Fact]
+    public void Address_input_can_be_preloaded_for_editing()
+    {
+        var address = new CustomerAccountAddress { Label = "Casa", Recipient = "Ana", Street = "Rua A", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" };
+
+        var input = AccountModel.AddressInput.From(address);
+
+        Assert.Equal(address.Recipient, input.Recipient);
+        Assert.Equal(address.PostalCode, input.PostalCode);
+    }
+
+    [Fact]
+    public async Task Account_edit_handler_preloads_the_selected_address_without_dropping_the_profile()
+    {
+        var address = new CustomerAccountAddress { PublicAddressId = Guid.NewGuid(), Label = "Casa", Recipient = "Ana", Street = "Rua A", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" };
+        var client = new AccountStub { AddressesResult = new(AccountLoadState.Success, [address]) };
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext() };
+
+        await page.OnGetEditAddressAsync(address.PublicAddressId, CancellationToken.None);
+
+        Assert.Equal(address.PublicAddressId, page.AddressId);
+        Assert.Equal("Casa", page.AddressLabel);
+        Assert.Equal("Ana", page.AddressForm.Recipient);
+        Assert.True(page.SignedIn);
+    }
+
+    [Fact]
+    public async Task Account_address_mutations_call_the_matching_handlers_and_keep_session_on_transient_failure()
+    {
+        var client = new AccountStub
+        {
+            DeleteAddressResult = new(AccountLoadState.Success, true),
+            SetDefaultAddressResult = new(AccountLoadState.Success, true)
+        };
+        var cookies = new SessionCookieStub();
+        var page = new AccountModel(client, cookies) { PageContext = PageContext() };
+        var addressId = Guid.NewGuid();
+
+        await page.OnPostDeleteAddressAsync(addressId, CancellationToken.None);
+        await page.OnPostSetDefaultAddressAsync(addressId, CancellationToken.None);
+
+        Assert.Equal(1, client.DeleteAddressCalls);
+        Assert.Equal(1, client.SetDefaultAddressCalls);
+        Assert.Equal(0, cookies.ClearCalls);
+
+        client.DeleteAddressResult = AccountResult<bool>.Failure(AccountLoadState.Unavailable, "temporário");
+        await page.OnPostDeleteAddressAsync(addressId, CancellationToken.None);
+        Assert.Equal("temporário", page.Error);
+        Assert.Equal(0, cookies.ClearCalls);
+    }
+
+    [Fact]
+    public async Task Account_orders_use_current_page_for_paginated_history()
+    {
+        var client = new AccountStub();
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext(), CurrentPage = 3 };
+
+        await page.OnGetAsync(CancellationToken.None);
+
+        Assert.Equal(3, client.LastOrdersPage);
+        Assert.Equal(3, page.Orders.Page);
+    }
+
+    [Fact]
+    public async Task Email_challenge_state_is_explicit_and_does_not_become_a_closure_challenge()
+    {
+        var challenge = new AccountCodeChallenge(Guid.NewGuid(), Now.AddMinutes(5));
+        var client = new AccountStub { EmailResult = new(AccountLoadState.Success, challenge) };
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext(), EmailChange = new() { Email = "new@example.com" } };
+
+        await page.OnPostRequestEmailCodeAsync(CancellationToken.None);
+
+        Assert.True(page.EmailChallengeIssued);
+        Assert.False(page.ClosureChallengeIssued);
+        Assert.Equal("new@example.com", page.ChallengeTargetEmail);
+        Assert.Equal(challenge.ExpiresAt, page.ChallengeExpiresAt);
+    }
+
+    [Fact]
+    public async Task Closure_request_exposes_expiring_closure_challenge_state()
+    {
+        var challenge = new AccountCodeChallenge(Guid.NewGuid(), Now.AddMinutes(8));
+        var client = new AccountStub { ClosureResult = new(AccountLoadState.Success, challenge) };
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext(), ConfirmClosure = true };
+
+        await page.OnPostRequestClosureCodeAsync(CancellationToken.None);
+
+        Assert.True(page.ClosureChallengeIssued);
+        Assert.False(page.EmailChallengeIssued);
+        Assert.Equal(challenge.ExpiresAt, page.ChallengeExpiresAt);
+    }
+
+    [Fact]
+    public async Task Account_does_not_call_create_address_when_the_loaded_account_has_ten_addresses()
+    {
+        var addresses = Enumerable.Range(0, 10).Select(_ => new CustomerAccountAddress { PublicAddressId = Guid.NewGuid(), Label = "Endereço" }).ToList();
+        var client = new AccountStub { AddressesResult = new(AccountLoadState.Success, addresses) };
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext(), AddressForm = ValidAddress(), AddressLabel = "Novo" };
+
+        await page.OnPostSaveAddressAsync(CancellationToken.None);
+
+        Assert.Equal(0, client.CreateAddressCalls);
+        Assert.Contains("limite", page.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static AccountModel.AddressInput ValidAddress() => new() { Recipient = "Ana", Street = "Rua A", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" };
+
+    [Fact]
     public void Session_cookie_round_trips_across_persisted_keys_and_rejects_tampering_and_expiry()
     {
         var directory = Directory.CreateTempSubdirectory();
@@ -128,22 +243,6 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
-    public async Task Partial_default_address_is_rejected_without_calling_the_api()
-    {
-        var client = new AccountStub();
-        var page = new AccountModel(client, new SessionCookieStub())
-        {
-            PageContext = PageContext(),
-            ProfileForm = new() { Address = new() { Street = "Rua A" } }
-        };
-
-        await page.OnPostSaveProfileAsync(CancellationToken.None);
-
-        Assert.False(page.ModelState.IsValid);
-        Assert.Equal(0, client.ProfileUpdates);
-    }
-
-    [Fact]
     public async Task Account_history_failure_is_not_rendered_as_empty_history()
     {
         var client = new AccountStub { OrdersResult = AccountResult<IReadOnlyList<PublicOrder>>.Failure(AccountLoadState.Unavailable) };
@@ -152,7 +251,7 @@ public sealed class CustomerAccountTests
         await page.OnGetAsync(CancellationToken.None);
 
         Assert.True(page.SignedIn);
-        Assert.Empty(page.Orders);
+        Assert.Empty(page.Orders.Items);
         Assert.NotNull(page.OrdersError);
         Assert.True(page.OrdersLoaded);
     }
@@ -203,6 +302,32 @@ public sealed class CustomerAccountTests
         Assert.Equal(0, client.ProfileReads);
     }
 
+    [Theory]
+    [InlineData("save")]
+    [InlineData("delete")]
+    [InlineData("default")]
+    public async Task Disabled_customer_accounts_reject_address_mutations(string operation)
+    {
+        var page = new AccountModel(
+            new AccountStub(),
+            new SessionCookieStub(),
+            Options.Create(new StorefrontOptions { CustomerAccountsEnabled = false }))
+        {
+            PageContext = PageContext(),
+            AddressLabel = "Casa",
+            AddressForm = ValidAddress()
+        };
+
+        var result = operation switch
+        {
+            "save" => await page.OnPostSaveAddressAsync(CancellationToken.None),
+            "delete" => await page.OnPostDeleteAddressAsync(Guid.NewGuid(), CancellationToken.None),
+            _ => await page.OnPostSetDefaultAddressAsync(Guid.NewGuid(), CancellationToken.None)
+        };
+
+        Assert.IsType<NotFoundResult>(result);
+    }
+
     [Fact]
     public async Task Email_change_keeps_current_session_active()
     {
@@ -211,8 +336,11 @@ public sealed class CustomerAccountTests
         var page = new AccountModel(client, cookies)
         {
             PageContext = PageContext(),
-            Verification = new() { ChallengeId = Guid.NewGuid(), Code = "123456" }
+            Verification = new() { ChallengeId = Guid.NewGuid(), Code = "123456" },
+            ChallengeId = Guid.NewGuid(),
+            ChallengeKind = "email"
         };
+        page.Verification.ChallengeId = page.ChallengeId;
 
         await page.OnPostVerifyEmailCodeAsync(CancellationToken.None);
 
@@ -281,17 +409,37 @@ public sealed class CustomerAccountTests
         public int ClosureRequests { get; private set; }
         public int ProfileUpdates { get; private set; }
         public int ProfileReads { get; private set; }
+        public int DeleteAddressCalls { get; private set; }
+        public int SetDefaultAddressCalls { get; private set; }
+        public int LastOrdersPage { get; private set; }
+        public int CreateAddressCalls { get; private set; }
         public AccountResult<bool> ClaimResult { get; set; } = new(AccountLoadState.Success, true);
         public AccountResult<AccountCodeChallenge> CodeResult { get; set; } = AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable);
         public AccountResult<IReadOnlyList<PublicOrder>> OrdersResult { get; set; } = new(AccountLoadState.Success, []);
         public AccountResult<PublicOrder> OrderResult { get; set; } = AccountResult<PublicOrder>.Failure(AccountLoadState.NotFound);
+        public AccountResult<IReadOnlyList<CustomerAccountAddress>> AddressesResult { get; set; } = new(AccountLoadState.Success, []);
+        public AccountResult<CustomerAccountAddress> CreateAddressResult { get; set; } = AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable);
+        public AccountResult<bool> DeleteAddressResult { get; set; } = AccountResult<bool>.Failure(AccountLoadState.Unavailable);
+        public AccountResult<bool> SetDefaultAddressResult { get; set; } = AccountResult<bool>.Failure(AccountLoadState.Unavailable);
+        public AccountResult<AccountCodeChallenge> EmailResult { get; set; } = AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable);
+        public AccountResult<AccountCodeChallenge> ClosureResult { get; set; } = new(AccountLoadState.Success, new(Guid.NewGuid(), Now.AddMinutes(10)));
         public Task<AccountResult<AccountCodeChallenge>> RequestCodeAsync(string email, CancellationToken cancellationToken = default) => Task.FromResult(CodeResult);
         public Task<AccountResult<(CustomerAccountSession Session, CustomerAccountProfile Profile)>> VerifyCodeAsync(Guid challengeId, string code, bool acceptedPrivacyPolicy, string privacyPolicyVersion, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<(CustomerAccountSession, CustomerAccountProfile)>.Failure(AccountLoadState.Unavailable));
         public Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com" })); }
-        public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, CustomerAccountAddress? address, CancellationToken cancellationToken = default) { ProfileUpdates++; return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true)); }
-        public Task<AccountResult<AccountCodeChallenge>> RequestEmailCodeAsync(string token, string email, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable));
+        public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        public Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(AddressesResult);
+        public Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress address, CancellationToken cancellationToken = default) { CreateAddressCalls++; return Task.FromResult(CreateAddressResult); }
+        public Task<AccountResult<CustomerAccountAddress>> UpdateAddressAsync(string token, Guid id, CustomerAccountAddress address, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable));
+        public Task<AccountResult<bool>> DeleteAddressAsync(string token, Guid id, CancellationToken cancellationToken = default) { DeleteAddressCalls++; return Task.FromResult(DeleteAddressResult); }
+        public Task<AccountResult<bool>> SetDefaultAddressAsync(string token, Guid id, CancellationToken cancellationToken = default) { SetDefaultAddressCalls++; return Task.FromResult(SetDefaultAddressResult); }
+        public Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default)
+        {
+            LastOrdersPage = page;
+            return Task.FromResult(OrdersResult.State == AccountLoadState.Success ? new AccountResult<StorefrontAccountOrderPage>(AccountLoadState.Success, new() { Page = page, PageSize = pageSize }) : AccountResult<StorefrontAccountOrderPage>.Failure(OrdersResult.State, OrdersResult.Message));
+        }
+        public Task<AccountResult<AccountCodeChallenge>> RequestEmailCodeAsync(string token, string email, CancellationToken cancellationToken = default) => Task.FromResult(EmailResult);
         public Task<AccountResult<bool>> VerifyEmailCodeAsync(string token, Guid challengeId, string code, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
-        public Task<AccountResult<AccountCodeChallenge>> RequestClosureCodeAsync(string token, CancellationToken cancellationToken = default) { ClosureRequests++; return Task.FromResult(new AccountResult<AccountCodeChallenge>(AccountLoadState.Success, new(Guid.NewGuid(), Now.AddMinutes(10)))); }
+        public Task<AccountResult<AccountCodeChallenge>> RequestClosureCodeAsync(string token, CancellationToken cancellationToken = default) { ClosureRequests++; return Task.FromResult(ClosureResult); }
         public Task<AccountResult<bool>> VerifyClosureCodeAsync(string token, Guid challengeId, string code, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<IReadOnlyList<PublicOrder>>> GetOrdersAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(OrdersResult);

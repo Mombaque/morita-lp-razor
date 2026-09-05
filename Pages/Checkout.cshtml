@@ -11,7 +11,7 @@
   {
     <div class="catalog-state" data-checkout="empty"><p>Seu carrinho está vazio.</p><a class="commerce-button commerce-button-primary" href="/products">Ver produtos</a></div>
   }
-  else if (Model.ErrorState is CheckoutLoadState.Unavailable or CheckoutLoadState.Malformed && Model.Configuration.State != CheckoutLoadState.Success)
+   else if ((Model.AccountMessage is not null && !Model.AccountPrefilled) || (Model.ErrorState is CheckoutLoadState.Unavailable or CheckoutLoadState.Malformed && Model.Configuration.State != CheckoutLoadState.Success))
   {
     <div class="catalog-state catalog-unavailable" data-checkout="unavailable" role="alert"><h2>Não foi possível preparar o checkout</h2><p>@Model.ErrorMessage</p><a class="commerce-button commerce-button-secondary" href="/checkout">Tentar novamente</a></div>
   }
@@ -40,9 +40,10 @@
             {
               <div class="fulfillment-panel pickup-panel" data-fulfillment-panel="pickup"><strong>@pickup.DisplayName</strong><p>@pickup.Address.Street, @pickup.Address.Number - @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</p><p>@pickup.Hours</p>@if (!string.IsNullOrWhiteSpace(pickup.Instructions)) { <p>@pickup.Instructions</p> }</div>
             }
-            @if (Model.Configuration.Configuration?.ShippingEnabled == true)
-            {
-              <div class="fulfillment-panel shipping-panel" data-fulfillment-panel="shipping">
+             @if (Model.Configuration.Configuration?.ShippingEnabled == true)
+             {
+               <div class="fulfillment-panel shipping-panel" data-fulfillment-panel="shipping">
+                 @if (Model.SavedAddresses.Count > 0) { <fieldset class="saved-addresses"><legend>Endereço salvo</legend><label><input asp-for="SelectedAddressId" type="radio" value="" data-new-address="true"> Usar outro endereço</label>@foreach (var address in Model.SavedAddresses) { <label><input asp-for="SelectedAddressId" type="radio" value="@address.PublicAddressId" data-saved-address="true" data-recipient="@address.Recipient" data-street="@address.Street" data-number="@address.Number" data-complement="@address.Complement" data-neighborhood="@address.Neighborhood" data-city="@address.City" data-state="@address.State" data-postal-code="@address.PostalCode"> @address.Label — @address.Street, @address.Number, @address.City/@address.State@(address.IsDefault ? " · Padrão" : "")</label> }</fieldset> }
                 <div class="shipping-postal"><label asp-for="ShippingAddress.PostalCode">CEP de entrega</label><input asp-for="ShippingAddress.PostalCode" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000"><button class="commerce-button commerce-button-secondary" type="submit" asp-page-handler="QuoteShipping" formnovalidate>Calcular frete</button></div>
                 <span asp-validation-for="ShippingAddress.PostalCode" class="validation-error"></span>
                 @if (Model.ShippingQuotes.Quote is { } shippingQuote)
@@ -56,16 +57,36 @@
                   <p class="cart-estimate-note">Cotação válida até <time datetime="@shippingQuote.ExpiresAt.ToString("O")">@shippingQuote.ExpiresAt.ToLocalTime().ToString("t")</time>. Se expirar, calcule novamente.</p>
                 }
                 <span asp-validation-for="PublicShippingQuoteId" class="validation-error"></span>
-                <div class="address-grid">
+                 <div class="address-grid">
                   <label class="full">Destinatário<input asp-for="ShippingAddress.Recipient" autocomplete="name"></label><span asp-validation-for="ShippingAddress.Recipient" class="validation-error"></span>
                   <label class="wide">Rua / Avenida<input asp-for="ShippingAddress.Street" autocomplete="address-line1"></label>
                   <label>Número<input asp-for="ShippingAddress.Number" autocomplete="address-line2"></label>
                   <label class="full">Complemento <small>(opcional)</small><input asp-for="ShippingAddress.Complement" autocomplete="address-line3"></label>
                   <label>Bairro<input asp-for="ShippingAddress.Neighborhood"></label>
                   <label>Cidade<input asp-for="ShippingAddress.City" autocomplete="address-level2"></label>
-                  <label>UF<input asp-for="ShippingAddress.State" maxlength="2" autocomplete="address-level1" placeholder="SP"></label>
-                </div>
-              </div>
+                   <label>UF<input asp-for="ShippingAddress.State" maxlength="2" autocomplete="address-level1" placeholder="SP"></label>
+                 </div>
+                 @if (Model.AccountPrefilled && Model.SavedAddresses.Count < 10)
+                 {
+                     <fieldset class="saved-address-options" data-new-address-controls hidden="@(Model.SelectedAddressId is not null ? "hidden" : null)">
+                         <legend>Salvar este endereço</legend>
+                         <label class="account-check" asp-for="SaveShippingAddress">
+                             <input asp-for="SaveShippingAddress">
+                             <span>Guardar este endereço na minha conta</span>
+                         </label>
+                         <label asp-for="SavedAddressLabel">Rótulo do endereço</label>
+                         <input asp-for="SavedAddressLabel" placeholder="Casa" autocomplete="off">
+                         <label class="account-check" asp-for="SetSavedAddressDefault">
+                             <input asp-for="SetSavedAddressDefault">
+                             <span>Usar como endereço padrão</span>
+                         </label>
+                     </fieldset>
+                 }
+                 else if (Model.SavedAddresses.Count >= 10)
+                 {
+                     <p class="cart-estimate-note">Sua conta já possui o limite de 10 endereços salvos.</p>
+                 }
+               </div>
             }
           </div>
         </section>
@@ -80,9 +101,14 @@
           </div>
         </section>
 
-         @if (Model.AccountPrefilled) { <label class="account-check"><input asp-for="SaveAccountDetails" type="checkbox"> Salvar estes dados na minha conta</label> }
-          @if (Model.AccountNeedsGuestConfirmation) { <button class="commerce-button commerce-button-secondary" type="submit" name="ContinueAsGuest" value="true">Continuar como convidado</button><p class="account-status">O pedido não será vinculado ao histórico da sua conta.</p> }
-          else { <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")">Continuar para o PIX <span aria-hidden="true">→</span></button> }
+          @if (Model.AccountPrefilled)
+          {
+              <label class="account-check" asp-for="SaveAccountDetails">
+                  <input asp-for="SaveAccountDetails">
+                  <span>Salvar nome e telefone na minha conta</span>
+              </label>
+          }
+          <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")">Continuar para o PIX <span aria-hidden="true">→</span></button>
         <p class="checkout-security"><i class="fas fa-lock" aria-hidden="true"></i> Preço, estoque e frete são reconfirmados pelo servidor antes da reserva.</p>
       </div>
 
