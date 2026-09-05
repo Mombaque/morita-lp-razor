@@ -2630,6 +2630,22 @@ body {
 .order-ledger span, .order-ledger em { font-size: .8rem; color: #bbb; }
 .order-ledger em { color: #3CF9AE; text-transform: uppercase; }
 .commerce-button-danger { border-color: #d96b62; color: #ff9d91; }
+.account-tabs { display: flex; flex-wrap: wrap; gap: .5rem; border-block: 1px solid #333; padding: .75rem 0; }
+.account-tabs a { color: #3CF9AE; text-transform: uppercase; font-size: .75rem; letter-spacing: .08em; }
+.address-card { border-left: 3px solid #3CF9AE; background: #090909; padding: 1rem; margin: 1rem 0; }
+.address-card h3 { display: flex; justify-content: space-between; gap: 1rem; }
+.address-card form { display: inline-block; margin-right: .5rem; }
+.inline-form { display: inline-block; }
+.address-card img, .order-ledger img { width: 4.5rem; height: 4.5rem; object-fit: contain; background: #181818; }
+.order-ledger a { grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; }
+.order-ledger a span span { display: block; }
+.pagination { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; align-items: center; }
+.pagination a { color: #3CF9AE; }
+.order-detail li { margin: .5rem 0; }
+.address-form fieldset { border: 1px solid #3CF9AE; padding: 1rem; }
+.address-form legend { color: #3CF9AE; padding-inline: .4rem; }
+.address-form button, .address-card button { min-height: 42px; }
+.status-badge { color: #000; background: #3CF9AE; font: .7rem 'IBM Plex Sans', sans-serif; padding: .25rem .5rem; }
 @media (max-width: 700px) { .account-ledger { display: block; } .order-ledger a { grid-template-columns: 1fr; } }
 
 /* Catalog discovery controls: keep filtering close at hand without pushing products below the fold. */

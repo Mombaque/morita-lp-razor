@@ -1,0 +1,38 @@
+@model Morita.LP.Razor.Pages.AccountModel
+<form method="post" asp-page-handler="SaveAddress" class="address-form">
+    <input type="hidden" asp-for="AddressId">
+    <fieldset>
+        <legend>Dados completos do endereço</legend>
+        <label asp-for="AddressLabel">Rótulo</label>
+        <input asp-for="AddressLabel" placeholder="Casa">
+        <span asp-validation-for="AddressLabel" class="validation-error"></span>
+        <label asp-for="AddressForm.Recipient">Destinatário</label>
+        <input asp-for="AddressForm.Recipient" autocomplete="name">
+        <span asp-validation-for="AddressForm.Recipient" class="validation-error"></span>
+        <label asp-for="AddressForm.Street">Rua</label>
+        <input asp-for="AddressForm.Street" autocomplete="address-line1">
+        <span asp-validation-for="AddressForm.Street" class="validation-error"></span>
+        <label asp-for="AddressForm.Number">Número</label>
+        <input asp-for="AddressForm.Number">
+        <span asp-validation-for="AddressForm.Number" class="validation-error"></span>
+        <label asp-for="AddressForm.Complement">Complemento (opcional)</label>
+        <input asp-for="AddressForm.Complement">
+        <label asp-for="AddressForm.Neighborhood">Bairro</label>
+        <input asp-for="AddressForm.Neighborhood">
+        <span asp-validation-for="AddressForm.Neighborhood" class="validation-error"></span>
+        <label asp-for="AddressForm.City">Cidade</label>
+        <input asp-for="AddressForm.City" autocomplete="address-level2">
+        <span asp-validation-for="AddressForm.City" class="validation-error"></span>
+        <label asp-for="AddressForm.State">UF</label>
+        <input asp-for="AddressForm.State" maxlength="2" autocomplete="address-level1" placeholder="SP">
+        <span asp-validation-for="AddressForm.State" class="validation-error"></span>
+        <label asp-for="AddressForm.PostalCode">CEP</label>
+        <input asp-for="AddressForm.PostalCode" autocomplete="postal-code" inputmode="numeric">
+        <span asp-validation-for="AddressForm.PostalCode" class="validation-error"></span>
+    </fieldset>
+    <button class="commerce-button commerce-button-primary" type="submit">@(Model.IsEditingAddress ? "Atualizar endereço" : "Salvar endereço")</button>
+    @if (Model.IsEditingAddress)
+    {
+        <a class="commerce-button commerce-button-secondary" href="/conta#enderecos">Cancelar</a>
+    }
+</form>
