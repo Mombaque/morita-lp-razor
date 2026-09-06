@@ -105,8 +105,11 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         var body = await (await client.GetAsync("/")).Content.ReadAsStringAsync();
         Assert.Contains("Novos produtos entrando no corner", body);
         Assert.Contains("Estoque real", body);
-        Assert.Contains("Escolha sua modalidade", body);
+        Assert.Contains("Explore nossos produtos", body);
         Assert.Contains("Kimonos, rashguards, faixas e acessórios", body);
+        Assert.Contains("Luvas, shorts e proteções", body);
+        Assert.Contains("Equipamentos de artes marciais para crianças", body);
+        Assert.Contains("Ver produtos", body);
         Assert.Contains("Prefere ver de perto?", body);
         Assert.Contains("Veja os produtos, confira o tamanho e tire suas dúvidas antes de comprar.", body);
         Assert.Contains("Rua Coronel Nogueira Padilha, 429", body);
