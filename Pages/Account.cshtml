@@ -82,12 +82,18 @@
     }
     else
     {
-        <nav class="account-tabs" aria-label="Seções da conta">
-            <a href="#perfil">Perfil</a>
-            <a href="#enderecos">Endereços</a>
-            <a href="#pedidos">Pedidos</a>
-            <a href="#seguranca">Segurança</a>
-        </nav>
+        <div class="account-layout">
+            <aside class="account-sidebar">
+                <p class="account-sidebar-label">Área do cliente</p>
+                <nav class="account-tabs" aria-label="Seções da conta">
+                    <a href="#perfil"><span class="account-tab-number">01</span><span>Perfil</span></a>
+                    <a href="#enderecos"><span class="account-tab-number">02</span><span>Endereços</span></a>
+                    <a href="#pedidos"><span class="account-tab-number">03</span><span>Pedidos</span></a>
+                    <a href="#seguranca"><span class="account-tab-number">04</span><span>Segurança</span></a>
+                </nav>
+            </aside>
+
+            <div class="account-content">
 
         <section id="perfil" class="account-panel" aria-labelledby="profile-heading">
             <h2 id="profile-heading">Perfil</h2>
@@ -246,5 +252,7 @@
             </details>
         </section>
         <partial name="_AccountEmailChange" model="Model" />
+            </div>
+        </div>
     }
 </main>

@@ -2643,11 +2643,17 @@ body {
   margin: auto;
   padding: clamp(1.25rem, 4vw, 4rem) 1rem;
 }
+.account-layout { display: grid; grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); gap: clamp(1rem, 3vw, 2.5rem); align-items: start; }
+.account-sidebar { position: sticky; top: 1.25rem; border: 1px solid #343434; border-top: 2px solid #3CF9AE; background: linear-gradient(145deg, #151515, #090909); padding: 1rem; }
+.account-sidebar-label { color: #888; font-size: .68rem; letter-spacing: .14em; margin: 0 0 .8rem; text-transform: uppercase; }
+.account-content { min-width: 0; }
 .account-ledger { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; }
 .account-panel { border: 1px solid #343434; background: #111; padding: clamp(1rem, 3vw, 2rem); margin: 1rem 0; }
+.account-content > .account-panel { margin-block: 0 1rem; }
 .account-panel h2, .account-panel h3 { font-family: 'Barlow Condensed', sans-serif; text-transform: uppercase; }
 .account-panel label { display: block; margin: .8rem 0; }
-.account-panel input { display: block; width: 100%; box-sizing: border-box; margin-top: .3rem; padding: .7rem; background: #090909; color: #fff; border: 1px solid #666; }
+.account-panel input, .account-panel select { display: block; width: 100%; box-sizing: border-box; margin-top: .3rem; padding: .7rem; background: #090909; color: #fff; border: 1px solid #666; font: inherit; }
+.account-panel input:focus-visible, .account-panel select:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 2px; }
 .account-check { display: flex !important; gap: .6rem; align-items: center; }
 .account-check input { width: auto; margin: 0; }
 .account-email, .account-status { color: #3CF9AE; }
@@ -2657,8 +2663,12 @@ body {
 .order-ledger span, .order-ledger em { font-size: .8rem; color: #bbb; }
 .order-ledger em { color: #3CF9AE; text-transform: uppercase; }
 .commerce-button-danger { border-color: #d96b62; color: #ff9d91; }
-.account-tabs { display: flex; flex-wrap: wrap; gap: .5rem; border-block: 1px solid #333; padding: .75rem 0; }
-.account-tabs a { color: #3CF9AE; text-transform: uppercase; font-size: .75rem; letter-spacing: .08em; }
+.account-tabs { display: grid; gap: .35rem; }
+.account-tabs a { align-items: center; border-left: 2px solid transparent; color: #bbb; display: flex; gap: .7rem; min-height: 2.7rem; padding: .55rem .65rem; text-decoration: none; text-transform: uppercase; font-size: .75rem; letter-spacing: .08em; transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
+.account-tabs a:hover, .account-tabs a:focus-visible { background: rgba(60, 249, 174, .1); border-left-color: #3CF9AE; color: #fff; }
+.account-tabs a:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 2px; }
+.account-tab-number { color: #3CF9AE; font-family: 'Barlow Condensed', sans-serif; font-size: 1.1rem; min-width: 1.5rem; }
+.account-page:not(:has(.account-panel:target)) .account-tabs a[href="#perfil"], .account-page:has(#perfil:target) .account-tabs a[href="#perfil"], .account-page:has(#enderecos:target) .account-tabs a[href="#enderecos"], .account-page:has(#pedidos:target) .account-tabs a[href="#pedidos"], .account-page:has(#seguranca:target) .account-tabs a[href="#seguranca"] { background: rgba(60, 249, 174, .12); border-left-color: #3CF9AE; color: #fff; }
 .address-card { border-left: 3px solid #3CF9AE; background: #090909; padding: 1rem; margin: 1rem 0; }
 .address-card h3 { display: flex; justify-content: space-between; gap: 1rem; }
 .address-card form { display: inline-block; margin-right: .5rem; }
@@ -2673,7 +2683,9 @@ body {
 .address-form legend { color: #3CF9AE; padding-inline: .4rem; }
 .address-form button, .address-card button { min-height: 42px; }
 .status-badge { color: #000; background: #3CF9AE; font: .7rem 'IBM Plex Sans', sans-serif; padding: .25rem .5rem; }
+@media (max-width: 800px) { .account-layout { grid-template-columns: 1fr; } .account-sidebar { position: static; } .account-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .account-content > .account-panel { margin-block: 0 1rem; } }
 @media (max-width: 700px) { .account-ledger { display: block; } .order-ledger a { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .account-tabs { grid-template-columns: 1fr; } }
 
 /* Catalog discovery controls: keep filtering close at hand without pushing products below the fold. */
 .catalog-filter-form {
