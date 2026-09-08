@@ -36,9 +36,11 @@
         <input asp-for="AddressForm.PostalCode" autocomplete="postal-code" inputmode="numeric">
         <span asp-validation-for="AddressForm.PostalCode" class="validation-error"></span>
     </fieldset>
-    <button class="commerce-button commerce-button-primary" type="submit">@(Model.IsEditingAddress ? "Atualizar endereço" : "Salvar endereço")</button>
-    @if (Model.IsEditingAddress)
-    {
-        <a class="commerce-button commerce-button-secondary" href="/conta#enderecos">Cancelar</a>
-    }
+    <div class="address-actions">
+        <button class="commerce-button commerce-button-primary" type="submit">@(Model.IsEditingAddress ? "Atualizar endereço" : "Salvar endereço")</button>
+        @if (Model.IsEditingAddress)
+        {
+            <a class="commerce-button commerce-button-secondary" href="/conta#enderecos">Cancelar</a>
+        }
+    </div>
 </form>
