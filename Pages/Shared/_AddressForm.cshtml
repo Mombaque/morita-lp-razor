@@ -24,7 +24,13 @@
         <input asp-for="AddressForm.City" autocomplete="address-level2">
         <span asp-validation-for="AddressForm.City" class="validation-error"></span>
         <label asp-for="AddressForm.State">UF</label>
-        <input asp-for="AddressForm.State" maxlength="2" autocomplete="address-level1" placeholder="SP">
+        <select asp-for="AddressForm.State" autocomplete="address-level1">
+            <option value="">Selecione uma UF</option>
+            @foreach (var state in AccountModel.BrazilianStates)
+            {
+                <option value="@state.Code" selected="@(string.Equals(Model.AddressForm.State, state.Code, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@state.Name (@state.Code)</option>
+            }
+        </select>
         <span asp-validation-for="AddressForm.State" class="validation-error"></span>
         <label asp-for="AddressForm.PostalCode">CEP</label>
         <input asp-for="AddressForm.PostalCode" autocomplete="postal-code" inputmode="numeric">

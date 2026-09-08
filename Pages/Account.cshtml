@@ -12,9 +12,20 @@
         <p>Seu histórico e seus endereços, sem senha.</p>
     </header>
 
-    @if (Model.Error is not null)
+    @if (Model.AccountErrors.Count > 0)
     {
-        <p class="validation-error" role="alert">@Model.Error</p>
+        <aside id="account-errors" class="account-error-toast" role="alert" aria-live="assertive" data-account-error>
+            <div class="account-error-toast-heading">
+                <strong>Não foi possível concluir</strong>
+                <button type="button" data-dismiss-account-error aria-label="Fechar mensagens de erro">×</button>
+            </div>
+            <ul>
+                @foreach (var error in Model.AccountErrors)
+                {
+                    <li>@error</li>
+                }
+            </ul>
+        </aside>
     }
     @if (Model.Message is not null)
     {
@@ -29,7 +40,6 @@
                 Use um código de uso único enviado ao seu e-mail. Na primeira confirmação, o acesso também pode criar sua conta;
                 nunca informamos se um e-mail já está cadastrado.
             </p>
-            <div asp-validation-summary="All" class="validation-error" role="alert"></div>
             <form method="post" asp-page-handler="RequestCode">
                 <input type="hidden" asp-for="Mode">
                 <input type="hidden" asp-for="ReturnUrl">
@@ -50,7 +60,6 @@
             <section class="account-panel" aria-labelledby="verify-heading">
                 <h2 id="verify-heading">Confirmar código</h2>
                 <p>O código expira em @Model.ChallengeExpiresAt?.ToLocalTime().ToString("t").</p>
-                <div asp-validation-summary="All" class="validation-error" role="alert"></div>
                 <form method="post" asp-page-handler="VerifyCode">
                     <input type="hidden" asp-for="ChallengeId">
                     <input type="hidden" asp-for="PrivacyPolicyVersion">
@@ -82,12 +91,18 @@
     }
     else
     {
-        <nav class="account-tabs" aria-label="Seções da conta">
-            <a href="#perfil">Perfil</a>
-            <a href="#enderecos">Endereços</a>
-            <a href="#pedidos">Pedidos</a>
-            <a href="#seguranca">Segurança</a>
-        </nav>
+        <div class="account-layout">
+            <aside class="account-sidebar">
+                <p class="account-sidebar-label">Área do cliente</p>
+                <nav class="account-tabs" aria-label="Seções da conta">
+                    <a href="#perfil"><span class="account-tab-number">01</span><span>Perfil</span></a>
+                    <a href="#enderecos"><span class="account-tab-number">02</span><span>Endereços</span></a>
+                    <a href="#pedidos"><span class="account-tab-number">03</span><span>Pedidos</span></a>
+                    <a href="#seguranca"><span class="account-tab-number">04</span><span>Segurança</span></a>
+                </nav>
+            </aside>
+
+            <div class="account-content">
 
         <section id="perfil" class="account-panel" aria-labelledby="profile-heading">
             <h2 id="profile-heading">Perfil</h2>
@@ -211,10 +226,10 @@
         <section id="seguranca" class="account-panel" aria-labelledby="security-heading">
             <h2 id="security-heading">Segurança</h2>
             <p>Acesso por código, sem senha.</p>
-            <form method="post" asp-page-handler="Logout">
+            <form method="post" asp-page-handler="Logout" data-account-reset-scroll>
                 <button class="commerce-button commerce-button-secondary" type="submit">Sair desta sessão</button>
             </form>
-            <form method="post" asp-page-handler="Logout">
+            <form method="post" asp-page-handler="Logout" data-account-reset-scroll>
                 <input type="hidden" name="all" value="true">
                 <button class="commerce-button commerce-button-secondary" type="submit">Sair de todos os dispositivos</button>
             </form>
@@ -246,5 +261,11 @@
             </details>
         </section>
         <partial name="_AccountEmailChange" model="Model" />
+            </div>
+        </div>
     }
 </main>
+
+@section Scripts {
+    <script src="~/js/account.js" asp-append-version="true"></script>
+}

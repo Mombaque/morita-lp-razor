@@ -2,7 +2,6 @@
 <section class="account-panel" aria-labelledby="email-change-heading">
     <h2 id="email-change-heading">Trocar e-mail</h2>
     <p>O novo e-mail só será usado depois da confirmação do código.</p>
-    <div asp-validation-summary="All" class="validation-error" role="alert"></div>
     <form method="post" asp-page-handler="RequestEmailCode">
         <input type="hidden" asp-for="Mode">
         <input type="hidden" asp-for="ReturnUrl">

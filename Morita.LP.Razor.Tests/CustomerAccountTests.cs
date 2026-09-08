@@ -52,6 +52,23 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Email_change_validation_is_scoped_to_the_submitted_form()
+    {
+        var page = new AccountModel(new AccountStub(), new SessionCookieStub())
+        {
+            PageContext = PageContext(),
+            EmailChange = new()
+        };
+
+        await page.OnPostRequestEmailCodeAsync(CancellationToken.None);
+
+        Assert.False(page.ModelState.IsValid);
+        Assert.All(page.ModelState.Keys, key => Assert.True(key.StartsWith("EmailChange.", StringComparison.Ordinal), key));
+        Assert.Contains("Informe o novo e-mail.", page.ModelState["EmailChange.Email"]!.Errors.Select(error => error.ErrorMessage));
+        Assert.Single(page.AccountErrors);
+    }
+
+    [Fact]
     public void Address_input_can_be_preloaded_for_editing()
     {
         var address = new CustomerAccountAddress { Label = "Casa", Recipient = "Ana", Street = "Rua A", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" };
@@ -60,6 +77,14 @@ public sealed class CustomerAccountTests
 
         Assert.Equal(address.Recipient, input.Recipient);
         Assert.Equal(address.PostalCode, input.PostalCode);
+    }
+
+    [Fact]
+    public void Address_form_exposes_all_brazilian_ufs()
+    {
+        Assert.Equal(27, AccountModel.BrazilianStates.Count);
+        Assert.Equal(27, AccountModel.BrazilianStates.Select(state => state.Code).Distinct().Count());
+        Assert.Equal("São Paulo", AccountModel.BrazilianStates.Single(state => state.Code == "SP").Name);
     }
 
     [Fact]
