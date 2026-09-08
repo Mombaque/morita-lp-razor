@@ -24,7 +24,7 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     public bool EmailChallengeIssued => ChallengeKind == "email" && ChallengeId != Guid.Empty;
     public bool ClosureChallengeIssued => ChallengeKind == "closure" && ChallengeId != Guid.Empty;
     public bool SignedIn => Profile is not null;
-    [BindProperty(SupportsGet = true)] public string Mode { get; set; } = "create";
+    [BindProperty(SupportsGet = true)] public string? Mode { get; set; } = "create";
     [BindProperty(SupportsGet = true)] public string? ReturnUrl { get; set; }
     [BindProperty(SupportsGet = true)] public int CurrentPage { get; set; } = 1;
     [BindProperty] public EmailInput EmailForm { get; set; } = new();
@@ -50,7 +50,7 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     {
         if (!AccountEnabled) return NotFound();
         ViewData["Robots"] = "noindex,nofollow";
-        Mode = Mode.Equals("create", StringComparison.OrdinalIgnoreCase) ? "create" : "signin";
+        Mode = string.Equals(Mode, "create", StringComparison.OrdinalIgnoreCase) ? "create" : "signin";
         ReturnUrl = SafeReturnUrl(ReturnUrl);
         await LoadAsync(ct);
         return Page();
