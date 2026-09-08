@@ -63,6 +63,14 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public void Address_form_exposes_all_brazilian_ufs()
+    {
+        Assert.Equal(27, AccountModel.BrazilianStates.Count);
+        Assert.Equal(27, AccountModel.BrazilianStates.Select(state => state.Code).Distinct().Count());
+        Assert.Equal("São Paulo", AccountModel.BrazilianStates.Single(state => state.Code == "SP").Name);
+    }
+
+    [Fact]
     public async Task Account_edit_handler_preloads_the_selected_address_without_dropping_the_profile()
     {
         var address = new CustomerAccountAddress { PublicAddressId = Guid.NewGuid(), Label = "Casa", Recipient = "Ana", Street = "Rua A", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" };

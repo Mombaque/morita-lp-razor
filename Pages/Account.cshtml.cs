@@ -226,12 +226,43 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     private bool ValidateAddress(AddressInput address)
     {
         Required(AddressLabel, "AddressLabel", "Informe um rótulo para o endereço."); Required(address.Recipient, "AddressForm.Recipient", "Informe o destinatário."); Required(address.Street, "AddressForm.Street", "Informe a rua."); Required(address.Number, "AddressForm.Number", "Informe o número."); Required(address.Neighborhood, "AddressForm.Neighborhood", "Informe o bairro."); Required(address.City, "AddressForm.City", "Informe a cidade.");
-        if (!BrazilianStates.Contains(Clean(address.State).ToUpperInvariant())) ModelState.AddModelError("AddressForm.State", "Informe uma UF brasileira válida.");
+        if (!BrazilianStateCodes.Contains(Clean(address.State).ToUpperInvariant())) ModelState.AddModelError("AddressForm.State", "Informe uma UF brasileira válida.");
         if (!ValidPostalCode(address.PostalCode)) ModelState.AddModelError("AddressForm.PostalCode", "Informe um CEP brasileiro válido.");
         return ModelState.IsValid;
     }
     private static bool ValidPostalCode(string? value) => value is not null && value.Count(char.IsAsciiDigit) == 8 && value.All(character => char.IsAsciiDigit(character) || character is '-' or ' ' or '.');
-    private static readonly HashSet<string> BrazilianStates = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
+    public sealed record BrazilianStateOption(string Code, string Name);
+    public static IReadOnlyList<BrazilianStateOption> BrazilianStates { get; } =
+    [
+        new("AC", "Acre"),
+        new("AL", "Alagoas"),
+        new("AP", "Amapá"),
+        new("AM", "Amazonas"),
+        new("BA", "Bahia"),
+        new("CE", "Ceará"),
+        new("DF", "Distrito Federal"),
+        new("ES", "Espírito Santo"),
+        new("GO", "Goiás"),
+        new("MA", "Maranhão"),
+        new("MT", "Mato Grosso"),
+        new("MS", "Mato Grosso do Sul"),
+        new("MG", "Minas Gerais"),
+        new("PA", "Pará"),
+        new("PB", "Paraíba"),
+        new("PR", "Paraná"),
+        new("PE", "Pernambuco"),
+        new("PI", "Piauí"),
+        new("RJ", "Rio de Janeiro"),
+        new("RN", "Rio Grande do Norte"),
+        new("RS", "Rio Grande do Sul"),
+        new("RO", "Rondônia"),
+        new("RR", "Roraima"),
+        new("SC", "Santa Catarina"),
+        new("SP", "São Paulo"),
+        new("SE", "Sergipe"),
+        new("TO", "Tocantins")
+    ];
+    private static readonly HashSet<string> BrazilianStateCodes = BrazilianStates.Select(state => state.Code).ToHashSet(StringComparer.Ordinal);
     private static string Clean(string? value) => value?.Trim() ?? "";
     public sealed class EmailInput { [Required, EmailAddress, StringLength(254)] public string Email { get; set; } = ""; }
     public sealed class VerificationInput { [Required, StringLength(6, MinimumLength = 6)] public string Code { get; set; } = ""; }
