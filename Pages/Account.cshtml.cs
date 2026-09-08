@@ -238,8 +238,13 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     public sealed class EmailChangeInput { [Required, EmailAddress, StringLength(254)] public string Email { get; set; } = ""; }
     public sealed class ProfileInput
     {
-        [StringLength(120)] public string Name { get; set; } = "";
-        [StringLength(40)] public string Phone { get; set; } = "";
+        [Required(ErrorMessage = "Informe seu nome.")]
+        [StringLength(120, ErrorMessage = "O nome deve ter no máximo 120 caracteres.")]
+        public string Name { get; set; } = "";
+
+        [Required(ErrorMessage = "Informe seu telefone.")]
+        [StringLength(40, ErrorMessage = "O telefone deve ter no máximo 40 caracteres.")]
+        public string Phone { get; set; } = "";
         public static ProfileInput From(CustomerAccountProfile p) => new() { Name = p.Name ?? "", Phone = p.Phone ?? "" };
     }
     public sealed class AddressInput

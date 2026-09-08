@@ -42,6 +42,16 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public void Profile_validation_uses_portuguese_messages_below_the_fields()
+    {
+        var page = new AccountModel(new AccountStub(), new SessionCookieStub()) { PageContext = PageContext() };
+
+        Assert.False(page.TryValidateModel(page.ProfileForm, nameof(page.ProfileForm)));
+        Assert.Equal("Informe seu nome.", page.ModelState["ProfileForm.Name"]!.Errors.Single().ErrorMessage);
+        Assert.Equal("Informe seu telefone.", page.ModelState["ProfileForm.Phone"]!.Errors.Single().ErrorMessage);
+    }
+
+    [Fact]
     public void Address_input_can_be_preloaded_for_editing()
     {
         var address = new CustomerAccountAddress { Label = "Casa", Recipient = "Ana", Street = "Rua A", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" };

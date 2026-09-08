@@ -92,7 +92,6 @@
         <section id="perfil" class="account-panel" aria-labelledby="profile-heading">
             <h2 id="profile-heading">Perfil</h2>
             <p class="account-email">@Model.Profile!.Email</p>
-            <div asp-validation-summary="ModelOnly" class="validation-error" role="alert"></div>
             <form method="post" asp-page-handler="SaveProfile">
                 <label asp-for="ProfileForm.Name">Nome</label>
                 <input asp-for="ProfileForm.Name" autocomplete="name">
