@@ -4,8 +4,31 @@ if (form) {
   const methodInputs = [...form.querySelectorAll('input[name="FulfillmentMethod"]')];
   const panels = [...form.querySelectorAll('[data-fulfillment-panel]')];
   const shippingFields = [...form.querySelectorAll('[data-fulfillment-panel="shipping"] input:not([name="ShippingAddress.Complement"])')];
+  const addressChoices = [...form.querySelectorAll('input[name="SelectedAddressId"]')];
+  const addressControls = form.querySelector('[data-new-address-controls]');
   const submit = form.querySelector('[data-checkout-submit]');
   const checkoutReady = submit?.dataset.checkoutReady === 'true';
+  const addressFieldNames = {
+    recipient: 'ShippingAddress.Recipient',
+    street: 'ShippingAddress.Street',
+    number: 'ShippingAddress.Number',
+    complement: 'ShippingAddress.Complement',
+    neighborhood: 'ShippingAddress.Neighborhood',
+    city: 'ShippingAddress.City',
+    state: 'ShippingAddress.State',
+    postalCode: 'ShippingAddress.PostalCode'
+  };
+
+  const setAddressFields = (choice) => {
+    const values = choice?.dataset.newAddress === 'true'
+      ? {}
+      : choice?.dataset ?? {};
+    Object.entries(addressFieldNames).forEach(([key, name]) => {
+      const field = form.querySelector(`[name="${name}"]`);
+      if (field) field.value = values[key] ?? '';
+    });
+    if (addressControls) addressControls.hidden = choice?.dataset.newAddress !== 'true';
+  };
 
   const update = () => {
     const method = methodInputs.find((input) => input.checked)?.value;
@@ -23,5 +46,12 @@ if (form) {
 
   methodInputs.forEach((input) => input.addEventListener('change', update));
   form.querySelectorAll('input[name="PublicShippingQuoteId"]').forEach((input) => input.addEventListener('change', update));
+  addressChoices.forEach((choice) => choice.addEventListener('change', () => setAddressFields(choice)));
+  const selectedAddress = addressChoices.find((choice) => choice.checked);
+  if (addressChoices.length === 0) {
+    if (addressControls) addressControls.hidden = false;
+  } else {
+    setAddressFields(selectedAddress);
+  }
   update();
 }

@@ -38,5 +38,3 @@
     { <div class="products storefront-products">@for (var index = 0; index < Model.Catalog.Items.Count; index++) { <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Catalog.Items[index], "muay-thai", index))" /> }</div> }
   </section>
 </main>
-
-@section Scripts { <script src="~/js/carousel.js" asp-append-version="true"></script> }

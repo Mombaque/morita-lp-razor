@@ -1,0 +1,52 @@
+@model Morita.LP.Razor.Models.PublicOrder
+<section class="account-panel order-detail" aria-labelledby="selected-order-heading">
+    <h2 id="selected-order-heading">Detalhes do pedido @Model.PublicOrderNumber</h2>
+    <p>Pagamento: <strong>@AccountPresentation.PaymentStatus(Model.PaymentStatus)</strong></p>
+    <p>Status: <strong>@AccountPresentation.FulfillmentStatus(Model.FulfillmentStatus)</strong> · @AccountPresentation.FulfillmentMethod(Model.FulfillmentMethod)</p>
+    <ul>
+        @foreach (var line in Model.Lines)
+        {
+            <li><strong>@line.Presentation</strong> — @line.Quantity × @Model.Currency @line.UnitPrice.ToString("N2") = @Model.Currency @line.Total.ToString("N2")</li>
+        }
+    </ul>
+    @if (Model.Shipping is { } shipping)
+    {
+        <p>Frete: <strong>@Model.Currency @shipping.Price.ToString("N2")</strong></p>
+        <h3>Endereço de entrega</h3>
+        <p>@shipping.Address.Recipient<br>@shipping.Address.Street, @shipping.Address.Number @shipping.Address.Complement<br>@shipping.Address.Neighborhood · @shipping.Address.City/@shipping.Address.State · CEP @shipping.Address.PostalCode</p>
+    }
+    @if (Model.FulfillmentMethod == "pickup" && Model.PickupAddress is { } pickup)
+    {
+        <h3>Retirada</h3>
+        <p><strong>@Model.PickupDisplayName</strong><br>@pickup.Street, @pickup.Number - @pickup.Neighborhood, @pickup.City/@pickup.State</p>
+        <p>@Model.PickupHours</p>
+        @if (!string.IsNullOrWhiteSpace(Model.PickupInstructions))
+        {
+            <p>@Model.PickupInstructions</p>
+        }
+    }
+    @if (Model.Shipment is { } shipment)
+    {
+        <h3>Envio</h3>
+        <p>@AccountPresentation.FulfillmentStatus(shipment.Status) · @shipment.CarrierName @shipment.ServiceName</p>
+        @if (!string.IsNullOrWhiteSpace(shipment.TrackingCode))
+        {
+            <p>Rastreamento: <strong>@shipment.TrackingCode</strong></p>
+        }
+        <p>Atualizado em <time datetime="@shipment.UpdatedAt.ToString("O")">@shipment.UpdatedAt.ToLocalTime().ToString("g")</time>.</p>
+        @if (shipment.ShippedAt is { } shippedAt)
+        {
+            <p>Enviado em <time datetime="@shippedAt.ToString("O")">@shippedAt.ToLocalTime().ToString("g")</time>.</p>
+        }
+        @if (shipment.DeliveredAt is { } deliveredAt)
+        {
+            <p>Entregue em <time datetime="@deliveredAt.ToString("O")">@deliveredAt.ToLocalTime().ToString("g")</time>.</p>
+        }
+    }
+    <p>Pedido criado em <time datetime="@Model.CreatedAt.ToString("O")">@Model.CreatedAt.ToLocalTime().ToString("g")</time>.</p>
+    @if (Model.FulfillmentUpdatedAt is { } updatedAt)
+    {
+        <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@updatedAt.ToLocalTime().ToString("g")</time>.</p>
+    }
+    <p><strong>Total: @Model.Currency @Model.Amount.ToString("N2")</strong></p>
+</section>

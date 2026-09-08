@@ -14,6 +14,7 @@
     var ogImage = ViewData["OgImage"] as string ?? $"{canonicalBase.TrimEnd('/')}/images/favicon.png";
     var robots = ViewData["Robots"] as string ?? "index,follow,max-snippet:-1,max-image-preview:large,max-video-preview:-1";
     var publicAssistantEnabled = StorefrontOptions.Value.PublicAssistantEnabled;
+    var customerAccountsEnabled = StorefrontOptions.Value.CustomerAccountsEnabled;
     var customerSignedIn = CustomerAccountCookies.Read() is not null;
 }
 <!DOCTYPE html>
@@ -91,7 +92,7 @@
             <a href="/jiu-jitsu" class="nav-link @(isJiuJitsu ? "active" : "")" aria-current="@(isJiuJitsu ? "page" : null)">Jiu-Jitsu</a>
             <a href="/muay-thai" class="nav-link @(isMuayThai ? "active" : "")" aria-current="@(isMuayThai ? "page" : null)">Muay Thai</a>
             <a href="/kids" class="nav-link @(isKids ? "active" : "")" aria-current="@(isKids ? "page" : null)">Kids</a>
-            <a href="/conta" class="nav-link nav-account">@(customerSignedIn ? "Minha conta" : "Entrar")</a>
+            @if (customerAccountsEnabled) { if (customerSignedIn) { <a href="/conta" class="nav-link nav-account">Minha conta</a> } else { <a href="/conta?mode=signin" class="nav-link nav-account">Entrar</a><a href="/conta?mode=create" class="nav-link nav-account">Criar conta</a> } }
         </nav>
     </header>
 
@@ -102,7 +103,7 @@
     <footer class="commerce-footer">
         <div><img src="~/images/logo.png" alt="Morita Fight"><p>Equipamento para quem leva o treino a sério.</p></div>
         <div><strong>Loja</strong><a href="/products">Catálogo</a><a href="/jiu-jitsu">Jiu-Jitsu</a><a href="/muay-thai">Muay Thai</a><a href="/kids">Kids</a></div>
-        <div><strong>Visite</strong><a href="https://maps.app.goo.gl/pNYYiMimWGa4actz7">Rua Coronel Nogueira Padilha, 429<br>Sorocaba, SP</a><a href="https://wa.me/5515981079332">WhatsApp (15) 98107-9332</a></div>
+        <div><strong>Visite</strong><a href="https://maps.app.goo.gl/pNYYiMimWGa4actz7">Rua Coronel Nogueira Padilha, 429<br>Sorocaba, SP</a><a href="https://wa.me/5515981079332">WhatsApp (15) 98107-9332</a>@if(customerAccountsEnabled && !customerSignedIn){<a href="/conta?mode=signin">Entrar</a><a href="/conta?mode=create">Criar conta</a>}</div>
     </footer>
 
     <script>
@@ -110,6 +111,7 @@
         window.CUSTOMER_REQUEST_RELAY = @Html.Raw(JsonSerializer.Serialize(Configuration.GetValue<bool>("Storefront:UseRelayForCustomerRequests")));
         window.CUSTOMER_REQUEST_RELAY_URL = "/customer-product-request";
     </script>
+    <script src="~/js/carousel.js" asp-append-version="true"></script>
     <script type="module" src="~/js/customer-product-request.js" asp-append-version="true"></script>
     @if (publicAssistantEnabled) { <script type="module" src="~/js/public-assistant.js" asp-append-version="true"></script> }
     <script type="module" src="~/js/tracking.js" asp-append-version="true"></script>

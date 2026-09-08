@@ -10,6 +10,7 @@ public sealed class OrderModel(IOrderClient client, IOrderAccessCookieStore acce
     public PublicOrder? Order { get; private set; }
     public string? Message { get; private set; }
     public bool CanClaim { get; private set; }
+    public bool SignedIn { get; private set; }
     public string? ClaimMessage { get; private set; }
     [BindProperty(SupportsGet = true)] public string PublicOrderNumber { get; set; } = "";
     public async Task OnGetAsync(CancellationToken cancellationToken)
@@ -20,6 +21,7 @@ public sealed class OrderModel(IOrderClient client, IOrderAccessCookieStore acce
         Order = result.Order; Message = result.Message ?? (Order is null ? "Este pedido não está disponível neste dispositivo." : null);
         if (Order is null) access.Clear();
         CanClaim = Order is not null && accountCookies.Read() is not null;
+        SignedIn = CanClaim;
     }
     public async Task<IActionResult> OnPostClaimAsync(CancellationToken cancellationToken)
     {
