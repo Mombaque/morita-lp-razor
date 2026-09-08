@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Morita.LP.Razor.Models;
@@ -16,6 +17,12 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     public PublicOrder? SelectedOrder { get; private set; }
     public string? Message { get; private set; }
     public string? Error { get; private set; }
+    public IReadOnlyList<string> AccountErrors => ModelState.Values
+        .SelectMany(entry => entry.Errors.Take(1))
+        .Select(error => string.IsNullOrWhiteSpace(error.ErrorMessage) ? "Confira os dados informados." : error.ErrorMessage)
+        .Concat(Error is null ? Enumerable.Empty<string>() : [Error])
+        .Distinct(StringComparer.Ordinal)
+        .ToArray();
     public string? OrdersError { get; private set; }
     public bool OrdersLoaded { get; private set; }
     public string? PrivacyPolicyUrl => storefrontOptions?.Value.PrivacyPolicyUrl;
@@ -114,6 +121,7 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     public async Task<IActionResult> OnPostSaveAddressAsync(CancellationToken ct)
     {
         if (!AccountEnabled) return NotFound();
+        ModelState.Clear();
         if (Session is not { } session) return RedirectToPage();
         await LoadAsync(ct);
         if (!SignedIn) return cookies.Read() is null ? RedirectToPage() : Page();
@@ -123,6 +131,7 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
             await LoadAsync(ct);
             return Page();
         }
+        TryValidateModel(AddressForm, nameof(AddressForm));
         if (!ValidateAddress(AddressForm))
         {
             await LoadAsync(ct);
@@ -138,6 +147,7 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     private async Task<IActionResult> AddressMutationAsync(Guid id, bool setDefault, CancellationToken ct)
     {
         if (!AccountEnabled) return NotFound();
+        ModelState.Clear();
         if (Session is not { } session) return RedirectToPage();
         var result = setDefault
             ? await client.SetDefaultAddressAsync(session.Token, id, ct)
@@ -264,9 +274,28 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     ];
     private static readonly HashSet<string> BrazilianStateCodes = BrazilianStates.Select(state => state.Code).ToHashSet(StringComparer.Ordinal);
     private static string Clean(string? value) => value?.Trim() ?? "";
-    public sealed class EmailInput { [Required, EmailAddress, StringLength(254)] public string Email { get; set; } = ""; }
-    public sealed class VerificationInput { [Required, StringLength(6, MinimumLength = 6)] public string Code { get; set; } = ""; }
-    public sealed class EmailChangeInput { [Required, EmailAddress, StringLength(254)] public string Email { get; set; } = ""; }
+    public sealed class EmailInput
+    {
+        [Required(ErrorMessage = "Informe seu e-mail.")]
+        [EmailAddress(ErrorMessage = "Informe um e-mail válido.")]
+        [StringLength(254, ErrorMessage = "O e-mail deve ter no máximo 254 caracteres.")]
+        public string Email { get; set; } = "";
+    }
+
+    public sealed class VerificationInput
+    {
+        [Required(ErrorMessage = "Informe o código.")]
+        [StringLength(6, MinimumLength = 6, ErrorMessage = "O código deve ter exatamente 6 números.")]
+        public string Code { get; set; } = "";
+    }
+
+    public sealed class EmailChangeInput
+    {
+        [Required(ErrorMessage = "Informe o novo e-mail.")]
+        [EmailAddress(ErrorMessage = "Informe um e-mail válido.")]
+        [StringLength(254, ErrorMessage = "O e-mail deve ter no máximo 254 caracteres.")]
+        public string Email { get; set; } = "";
+    }
     public sealed class ProfileInput
     {
         [Required(ErrorMessage = "Informe seu nome.")]
@@ -280,14 +309,14 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     }
     public sealed class AddressInput
     {
-        [StringLength(120)] public string Recipient { get; set; } = "";
-        [StringLength(160)] public string Street { get; set; } = "";
-        [StringLength(40)] public string Number { get; set; } = "";
-        [StringLength(160)] public string Complement { get; set; } = "";
-        [StringLength(120)] public string Neighborhood { get; set; } = "";
-        [StringLength(120)] public string City { get; set; } = "";
-        [StringLength(2)] public string State { get; set; } = "";
-        [StringLength(10)] public string PostalCode { get; set; } = "";
+        [StringLength(120, ErrorMessage = "O destinatário deve ter no máximo 120 caracteres.")] public string Recipient { get; set; } = "";
+        [StringLength(160, ErrorMessage = "A rua deve ter no máximo 160 caracteres.")] public string Street { get; set; } = "";
+        [StringLength(40, ErrorMessage = "O número deve ter no máximo 40 caracteres.")] public string Number { get; set; } = "";
+        [StringLength(160, ErrorMessage = "O complemento deve ter no máximo 160 caracteres.")] public string Complement { get; set; } = "";
+        [StringLength(120, ErrorMessage = "O bairro deve ter no máximo 120 caracteres.")] public string Neighborhood { get; set; } = "";
+        [StringLength(120, ErrorMessage = "A cidade deve ter no máximo 120 caracteres.")] public string City { get; set; } = "";
+        [StringLength(2, ErrorMessage = "A UF deve ter 2 letras.")] public string State { get; set; } = "";
+        [StringLength(10, ErrorMessage = "O CEP deve ter no máximo 10 caracteres.")] public string PostalCode { get; set; } = "";
         public bool HasAnyValue => new[] { Recipient, Street, Number, Complement, Neighborhood, City, State, PostalCode }.Any(value => !string.IsNullOrWhiteSpace(value));
         public CustomerAccountAddress ToModel(string label) => new() { Label = Clean(label), Recipient = Clean(Recipient), Street = Clean(Street), Number = Clean(Number), Complement = string.IsNullOrWhiteSpace(Complement) ? null : Complement.Trim(), Neighborhood = Clean(Neighborhood), City = Clean(City), State = Clean(State).ToUpperInvariant(), PostalCode = Clean(PostalCode), CountryCode = "BR" };
         public static AddressInput From(CustomerAccountAddress address) => new() { Recipient = address.Recipient, Street = address.Street, Number = address.Number, Complement = address.Complement ?? "", Neighborhood = address.Neighborhood, City = address.City, State = address.State, PostalCode = address.PostalCode };

@@ -2643,6 +2643,13 @@ body {
   margin: auto;
   padding: clamp(1.25rem, 4vw, 4rem) 1rem;
 }
+.account-error-toast { position: fixed; z-index: 20; top: 1rem; right: 1rem; width: min(26rem, calc(100vw - 2rem)); box-sizing: border-box; border: 1px solid #ff4d4d; border-top: 3px solid #ff4d4d; background: linear-gradient(145deg, #241010, #100808); box-shadow: 0 1rem 3rem rgba(0, 0, 0, .55); color: #fff; padding: .9rem 1rem 1rem; }
+.account-error-toast-heading { align-items: center; color: #ff4d4d; display: flex; font-family: 'Barlow Condensed', sans-serif; font-size: 1.05rem; justify-content: space-between; letter-spacing: .04em; text-transform: uppercase; }
+.account-error-toast-heading button { background: transparent; border: 0; color: #ffb3b3; cursor: pointer; font-size: 1.4rem; line-height: 1; padding: 0 .1rem; }
+.account-error-toast-heading button:focus-visible { outline: 2px solid #ff4d4d; outline-offset: 3px; }
+.account-error-toast ul { margin: .65rem 0 0; padding-left: 1.2rem; }
+.account-error-toast li { color: #ff4d4d; font-weight: 800; margin: .25rem 0; }
+.account-page .validation-error { color: #ff4d4d; display: block; font-weight: 800; margin: .35rem 0 .5rem; }
 .account-layout { display: grid; grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); gap: clamp(1rem, 3vw, 2.5rem); align-items: start; }
 .account-sidebar { position: sticky; top: 1.25rem; border: 1px solid #343434; border-top: 2px solid #3CF9AE; background: linear-gradient(145deg, #151515, #090909); padding: 1rem; }
 .account-sidebar-label { color: #888; font-size: .68rem; letter-spacing: .14em; margin: 0 0 .8rem; text-transform: uppercase; }
@@ -2686,6 +2693,7 @@ body {
 @media (max-width: 800px) { .account-layout { grid-template-columns: 1fr; } .account-sidebar { position: static; } .account-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); } .account-content > .account-panel { margin-block: 0 1rem; } }
 @media (max-width: 700px) { .account-ledger { display: block; } .order-ledger a { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .account-tabs { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .account-error-toast { left: .75rem; right: .75rem; top: .75rem; width: auto; } }
 
 /* Catalog discovery controls: keep filtering close at hand without pushing products below the fold. */
 .catalog-filter-form {
