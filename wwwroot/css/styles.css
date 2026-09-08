@@ -1746,7 +1746,11 @@ body {
   margin: .5rem 0 0;
 }
 
-.discipline-strip,
+.discipline-strip {
+  border-top: 1px solid var(--fight-line);
+  padding-block: clamp(3rem, 5vw, 5rem);
+}
+
 .featured-catalog,
 .collection-catalog {
   border-top: 1px solid var(--fight-line);
@@ -1781,13 +1785,15 @@ body {
 }
 
 .discipline-grid a {
-  aspect-ratio: 1.2;
   background: #0b0c0b;
   border: 1px solid var(--fight-line);
+  box-sizing: border-box;
   color: var(--fight-paper);
   display: flex;
+  align-items: flex-start;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
+  min-height: clamp(220px, 18vw, 260px);
   padding: clamp(1rem, 2.5vw, 2rem);
   text-decoration: none;
   transition: background .2s ease, color .2s ease, transform .2s ease;
@@ -1799,21 +1805,42 @@ body {
   transform: translateY(-.4rem);
 }
 
-.discipline-grid span,
-.discipline-grid em {
+.discipline-grid a:focus-visible {
+  outline: 2px solid var(--fight-green);
+  outline-offset: 3px;
+}
+
+.discipline-card-content {
+  display: grid;
+  gap: .65rem;
+  max-width: 24rem;
+}
+
+.discipline-card-description {
+  color: var(--fight-muted);
+  font-size: clamp(.9rem, 1.1vw, 1rem);
+  line-height: 1.4;
+}
+
+.discipline-card-action {
+  color: var(--fight-green);
   font-family: "Barlow Condensed", sans-serif;
-  font-size: .8rem;
-  font-style: normal;
+  font-size: .82rem;
   font-weight: 700;
   letter-spacing: .1em;
   text-transform: uppercase;
 }
 
+.discipline-grid a:hover .discipline-card-description,
+.discipline-grid a:hover .discipline-card-action {
+  color: #06100c;
+}
+
 .discipline-grid strong {
   font-family: "Barlow Condensed", sans-serif;
-  font-size: clamp(2.5rem, 6vw, 5rem);
+  font-size: clamp(2.75rem, 4.2vw, 3.5rem);
   letter-spacing: -.04em;
-  line-height: .82;
+  line-height: .9;
   text-transform: uppercase;
 }
 
@@ -2162,8 +2189,8 @@ body {
   }
 
   .discipline-grid a {
-    aspect-ratio: auto;
-    min-height: 240px;
+    min-height: 0;
+    padding: 1.35rem 1.25rem;
     transform: none;
   }
 
