@@ -141,16 +141,18 @@
                         @address.Neighborhood · @address.City/@address.State<br>
                         CEP @address.PostalCode
                     </p>
-                    <a class="commerce-button commerce-button-secondary" href="/conta?handler=EditAddress&amp;id=@address.PublicAddressId#enderecos">Editar endereço</a>
-                    @if (!address.IsDefault)
-                    {
-                        <form method="post" asp-page-handler="SetDefaultAddress" class="inline-form">
-                            <button name="id" value="@address.PublicAddressId" class="commerce-button commerce-button-secondary" type="submit">Definir como padrão</button>
+                    <div class="address-actions">
+                        <a class="commerce-button commerce-button-secondary" href="/conta?handler=EditAddress&amp;id=@address.PublicAddressId#enderecos">Editar endereço</a>
+                        @if (!address.IsDefault)
+                        {
+                            <form method="post" asp-page-handler="SetDefaultAddress">
+                                <button name="id" value="@address.PublicAddressId" class="commerce-button commerce-button-secondary" type="submit">Definir como padrão</button>
+                            </form>
+                        }
+                        <form method="post" asp-page-handler="DeleteAddress">
+                            <button name="id" value="@address.PublicAddressId" class="commerce-button commerce-button-danger" type="submit" aria-label="Excluir o endereço @address.Label" onclick="return confirm('Excluir o endereço @address.Label?');">Excluir endereço</button>
                         </form>
-                    }
-                    <form method="post" asp-page-handler="DeleteAddress" class="inline-form">
-                        <button name="id" value="@address.PublicAddressId" class="commerce-button commerce-button-danger" type="submit" aria-label="Excluir o endereço @address.Label" onclick="return confirm('Excluir o endereço @address.Label?');">Excluir endereço</button>
-                    </form>
+                    </div>
                 </article>
             }
             @if (Model.CanAddAddress || Model.IsEditingAddress)
