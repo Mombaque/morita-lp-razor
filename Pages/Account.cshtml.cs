@@ -91,12 +91,11 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     {
         if (!AccountEnabled) return NotFound();
         ModelState.Clear(); TryValidateModel(Verification, nameof(Verification));
-        ChallengeId = Verification.ChallengeId;
-        if (Verification.ChallengeId == Guid.Empty || !ChallengeIssued || ChallengeKind != "signin") ModelState.AddModelError(nameof(Verification.Code), "Solicite um novo código antes de confirmar a entrada.");
+        if (ChallengeId == Guid.Empty || !ChallengeIssued || ChallengeKind != "signin") ModelState.AddModelError(nameof(Verification.Code), "Solicite um novo código antes de confirmar a entrada.");
         if (string.IsNullOrWhiteSpace(PrivacyPolicyVersion)) ModelState.AddModelError(nameof(PrivacyPolicyVersion), "Não foi possível confirmar a versão da política de privacidade. Solicite um novo código.");
         if (!AcceptedPrivacyPolicy) ModelState.AddModelError(nameof(AcceptedPrivacyPolicy), "Aceite a política de privacidade para continuar. Isso é necessário para criar uma conta nova.");
         if (!ModelState.IsValid) return Page();
-        var result = await client.VerifyCodeAsync(Verification.ChallengeId, Verification?.Code?.Trim() ?? "", AcceptedPrivacyPolicy, PrivacyPolicyVersion!, ct);
+        var result = await client.VerifyCodeAsync(ChallengeId, Verification?.Code?.Trim() ?? "", AcceptedPrivacyPolicy, PrivacyPolicyVersion!, ct);
         if (result.State != AccountLoadState.Success || result.Value.Session is null || result.Value.Session.Token.Length == 0) { Error = result.Message ?? "Código inválido ou expirado."; return Page(); }
         if (!cookies.Write(result.Value.Session.Token, result.Value.Session.ExpiresAt)) { Error = "Não foi possível proteger sua sessão."; return Page(); }
         return LocalRedirect(SafeReturnUrl(ReturnUrl) ?? "/conta");
@@ -167,9 +166,9 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     {
         if (!AccountEnabled) return NotFound();
         ModelState.Clear(); TryValidateModel(Verification, nameof(Verification));
-        if (!ModelState.IsValid || Verification.ChallengeId == Guid.Empty || !EmailChallengeIssued) { await LoadAsync(ct); return Page(); }
+        if (!ModelState.IsValid || ChallengeId == Guid.Empty || !EmailChallengeIssued) { await LoadAsync(ct); return Page(); }
         if (Session is not { } session) return RedirectToPage();
-        var result = await client.VerifyEmailCodeAsync(session.Token, Verification.ChallengeId, Verification.Code?.Trim() ?? "", ct);
+        var result = await client.VerifyEmailCodeAsync(session.Token, ChallengeId, Verification.Code?.Trim() ?? "", ct);
         if (result.Value) Message = "E-mail atualizado. As outras sessões foram encerradas."; else { ExpireIfNeeded(result.State); Error = result.Message ?? "Código inválido."; }
         await LoadAsync(ct); return Page();
     }
@@ -196,9 +195,9 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
         ModelState.Clear();
         TryValidateModel(Verification, nameof(Verification));
         if (!ConfirmClosure) ModelState.AddModelError(nameof(ConfirmClosure), "Marque a confirmação para encerrar a conta.");
-        if (!ModelState.IsValid || Verification.ChallengeId == Guid.Empty || !ClosureChallengeIssued) { await LoadAsync(ct); return Page(); }
+        if (!ModelState.IsValid || ChallengeId == Guid.Empty || !ClosureChallengeIssued) { await LoadAsync(ct); return Page(); }
         if (Session is not { } session) return RedirectToPage();
-        var result = await client.VerifyClosureCodeAsync(session.Token, Verification.ChallengeId, Verification.Code.Trim(), ct); if (result.Value) { cookies.Clear(); return RedirectToPage("/Account"); } ExpireIfNeeded(result.State); Error = result.Message ?? "Código inválido."; await LoadAsync(ct); return Page();
+        var result = await client.VerifyClosureCodeAsync(session.Token, ChallengeId, Verification.Code.Trim(), ct); if (result.Value) { cookies.Clear(); return RedirectToPage("/Account"); } ExpireIfNeeded(result.State); Error = result.Message ?? "Código inválido."; await LoadAsync(ct); return Page();
     }
     private async Task LoadAsync(CancellationToken ct)
     {
@@ -222,7 +221,7 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
         }
     }
     private void ExpireIfNeeded(AccountLoadState state) { if (state == AccountLoadState.Unauthorized) cookies.Clear(); }
-    public static string? SafeReturnUrl(string? value) => !string.IsNullOrWhiteSpace(value) && value.StartsWith('/') && !value.StartsWith("//") && !value.Contains('\0') && !Uri.TryCreate(value, UriKind.Absolute, out _) ? value : null;
+    public static string? SafeReturnUrl(string? value) => !string.IsNullOrWhiteSpace(value) && value.StartsWith('/') && !value.StartsWith("//") && !value.Contains("\\", StringComparison.Ordinal) && !value.Contains('\0') && Uri.TryCreate(value, UriKind.Relative, out _) ? value : null;
     private void Required(string value, string key, string message) { if (string.IsNullOrWhiteSpace(value)) ModelState.AddModelError(key, message); }
     private bool ValidateAddress(AddressInput address)
     {
@@ -235,7 +234,7 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     private static readonly HashSet<string> BrazilianStates = ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"];
     private static string Clean(string? value) => value?.Trim() ?? "";
     public sealed class EmailInput { [Required, EmailAddress, StringLength(254)] public string Email { get; set; } = ""; }
-    public sealed class VerificationInput { public Guid ChallengeId { get; set; } [Required, StringLength(6, MinimumLength = 6)] public string Code { get; set; } = ""; }
+    public sealed class VerificationInput { [Required, StringLength(6, MinimumLength = 6)] public string Code { get; set; } = ""; }
     public sealed class EmailChangeInput { [Required, EmailAddress, StringLength(254)] public string Email { get; set; } = ""; }
     public sealed class ProfileInput
     {
