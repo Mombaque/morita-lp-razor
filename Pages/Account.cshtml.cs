@@ -232,7 +232,7 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     }
     private void ExpireIfNeeded(AccountLoadState state) { if (state == AccountLoadState.Unauthorized) cookies.Clear(); }
     public static string? SafeReturnUrl(string? value) => !string.IsNullOrWhiteSpace(value) && value.StartsWith('/') && !value.StartsWith("//") && !value.Contains("\\", StringComparison.Ordinal) && !value.Contains('\0') && Uri.TryCreate(value, UriKind.Relative, out _) ? value : null;
-    private void Required(string value, string key, string message) { if (string.IsNullOrWhiteSpace(value)) ModelState.AddModelError(key, message); }
+    private void Required(string? value, string key, string message) { if (string.IsNullOrWhiteSpace(value)) ModelState.AddModelError(key, message); }
     private bool ValidateAddress(AddressInput address)
     {
         Required(AddressLabel, "AddressLabel", "Informe um rótulo para o endereço."); Required(address.Recipient, "AddressForm.Recipient", "Informe o destinatário."); Required(address.Street, "AddressForm.Street", "Informe a rua."); Required(address.Number, "AddressForm.Number", "Informe o número."); Required(address.Neighborhood, "AddressForm.Neighborhood", "Informe o bairro."); Required(address.City, "AddressForm.City", "Informe a cidade.");
@@ -309,14 +309,14 @@ public sealed class AccountModel(ICustomerAccountClient client, ICustomerAccount
     }
     public sealed class AddressInput
     {
-        [StringLength(120, ErrorMessage = "O destinatário deve ter no máximo 120 caracteres.")] public string Recipient { get; set; } = "";
-        [StringLength(160, ErrorMessage = "A rua deve ter no máximo 160 caracteres.")] public string Street { get; set; } = "";
-        [StringLength(40, ErrorMessage = "O número deve ter no máximo 40 caracteres.")] public string Number { get; set; } = "";
-        [StringLength(160, ErrorMessage = "O complemento deve ter no máximo 160 caracteres.")] public string Complement { get; set; } = "";
-        [StringLength(120, ErrorMessage = "O bairro deve ter no máximo 120 caracteres.")] public string Neighborhood { get; set; } = "";
-        [StringLength(120, ErrorMessage = "A cidade deve ter no máximo 120 caracteres.")] public string City { get; set; } = "";
-        [StringLength(2, ErrorMessage = "A UF deve ter 2 letras.")] public string State { get; set; } = "";
-        [StringLength(10, ErrorMessage = "O CEP deve ter no máximo 10 caracteres.")] public string PostalCode { get; set; } = "";
+        [StringLength(120, ErrorMessage = "O destinatário deve ter no máximo 120 caracteres.")] public string? Recipient { get; set; } = "";
+        [StringLength(160, ErrorMessage = "A rua deve ter no máximo 160 caracteres.")] public string? Street { get; set; } = "";
+        [StringLength(40, ErrorMessage = "O número deve ter no máximo 40 caracteres.")] public string? Number { get; set; } = "";
+        [StringLength(160, ErrorMessage = "O complemento deve ter no máximo 160 caracteres.")] public string? Complement { get; set; } = "";
+        [StringLength(120, ErrorMessage = "O bairro deve ter no máximo 120 caracteres.")] public string? Neighborhood { get; set; } = "";
+        [StringLength(120, ErrorMessage = "A cidade deve ter no máximo 120 caracteres.")] public string? City { get; set; } = "";
+        [StringLength(2, ErrorMessage = "A UF deve ter 2 letras.")] public string? State { get; set; } = "";
+        [StringLength(10, ErrorMessage = "O CEP deve ter no máximo 10 caracteres.")] public string? PostalCode { get; set; } = "";
         public bool HasAnyValue => new[] { Recipient, Street, Number, Complement, Neighborhood, City, State, PostalCode }.Any(value => !string.IsNullOrWhiteSpace(value));
         public CustomerAccountAddress ToModel(string label) => new() { Label = Clean(label), Recipient = Clean(Recipient), Street = Clean(Street), Number = Clean(Number), Complement = string.IsNullOrWhiteSpace(Complement) ? null : Complement.Trim(), Neighborhood = Clean(Neighborhood), City = Clean(City), State = Clean(State).ToUpperInvariant(), PostalCode = Clean(PostalCode), CountryCode = "BR" };
         public static AddressInput From(CustomerAccountAddress address) => new() { Recipient = address.Recipient, Street = address.Street, Number = address.Number, Complement = address.Complement ?? "", Neighborhood = address.Neighborhood, City = address.City, State = address.State, PostalCode = address.PostalCode };

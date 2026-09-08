@@ -69,6 +69,23 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Address_validation_does_not_add_implicit_english_required_errors()
+    {
+        var page = new AccountModel(new AccountStub(), new SessionCookieStub())
+        {
+            PageContext = PageContext(),
+            AddressLabel = "Casa",
+            AddressForm = new()
+        };
+
+        await page.OnPostSaveAddressAsync(CancellationToken.None);
+
+        Assert.DoesNotContain(page.AccountErrors, error => error.Contains("field is required", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains("Informe um CEP brasileiro válido.", page.AccountErrors);
+        Assert.DoesNotContain(page.ModelState.Keys, key => key.EndsWith("Complement", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void Address_input_can_be_preloaded_for_editing()
     {
         var address = new CustomerAccountAddress { Label = "Casa", Recipient = "Ana", Street = "Rua A", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" };
