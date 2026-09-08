@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
+using System.Reflection;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -26,6 +27,16 @@ namespace Morita.LP.Razor.Tests;
 
 public sealed class CheckoutPageTests
 {
+    [Fact]
+    public void Saved_address_label_is_optional_for_pickup_checkout()
+    {
+        var property = typeof(CheckoutModel).GetProperty(nameof(CheckoutModel.SavedAddressLabel))!;
+
+        var nullability = new NullabilityInfoContext().Create(property);
+
+        Assert.Equal(NullabilityState.Nullable, nullability.WriteState);
+    }
+
     [Fact]
     public async Task Ambiguous_retries_reuse_the_same_draft_credentials()
     {

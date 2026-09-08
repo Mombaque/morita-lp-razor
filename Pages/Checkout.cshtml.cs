@@ -37,7 +37,7 @@ public sealed class CheckoutModel(
     [BindProperty] public ShippingAddressInput ShippingAddress { get; set; } = new();
     [BindProperty] public bool SaveAccountDetails { get; set; }
     [BindProperty] public Guid? SelectedAddressId { get; set; }
-    [BindProperty] public string SavedAddressLabel { get; set; } = "Meu endereço";
+    [BindProperty] public string? SavedAddressLabel { get; set; } = "Meu endereço";
     [BindProperty] public bool SetSavedAddressDefault { get; set; }
     [BindProperty] public bool SaveShippingAddress { get; set; }
     public bool Empty => Cart.Lines.Count == 0;
