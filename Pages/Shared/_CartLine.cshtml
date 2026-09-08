@@ -32,16 +32,20 @@
         }
         @if (available)
         {
-            <form method="post" asp-page-handler="Update">
+            <form class="cart-quantity-form" method="post" asp-page-handler="Update">
                 <input type="hidden" name="publicOfferId" value="@Model.PublicOfferId">
-                <label for="quantity-@Model.PublicOfferId">Quantidade</label>
-                <input id="quantity-@Model.PublicOfferId" type="number" name="quantity" min="1" max="10" value="@Model.Quantity">
-                <button class="button" type="submit" data-cart="update">Atualizar</button>
+                <label class="cart-quantity-label" for="quantity-@Model.PublicOfferId">Quantidade</label>
+                <div class="cart-quantity-stepper" data-cart="quantity-stepper">
+                    <button class="cart-quantity-button" type="button" data-cart="quantity-decrement" aria-label="Diminuir quantidade" aria-controls="quantity-@Model.PublicOfferId">−</button>
+                    <input class="cart-quantity-input" id="quantity-@Model.PublicOfferId" type="number" name="quantity" min="1" max="10" value="@Model.Quantity" inputmode="numeric" data-cart="quantity-input">
+                    <button class="cart-quantity-button" type="button" data-cart="quantity-increment" aria-label="Aumentar quantidade" aria-controls="quantity-@Model.PublicOfferId">+</button>
+                </div>
+                <button class="button cart-button-primary" type="submit" data-cart="update">Atualizar</button>
             </form>
         }
-        <form method="post" asp-page-handler="Remove">
+        <form class="cart-remove-form" method="post" asp-page-handler="Remove">
             <input type="hidden" name="publicOfferId" value="@Model.PublicOfferId">
-            <button class="button" type="submit" data-cart="remove">Remover item</button>
+            <button class="button cart-button-danger" type="submit" data-cart="remove">Remover item</button>
         </form>
     </div>
 </article>
