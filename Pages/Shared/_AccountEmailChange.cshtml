@@ -14,7 +14,6 @@
     @if (Model.EmailChallengeIssued)
     {
         <form method="post" asp-page-handler="VerifyEmailCode">
-            <input type="hidden" asp-for="Verification.ChallengeId">
             <input type="hidden" asp-for="ChallengeId">
             <input type="hidden" asp-for="ChallengeKind">
             <input type="hidden" asp-for="ChallengeExpiresAt">

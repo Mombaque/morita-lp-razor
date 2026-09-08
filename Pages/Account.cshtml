@@ -52,7 +52,6 @@
                 <p>O código expira em @Model.ChallengeExpiresAt?.ToLocalTime().ToString("t").</p>
                 <div asp-validation-summary="All" class="validation-error" role="alert"></div>
                 <form method="post" asp-page-handler="VerifyCode">
-                    <input type="hidden" asp-for="Verification.ChallengeId">
                     <input type="hidden" asp-for="ChallengeId">
                     <input type="hidden" asp-for="PrivacyPolicyVersion">
                     <input type="hidden" asp-for="ChallengeKind">
@@ -235,7 +234,6 @@
                 @if (Model.ClosureChallengeIssued)
                 {
                     <form method="post" asp-page-handler="VerifyClosureCode">
-                        <input type="hidden" asp-for="Verification.ChallengeId">
                         <input type="hidden" asp-for="ChallengeId">
                         <input type="hidden" asp-for="ChallengeKind">
                         <input type="hidden" asp-for="ChallengeExpiresAt">
