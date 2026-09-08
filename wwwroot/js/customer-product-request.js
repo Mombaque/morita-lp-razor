@@ -122,9 +122,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function injectRequestWidget() {
   document.body.insertAdjacentHTML('beforeend', `
-    <a class="request-float" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Falar com a Morita no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="request-widget">
-      <i class="fas fa-phone"></i>
-      Falar no WhatsApp
+    <a class="request-float" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Falar com a Morita no WhatsApp" title="Falar com a Morita no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="request-widget">
+      <i class="fab fa-whatsapp" aria-hidden="true"></i>
+      <span class="visually-hidden">Falar com a Morita no WhatsApp</span>
     </a>
     <div class="request-modal" id="customer-request-modal" aria-hidden="true">
       <div class="request-backdrop" data-request-close></div>

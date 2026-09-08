@@ -127,6 +127,28 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
+    public async Task Detail_renders_gallery_navigation_for_multiple_images()
+    {
+        var product = new Product
+        {
+            Slug = "gallery",
+            Nome = "Gallery product",
+            Imagens = ["/images/one.jpg", "/images/two.jpg"]
+        };
+        using var factory = CreateDetail(product);
+
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products/gallery")).Content.ReadAsStringAsync());
+
+        Assert.Contains("data-gallery", html);
+        Assert.Contains("data-gallery-prev", html);
+        Assert.Contains("aria-label=\"Imagem anterior\"", html);
+        Assert.Contains("data-gallery-next", html);
+        Assert.Contains("aria-label=\"Próxima imagem\"", html);
+        Assert.Contains("aria-pressed=\"true\"", html);
+        Assert.Contains("aria-pressed=\"false\"", html);
+    }
+
+    [Fact]
     public async Task Unavailable_product_is_rendered_and_not_mistaken_for_not_found()
     {
         using var factory = CreateDetail(new Product { Slug = "paused", Nome = "Paused", Availability = "unavailable" });
@@ -158,27 +180,24 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
-    public async Task Quote_success_is_required_before_continuation_cta()
+    public async Task Detail_posts_selected_offer_directly_to_cart()
     {
         var offer = Guid.NewGuid();
         var product = new Product { Slug = "quoted", Nome = "Quoted", Variants = [new ProductVariant { ColorLabel = "Preto", Offers = [new ProductOffer { PublicOfferId = offer, SizeLabel = "M", Availability = "available" }] }] };
-        using var successFactory = CreateDetail(product, quote: new CatalogQuoteResult(CatalogLoadState.Success, "BRL", 10, []));
-        var successHtml = await (await successFactory.CreateClient().GetAsync($"/products/quoted?publicOfferId={offer}&quantity=1")).Content.ReadAsStringAsync();
-        Assert.Contains("method=\"get\"", successHtml);
-        Assert.Contains("action=\"/products/quoted\"", successHtml);
-        Assert.Contains("name=\"publicOfferId\"", successHtml);
-        Assert.Contains("name=\"quantity\"", successHtml);
-        Assert.DoesNotContain("name=\"color\"", successHtml);
-        Assert.DoesNotContain("name=\"offer\"", successHtml);
-        Assert.Contains("Continuar com atendimento", successHtml);
-        Assert.Contains("wa.me/5515981079332?text=", successHtml);
-        Assert.Contains("Preto", successHtml);
-        Assert.Contains("quantidade%201", successHtml);
-        Assert.Equal(offer, Stub.LastQuoteRequest!.Lines.Single().PublicOfferId);
-        Assert.Equal(1, Stub.LastQuoteRequest.Lines.Single().Quantity);
-        using var failedFactory = CreateDetail(product, quote: CatalogQuoteResult.Unavailable());
-        var failedHtml = await (await failedFactory.CreateClient().GetAsync($"/products/quoted?publicOfferId={offer}&quantity=1")).Content.ReadAsStringAsync();
-        Assert.DoesNotContain("Continuar com atendimento", failedHtml);
+        using var factory = CreateDetail(product);
+        var html = await (await factory.CreateClient().GetAsync("/products/quoted")).Content.ReadAsStringAsync();
+
+        Assert.Contains("method=\"post\"", html);
+        Assert.Contains("data-cart=\"add\"", html);
+        Assert.Contains("Adicionar ao carrinho", html);
+        Assert.Contains("name=\"publicOfferId\"", html);
+        Assert.Contains("name=\"quantity\"", html);
+        Assert.DoesNotContain("Confirmar seleção", html);
+        Assert.DoesNotContain("Seleção confirmada", html);
+        Assert.DoesNotContain("Continuar com atendimento", html);
+        Assert.DoesNotContain("wa.me/5515981079332?text=", html);
+        Assert.DoesNotContain("name=\"color\"", html);
+        Assert.DoesNotContain("name=\"offer\"", html);
     }
 
     [Fact]

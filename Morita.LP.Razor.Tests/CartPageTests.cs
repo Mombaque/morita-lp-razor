@@ -51,6 +51,12 @@ public sealed class CartPageTests
         Assert.Contains("Quantidade indispon", body);
         Assert.Contains("BRL 12.00", body);
         Assert.Contains("data-cart=\"continue-shopping\"", body);
+        Assert.Contains("data-cart=\"quantity-stepper\"", body);
+        Assert.Contains("data-cart=\"quantity-decrement\"", body);
+        Assert.Contains("data-cart=\"quantity-increment\"", body);
+        Assert.Contains("data-cart=\"quantity-input\"", body);
+        Assert.Contains("cart-button-primary", body);
+        Assert.Contains("cart-button-danger", body);
         Assert.Contains("data-cart=\"checkout\"", body);
     }
 
