@@ -167,6 +167,7 @@ body {
     }
 
     .random-products-section {
+      margin-inline: auto;
       text-align: center;
       width: min(100% - 32px, 760px);
     }
