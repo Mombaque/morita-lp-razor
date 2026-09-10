@@ -174,12 +174,40 @@
             {
                 <p class="validation-error" role="alert">@Model.OrdersError</p>
             }
-            else if (Model.Orders.Items.Count == 0)
+            @if (Model.Orders.PendingCheckouts.Count > 0)
+            {
+                <h3>Pagamentos pendentes</h3>
+                <p class="account-status pending-checkout-note">Há um checkout aguardando pagamento. Retome-o para concluir o pedido.</p>
+                <ol class="order-ledger pending-checkout-ledger">
+                    @foreach (var pending in Model.Orders.PendingCheckouts)
+                    {
+                        <li>
+                            <a href="/checkout/@pending.PublicCheckoutId.ToString("D")">
+                                @if (!string.IsNullOrWhiteSpace(pending.RepresentativeProductImageUrl))
+                                {
+                                    <img src="@pending.RepresentativeProductImageUrl" alt="" loading="lazy">
+                                }
+                                <span>
+                                    <strong>Pagamento pendente</strong>
+                                    <span>@(pending.RepresentativeProductPresentation ?? "Checkout Morita")</span>
+                                    <span>@AccountPresentation.FulfillmentMethod(pending.FulfillmentMethod) · Retome o pagamento</span>
+                                </span>
+                                <em>@AccountPresentation.PaymentStatus(pending.Status)<br>@pending.Currency @pending.Amount.ToString("N2")<br><time datetime="@pending.CreatedAt.ToString("O")">@pending.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</time></em>
+                            </a>
+                        </li>
+                    }
+                </ol>
+            }
+            @if (Model.Orders.Items.Count == 0 && Model.Orders.PendingCheckouts.Count == 0)
             {
                 <p>Ainda não há pedidos.</p>
             }
-            else
+            else if (Model.Orders.Items.Count > 0)
             {
+                @if (Model.Orders.PendingCheckouts.Count > 0)
+                {
+                    <h3>Histórico de pedidos</h3>
+                }
                 <ol class="order-ledger">
                     @foreach (var order in Model.Orders.Items)
                     {

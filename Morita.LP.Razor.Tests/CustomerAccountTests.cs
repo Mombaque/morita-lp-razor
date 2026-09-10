@@ -157,6 +157,28 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Account_orders_show_checkouts_awaiting_payment()
+    {
+        var pending = new StorefrontAccountPendingCheckoutSummary
+        {
+            PublicCheckoutId = Guid.NewGuid(),
+            Amount = 120m,
+            Currency = "BRL",
+            Status = "PaymentPending",
+            RepresentativeProductPresentation = "Rashguard Manga Curta"
+        };
+        var client = new AccountStub
+        {
+            OrdersPageValue = new StorefrontAccountOrderPage { Page = 1, PageSize = 20, PendingCheckouts = [pending] }
+        };
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext() };
+
+        await page.OnGetAsync(CancellationToken.None);
+
+        Assert.Contains(pending, page.Orders.PendingCheckouts);
+    }
+
+    [Fact]
     public async Task Email_challenge_state_is_explicit_and_does_not_become_a_closure_challenge()
     {
         var challenge = new AccountCodeChallenge(Guid.NewGuid(), Now.AddMinutes(5));
@@ -545,6 +567,7 @@ public sealed class CustomerAccountTests
         public AccountResult<bool> ClaimResult { get; set; } = new(AccountLoadState.Success, true);
         public AccountResult<AccountCodeChallenge> CodeResult { get; set; } = AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable);
         public AccountResult<IReadOnlyList<PublicOrder>> OrdersResult { get; set; } = new(AccountLoadState.Success, []);
+        public StorefrontAccountOrderPage? OrdersPageValue { get; set; }
         public AccountResult<PublicOrder> OrderResult { get; set; } = AccountResult<PublicOrder>.Failure(AccountLoadState.NotFound);
         public AccountResult<IReadOnlyList<CustomerAccountAddress>> AddressesResult { get; set; } = new(AccountLoadState.Success, []);
         public AccountResult<CustomerAccountAddress> CreateAddressResult { get; set; } = AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable);
@@ -565,7 +588,7 @@ public sealed class CustomerAccountTests
         public Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default)
         {
             LastOrdersPage = page;
-            return Task.FromResult(OrdersResult.State == AccountLoadState.Success ? new AccountResult<StorefrontAccountOrderPage>(AccountLoadState.Success, new() { Page = page, PageSize = pageSize }) : AccountResult<StorefrontAccountOrderPage>.Failure(OrdersResult.State, OrdersResult.Message));
+            return Task.FromResult(OrdersResult.State == AccountLoadState.Success ? new AccountResult<StorefrontAccountOrderPage>(AccountLoadState.Success, OrdersPageValue ?? new() { Page = page, PageSize = pageSize }) : AccountResult<StorefrontAccountOrderPage>.Failure(OrdersResult.State, OrdersResult.Message));
         }
         public Task<AccountResult<AccountCodeChallenge>> RequestEmailCodeAsync(string token, string email, CancellationToken cancellationToken = default) => Task.FromResult(EmailResult);
         public Task<AccountResult<bool>> VerifyEmailCodeAsync(string token, Guid challengeId, string code, CancellationToken cancellationToken = default) { LastEmailVerifyChallengeId = challengeId; return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true)); }

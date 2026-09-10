@@ -44,9 +44,23 @@ public sealed class StorefrontAccountOrderSummary
     public string? RepresentativeProductImageUrl { get; init; }
 }
 
+public sealed class StorefrontAccountPendingCheckoutSummary
+{
+    public Guid PublicCheckoutId { get; init; }
+    public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset ExpiresAt { get; init; }
+    public decimal Amount { get; init; }
+    public string Currency { get; init; } = "BRL";
+    public string Status { get; init; } = "";
+    public string FulfillmentMethod { get; init; } = "";
+    public string? RepresentativeProductPresentation { get; init; }
+    public string? RepresentativeProductImageUrl { get; init; }
+}
+
 public sealed class StorefrontAccountOrderPage
 {
     public IReadOnlyList<StorefrontAccountOrderSummary> Items { get; init; } = [];
+    public IReadOnlyList<StorefrontAccountPendingCheckoutSummary> PendingCheckouts { get; init; } = [];
     public int Page { get; init; }
     public int PageSize { get; init; }
     public int TotalCount { get; init; }
