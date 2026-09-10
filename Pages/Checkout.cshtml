@@ -32,7 +32,7 @@
               }
               @if (Model.Configuration.Configuration?.ShippingEnabled == true)
               {
-                <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" type="radio" value="shipping"><span><strong>Receber em casa</strong><small>Entrega com prazo e valor calculados pelo CEP</small><em>Todo o Brasil</em></span></label>
+                <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" type="radio" value="shipping"><span><strong>Receber no meu endereço</strong><small>Entrega com prazo e valor calculados pelo CEP</small><em>Todo o Brasil</em></span></label>
               }
             </div>
             <span asp-validation-for="FulfillmentMethod" class="validation-error"></span>
