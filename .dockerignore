@@ -1,5 +1,6 @@
 .git
 .vs
+worktrees/
 bin/
 obj/
 **/bin/
