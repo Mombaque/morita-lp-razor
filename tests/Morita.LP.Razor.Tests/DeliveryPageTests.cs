@@ -63,6 +63,20 @@ public sealed class DeliveryPageTests
     }
 
     [Fact]
+    public async Task Production_starts_without_google_review_url()
+    {
+        using var factory = new DeliveryWebFactory("Production");
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri("https://localhost")
+        });
+
+        var response = await client.GetAsync("/entrega/not-valid!");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Missing_or_malformed_token_is_safe_and_does_not_call_upstream()
     {
         using var factory = new DeliveryWebFactory();
@@ -79,14 +93,14 @@ public sealed class DeliveryPageTests
     }
 }
 
-public sealed class DeliveryWebFactory : WebApplicationFactory<Program>
+public sealed class DeliveryWebFactory(string environment = "Development") : WebApplicationFactory<Program>
 {
     public PublicDelivery? Delivery { get; set; }
     public int ClientCalls { get; set; }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseEnvironment("Development");
+        builder.UseEnvironment(environment);
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IPublicDeliveryClient>();
