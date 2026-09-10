@@ -32,6 +32,40 @@ if (activeImageIndex >= 0) showImage(activeImageIndex);
 const offerForm = document.querySelector('[data-offer-form]');
 if (offerForm) {
   const live = offerForm.querySelector('.live-offer');
+  const validationMessage = offerForm.querySelector('#offer-validation-message');
+  const offerInputs = [...offerForm.querySelectorAll('input[data-offer-id]')];
+  const quantityInput = offerForm.querySelector('input[name="quantity"]');
+  const showValidationMessage = (message) => {
+    if (!validationMessage) return;
+    validationMessage.textContent = message;
+    validationMessage.hidden = !message;
+  };
+
+  offerForm.addEventListener('submit', (event) => {
+    const selectedOffer = offerInputs.find((input) => input.checked && !input.disabled);
+    const quantity = Number(quantityInput?.value);
+
+    if (!selectedOffer) {
+      event.preventDefault();
+      showValidationMessage('Selecione uma oferta para adicionar ao carrinho.');
+      offerInputs.find((input) => !input.disabled)?.focus();
+      return;
+    }
+
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
+      event.preventDefault();
+      showValidationMessage('A quantidade deve estar entre 1 e 10 unidades.');
+      quantityInput?.focus();
+      return;
+    }
+
+    showValidationMessage('');
+  });
+
+  offerForm.addEventListener('input', () => {
+    showValidationMessage('');
+  });
+
   const updateOffer = (input) => {
     if (!live || input.disabled) return;
     const price = input.dataset.price;
@@ -40,7 +74,7 @@ if (offerForm) {
     live.textContent = `${formatted}. ${input.dataset.availability === 'available' ? 'Disponível.' : 'Indisponível.'}`;
   };
 
-  offerForm.querySelectorAll('input[data-offer-id]').forEach((input) => {
+  offerInputs.forEach((input) => {
     input.addEventListener('change', () => {
       updateOffer(input);
     });

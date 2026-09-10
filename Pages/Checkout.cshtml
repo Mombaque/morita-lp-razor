@@ -28,7 +28,7 @@
             <div class="fulfillment-choices">
               @if (Model.Configuration.Configuration?.PickupEnabled == true)
               {
-                <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" type="radio" value="pickup"><span><strong>Retirar na Morita</strong><small>Rua Coronel Nogueira Padilha, 429 · Sorocaba</small><em>Grátis</em></span></label>
+                <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" id="pickup-method" type="radio" value="pickup"><span><strong>Retirar na Morita</strong><small>Rua Coronel Nogueira Padilha, 429 · Sorocaba</small><em>Grátis</em></span></label>
               }
               @if (Model.Configuration.Configuration?.ShippingEnabled == true)
               {
@@ -38,7 +38,7 @@
             <span asp-validation-for="FulfillmentMethod" class="validation-error"></span>
             @if (Model.Configuration.Configuration?.Pickup is { } pickup)
             {
-              <div class="fulfillment-panel pickup-panel" data-fulfillment-panel="pickup"><strong>@pickup.DisplayName</strong><p>@pickup.Address.Street, @pickup.Address.Number - @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</p><p>@pickup.Hours</p>@if (!string.IsNullOrWhiteSpace(pickup.Instructions)) { <p>@pickup.Instructions</p> }</div>
+              <label class="fulfillment-panel pickup-panel" for="pickup-method" data-fulfillment-panel="pickup"><strong>@pickup.DisplayName</strong><p>@pickup.Address.Street, @pickup.Address.Number - @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</p><p>@pickup.Hours</p>@if (!string.IsNullOrWhiteSpace(pickup.Instructions)) { <p>@pickup.Instructions</p> }</label>
             }
              @if (Model.Configuration.Configuration?.ShippingEnabled == true)
              {

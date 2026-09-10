@@ -124,6 +124,8 @@ public sealed class Phase03PageTests
         Assert.Contains("disabled=\"disabled\"", html);
         Assert.DoesNotContain("name=\"color\"", html);
         Assert.Contains("application/ld+json", html);
+        Assert.Contains("novalidate", html);
+        Assert.Contains("offer-validation-message", html);
     }
 
     [Fact]
