@@ -20,7 +20,6 @@ builder.Services.AddOptions<DeliveryTrackingOptions>()
     .Validate(options => DeliveryTrackingOptions.IsValidApiBaseUrl(options.ApiBaseUrl), "DeliveryTracking:ApiBaseUrl must be an absolute HTTP(S) URL.")
     .Validate(options => DeliveryTrackingOptions.IsValidPublicDeliveryPath(options.PublicDeliveryPath), "DeliveryTracking:PublicDeliveryPath must be a relative path containing exactly {publicToken}.")
     .Validate(options => DeliveryTrackingOptions.IsValidTimeZoneId(options.TimeZoneId), "DeliveryTracking:TimeZoneId must identify an installed time zone.")
-    .Validate(options => builder.Environment.IsDevelopment() || !string.IsNullOrWhiteSpace(options.GoogleReviewUrl), "DeliveryTracking:GoogleReviewUrl is required outside Development.")
     .ValidateOnStart();
 builder.Services.AddHttpClient("public-delivery", (serviceProvider, client) =>
 {

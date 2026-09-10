@@ -16,5 +16,6 @@ The Razor client forwards only a syntactically valid `Fly-Client-IP` header as
 `X-Morita-Client-IP`, together with `X-Morita-Proxy-Secret`. It never forwards
 an arbitrary browser-supplied IP or exposes the secret to page scripts.
 
-Production must also set `DeliveryTracking__GoogleReviewUrl` to a non-empty
-Google review URL.
+`DeliveryTracking__GoogleReviewUrl` is optional. When configured, the delivered
+page renders a link to the Google review page; when it is absent, the review
+link is omitted and the tracking application still starts normally.
