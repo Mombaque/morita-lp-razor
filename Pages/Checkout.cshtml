@@ -36,10 +36,6 @@
               }
             </div>
             <span asp-validation-for="FulfillmentMethod" class="validation-error"></span>
-            @if (Model.Configuration.Configuration?.Pickup is { } pickup)
-            {
-              <label class="fulfillment-panel pickup-panel" for="pickup-method" data-fulfillment-panel="pickup"><strong>@pickup.DisplayName</strong><p>@pickup.Address.Street, @pickup.Address.Number - @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</p><p>@pickup.Hours</p>@if (!string.IsNullOrWhiteSpace(pickup.Instructions)) { <p>@pickup.Instructions</p> }</label>
-            }
              @if (Model.Configuration.Configuration?.ShippingEnabled == true)
              {
                <div class="fulfillment-panel shipping-panel" data-fulfillment-panel="shipping">
@@ -59,8 +55,8 @@
                 <span asp-validation-for="PublicShippingQuoteId" class="validation-error"></span>
                  <div class="address-grid">
                   <label class="checkout-field full">Destinatário<input class="checkout-control" asp-for="ShippingAddress.Recipient" autocomplete="name"></label><span asp-validation-for="ShippingAddress.Recipient" class="validation-error"></span>
-                  <label class="checkout-field wide">Rua / Avenida<input class="checkout-control" asp-for="ShippingAddress.Street" autocomplete="address-line1"></label>
-                  <label class="checkout-field">Número<input class="checkout-control" asp-for="ShippingAddress.Number" autocomplete="address-line2"></label>
+                  <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="ShippingAddress.Street" autocomplete="address-line1"></label>
+                  <label class="checkout-field number">Número<input class="checkout-control" asp-for="ShippingAddress.Number" autocomplete="off"></label>
                   <label class="checkout-field full">Complemento <small>(opcional)</small><input class="checkout-control" asp-for="ShippingAddress.Complement" autocomplete="address-line3"></label>
                   <label class="checkout-field">Bairro<input class="checkout-control" asp-for="ShippingAddress.Neighborhood"></label>
                   <label class="checkout-field">Cidade<input class="checkout-control" asp-for="ShippingAddress.City" autocomplete="address-level2"></label>

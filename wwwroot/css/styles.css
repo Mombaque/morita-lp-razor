@@ -2414,24 +2414,6 @@ body {
   padding: 1rem;
 }
 
-.pickup-panel {
-  color: var(--fight-paper);
-  cursor: pointer;
-  display: block;
-  font-size: 1rem;
-  letter-spacing: normal;
-  text-transform: none;
-  transition: background .2s ease, border-color .2s ease;
-}
-
-.pickup-panel:hover,
-.pickup-panel:focus-visible {
-  background: rgba(60, 249, 174, .08);
-  border-color: var(--fight-green);
-  outline: 1px solid var(--fight-green);
-  outline-offset: 2px;
-}
-
 .fulfillment-panel[hidden] {
   display: none;
 }
@@ -2591,8 +2573,12 @@ body {
   grid-column: 1 / -1;
 }
 
-.address-grid .wide {
-  grid-column: span 1;
+.address-grid .street {
+  grid-column: 1;
+}
+
+.address-grid .number {
+  grid-column: 2;
 }
 
 .checkout-contact {
@@ -2743,7 +2729,8 @@ body {
   }
 
   .address-grid .full,
-  .address-grid .wide {
+  .address-grid .street,
+  .address-grid .number {
     grid-column: auto;
   }
 
