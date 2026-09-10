@@ -2451,8 +2451,7 @@ body {
   grid-row: 1 / span 2;
 }
 
-.checkout-form-column label:not(.fulfillment-choice),
-.address-grid label {
+.checkout-field {
   color: var(--fight-muted);
   display: grid;
   font-size: .75rem;
@@ -2461,7 +2460,7 @@ body {
   text-transform: uppercase;
 }
 
-.checkout-form-column input:not([type="radio"]) {
+.checkout-control {
   background: #080908;
   border: 1px solid var(--fight-line);
   box-sizing: border-box;
@@ -2472,7 +2471,7 @@ body {
   width: 100%;
 }
 
-.checkout-form-column input:focus {
+.checkout-control:focus-visible {
   border-color: var(--fight-green);
   outline: 1px solid var(--fight-green);
 }
@@ -2552,11 +2551,43 @@ body {
   margin-bottom: .4rem;
 }
 
+.checkout-check {
+  align-items: flex-start;
+  color: var(--fight-paper);
+  display: flex !important;
+  font-size: .85rem !important;
+  gap: .65rem;
+  letter-spacing: normal !important;
+  line-height: 1.4;
+  margin-top: .35rem;
+  text-transform: none !important;
+}
+
+.checkout-check-input {
+  appearance: auto;
+  accent-color: var(--fight-green);
+  flex: 0 0 auto;
+  height: 1.15rem;
+  margin: .1rem 0 0;
+  min-height: 0 !important;
+  width: 1.15rem !important;
+}
+
+.checkout-actions {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  padding-top: .25rem;
+}
+
+.checkout-actions-content {
+  min-width: 0;
+}
+
 .checkout-submit {
   font-size: 1.08rem;
   justify-content: space-between;
-  margin-left: 4rem;
-  width: calc(100% - 4rem);
+  width: 100%;
 }
 
 .checkout-submit:disabled {
@@ -2569,8 +2600,9 @@ body {
 .checkout-security {
   color: var(--fight-muted);
   font-size: .78rem;
-  margin-left: 4rem;
-  text-align: center;
+  line-height: 1.45;
+  margin: .8rem 0 0;
+  text-align: left;
 }
 
 .checkout-summary {
@@ -2675,9 +2707,11 @@ body {
     grid-template-columns: 2rem minmax(0, 1fr);
   }
 
-  .checkout-submit,
-  .checkout-security {
-    margin-left: 0;
+  .checkout-actions {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .checkout-submit {
     width: 100%;
   }
 
@@ -2689,17 +2723,6 @@ body {
     grid-column: 2;
   }
 }
-
-.checkout-shell { max-width: 1100px; margin: auto; padding: clamp(1.25rem, 4vw, 4rem) 1rem; min-height: 40vh; }
-.checkout-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 2rem; }
-.checkout-layout form { display: grid; gap: .65rem; }
-.checkout-layout label { display: grid; gap: .3rem; color: #3CF9AE; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; }
-.checkout-layout input { box-sizing: border-box; width: 100%; min-height: 44px; padding: .7rem; background: #0b0b0b; color: #fff; border: 1px solid #555; font: inherit; }
-.checkout-layout input:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 2px; }
-.checkout-layout fieldset { border: 1px solid #3CF9AE; margin: 1rem 0; padding: 1rem; }
-.checkout-layout legend { color: #3CF9AE; padding: 0 .4rem; }
-.checkout-layout .button { width: fit-content; max-width: 100%; }
-@media (max-width: 700px) { .checkout-layout { grid-template-columns: 1fr; } }
 .account-shell {
   max-width: 1100px;
   margin: auto;
