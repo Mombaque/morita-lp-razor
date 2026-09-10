@@ -2350,14 +2350,25 @@ body {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.fulfillment-choice {
+.checkout-layout .fulfillment-choice {
   cursor: pointer;
   display: block;
+  position: relative;
 }
 
-.fulfillment-choice input {
+.checkout-layout .fulfillment-choice input {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  min-height: 0;
   position: absolute;
   opacity: 0;
+  overflow: hidden;
+  padding: 0;
+  width: 1px;
+  white-space: nowrap;
 }
 
 .fulfillment-choice > span {
@@ -2509,6 +2520,48 @@ body {
 
 .shipping-options input {
   accent-color: var(--fight-green);
+}
+
+.checkout-layout fieldset.saved-addresses {
+  border: 0;
+  margin: 1.5rem 0;
+  padding: 0;
+}
+
+.checkout-layout fieldset.saved-addresses legend {
+  color: var(--fight-paper);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin-bottom: .6rem;
+  text-transform: uppercase;
+}
+
+.checkout-layout fieldset.saved-addresses label {
+  align-items: center;
+  border: 1px solid var(--fight-line);
+  cursor: pointer;
+  display: flex !important;
+  gap: .8rem;
+  letter-spacing: normal;
+  margin-top: -1px;
+  padding: .85rem;
+  text-transform: none;
+}
+
+.checkout-layout fieldset.saved-addresses label:has(input:checked) {
+  background: rgba(60, 249, 174, .08);
+  border-color: var(--fight-green);
+  position: relative;
+}
+
+.checkout-layout fieldset.saved-addresses input[type="radio"] {
+  accent-color: var(--fight-green);
+  box-sizing: content-box;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  width: auto;
 }
 
 .shipping-options span {
