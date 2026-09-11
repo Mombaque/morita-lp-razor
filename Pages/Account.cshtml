@@ -9,7 +9,7 @@
     <header class="checkout-heading">
         <p class="fight-label">Registro de treino / conta</p>
         <h1>Minha conta</h1>
-        <p>Seu histórico e seus endereços, sem senha.</p>
+        <p>Seu histórico, seus endereços e um acesso protegido por senha.</p>
     </header>
 
     @if (Model.AccountErrors.Count > 0)
@@ -35,59 +35,78 @@
     @if (!Model.SignedIn)
     {
         <section class="account-panel" aria-labelledby="account-access-heading">
-            <h2 id="account-access-heading">@(Model.Mode == "create" ? "Criar conta" : "Entrar")</h2>
-            <p>
-                Use um código de uso único enviado ao seu e-mail. Na primeira confirmação, o acesso também pode criar sua conta;
-                nunca informamos se um e-mail já está cadastrado.
-            </p>
-            <form method="post" asp-page-handler="RequestCode">
-                <input type="hidden" asp-for="Mode">
-                <input type="hidden" asp-for="ReturnUrl">
-                <label asp-for="EmailForm.Email">E-mail</label>
-                <input asp-for="EmailForm.Email" type="email" autocomplete="email">
-                <span asp-validation-for="EmailForm.Email" class="validation-error"></span>
-                <button class="commerce-button commerce-button-primary" type="submit">Enviar código</button>
-            </form>
-            <p>
-                <a href="/conta?mode=@(Model.Mode == "create" ? "signin" : "create")&returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">
-                    @(Model.Mode == "create" ? "Já tenho uma conta: entrar" : "Ainda não tenho conta: criar acesso")
-                </a>
-            </p>
-        </section>
-
-        @if (Model.ChallengeIssued)
-        {
-            <section class="account-panel" aria-labelledby="verify-heading">
-                <h2 id="verify-heading">Confirmar código</h2>
-                <p>O código expira em @Model.ChallengeExpiresAt?.ToLocalTime().ToString("t").</p>
-                <form method="post" asp-page-handler="VerifyCode">
-                    <input type="hidden" asp-for="ChallengeId">
-                    <input type="hidden" asp-for="PrivacyPolicyVersion">
-                    <input type="hidden" asp-for="ChallengeKind">
-                    <input type="hidden" asp-for="Mode">
-                    <input type="hidden" asp-for="ReturnUrl">
-                    <fieldset>
-                        <legend>Código enviado por e-mail</legend>
-                        <label asp-for="Verification.Code">Código de seis números</label>
-                        <input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code">
-                        <span asp-validation-for="Verification.Code" class="validation-error"></span>
-                    </fieldset>
-                    <label class="account-check" asp-for="AcceptedPrivacyPolicy">
-                        <input asp-for="AcceptedPrivacyPolicy">
-                        <span>
-                            Aceito a política de privacidade
-                            @if (Model.PrivacyPolicyUrl is not null)
-                            {
-                                <text>(<a href="@Model.PrivacyPolicyUrl">ler a política</a>)</text>
-                            }
-                            . Para um e-mail novo, isso cria a conta.
-                        </span>
-                    </label>
-                    <span asp-validation-for="AcceptedPrivacyPolicy" class="validation-error"></span>
-                    <button class="commerce-button commerce-button-primary" type="submit">Confirmar acesso</button>
+            @if (Model.PasswordChallengeIssued)
+            {
+                <h2 id="account-access-heading">Definir nova senha</h2>
+                <p>Informe o código enviado por e-mail e escolha uma nova senha.</p>
+                <form method="post" asp-page-handler="ResetPassword">
+                    <input type="hidden" asp-for="ChallengeId"><input type="hidden" asp-for="ChallengeExpiresAt"><input type="hidden" asp-for="ChallengeKind"><input type="hidden" asp-for="PrivacyPolicyVersion"><input type="hidden" asp-for="ReturnUrl">
+                    <label asp-for="Verification.Code">Código enviado por e-mail</label>
+                    <input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code">
+                    <span asp-validation-for="Verification.Code" class="validation-error"></span>
+                    <label asp-for="PasswordForm.Password">Nova senha</label>
+                    <input asp-for="PasswordForm.Password" type="password" autocomplete="new-password">
+                    <span asp-validation-for="PasswordForm.Password" class="validation-error"></span>
+                    <label asp-for="PasswordForm.Confirmation">Confirme a nova senha</label>
+                    <input asp-for="PasswordForm.Confirmation" type="password" autocomplete="new-password">
+                    <span asp-validation-for="PasswordForm.Confirmation" class="validation-error"></span>
+                    <button class="commerce-button commerce-button-primary" type="submit">Salvar nova senha</button>
                 </form>
-            </section>
-        }
+            }
+            else if (Model.EmailVerificationChallengeIssued)
+            {
+                <h2 id="account-access-heading">Confirmar e-mail</h2>
+                <p>O código expira em @Model.ChallengeExpiresAt?.ToLocalTime().ToString("t").</p>
+                <form method="post" asp-page-handler="VerifyEmail">
+                    <input type="hidden" asp-for="ChallengeId"><input type="hidden" asp-for="ChallengeExpiresAt"><input type="hidden" asp-for="ChallengeKind"><input type="hidden" asp-for="PrivacyPolicyVersion"><input type="hidden" asp-for="ReturnUrl">
+                    <label asp-for="Verification.Code">Código enviado por e-mail</label>
+                    <input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code">
+                    <span asp-validation-for="Verification.Code" class="validation-error"></span>
+                    <button class="commerce-button commerce-button-primary" type="submit">Confirmar e-mail</button>
+                </form>
+            }
+            else if (Model.Mode == "signin")
+            {
+                <h2 id="account-access-heading">Entrar</h2>
+                <p>Use o e-mail e a senha da sua conta.</p>
+                <form method="post" asp-page-handler="Login">
+                    <input type="hidden" asp-for="ReturnUrl">
+                    <label asp-for="Login.Email">E-mail</label><input asp-for="Login.Email" type="email" autocomplete="email"><span asp-validation-for="Login.Email" class="validation-error"></span>
+                    <label asp-for="Login.Password">Senha</label><input asp-for="Login.Password" type="password" autocomplete="current-password"><span asp-validation-for="Login.Password" class="validation-error"></span>
+                    <button class="commerce-button commerce-button-primary" type="submit">Entrar</button>
+                </form>
+                <p><a href="/conta?mode=forgot&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Esqueci minha senha</a></p>
+                <p>Ainda não tem uma conta? <a href="/conta?mode=create&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Criar conta</a></p>
+            }
+            else if (Model.Mode == "forgot")
+            {
+                <h2 id="account-access-heading">Redefinir senha</h2>
+                <p>Enviaremos um código ao e-mail informado, se houver uma conta cadastrada.</p>
+                <form method="post" asp-page-handler="RequestPasswordCode">
+                    <input type="hidden" asp-for="ReturnUrl">
+                    <label asp-for="EmailForm.Email">E-mail</label><input asp-for="EmailForm.Email" type="email" autocomplete="email"><span asp-validation-for="EmailForm.Email" class="validation-error"></span>
+                    <button class="commerce-button commerce-button-primary" type="submit">Enviar código</button>
+                </form>
+                <p><a href="/conta?mode=signin&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Voltar para entrar</a></p>
+            }
+            else
+            {
+                <h2 id="account-access-heading">Criar conta</h2>
+                <p>Crie sua conta com nome, telefone, e-mail e senha. Enviaremos um código apenas para confirmar o e-mail.</p>
+                <form method="post" asp-page-handler="Register">
+                    <input type="hidden" asp-for="ReturnUrl">
+                    <label asp-for="Registration.Name">Nome</label><input asp-for="Registration.Name" autocomplete="name"><span asp-validation-for="Registration.Name" class="validation-error"></span>
+                    <label asp-for="Registration.Phone">Telefone</label><input asp-for="Registration.Phone" autocomplete="tel"><span asp-validation-for="Registration.Phone" class="validation-error"></span>
+                    <label asp-for="Registration.Email">E-mail</label><input asp-for="Registration.Email" type="email" autocomplete="email"><span asp-validation-for="Registration.Email" class="validation-error"></span>
+                    <label asp-for="Registration.Password">Senha</label><input asp-for="Registration.Password" type="password" autocomplete="new-password"><span asp-validation-for="Registration.Password" class="validation-error"></span>
+                    <label asp-for="Registration.Confirmation">Confirme a senha</label><input asp-for="Registration.Confirmation" type="password" autocomplete="new-password"><span asp-validation-for="Registration.Confirmation" class="validation-error"></span>
+                    <label class="account-check" asp-for="Registration.AcceptedPrivacyPolicy"><input asp-for="Registration.AcceptedPrivacyPolicy"><span>Aceito a política de privacidade @if (Model.PrivacyPolicyUrl is not null) { <text>(<a href="@Model.PrivacyPolicyUrl">ler a política</a>)</text> }.</span></label>
+                    <span asp-validation-for="Registration.AcceptedPrivacyPolicy" class="validation-error"></span>
+                    <button class="commerce-button commerce-button-primary" type="submit">Criar conta</button>
+                </form>
+                <p>Já tem uma conta? <a href="/conta?mode=signin&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Entrar</a></p>
+            }
+        </section>
     }
     else
     {
@@ -255,7 +274,7 @@
 
         <section id="seguranca" class="account-panel" aria-labelledby="security-heading">
             <h2 id="security-heading">Segurança</h2>
-            <p>Acesso por código, sem senha.</p>
+            <p>Use sua senha para entrar. O código por e-mail fica reservado para confirmar o primeiro acesso e alterar a senha.</p>
             <form method="post" asp-page-handler="Logout" data-account-reset-scroll>
                 <button class="commerce-button commerce-button-secondary" type="submit">Sair desta sessão</button>
             </form>
@@ -263,34 +282,39 @@
                 <input type="hidden" name="all" value="true">
                 <button class="commerce-button commerce-button-secondary" type="submit">Sair de todos os dispositivos</button>
             </form>
-            <details class="account-danger" open="@(Model.ClosureChallengeIssued || Model.ModelState.ContainsKey("ConfirmClosure") ? "open" : null)">
+            @if (Model.PasswordChallengeIssued)
+            {
+                <form method="post" asp-page-handler="ResetPassword" class="account-security-form">
+                    <input type="hidden" asp-for="ChallengeId"><input type="hidden" asp-for="ChallengeExpiresAt"><input type="hidden" asp-for="ChallengeKind">
+                    <label asp-for="Verification.Code">Código enviado por e-mail</label><input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code"><span asp-validation-for="Verification.Code" class="validation-error"></span>
+                    <label asp-for="PasswordForm.Password">Nova senha</label><input asp-for="PasswordForm.Password" type="password" autocomplete="new-password"><span asp-validation-for="PasswordForm.Password" class="validation-error"></span>
+                    <label asp-for="PasswordForm.Confirmation">Confirme a nova senha</label><input asp-for="PasswordForm.Confirmation" type="password" autocomplete="new-password"><span asp-validation-for="PasswordForm.Confirmation" class="validation-error"></span>
+                    <button class="commerce-button commerce-button-secondary" type="submit">Salvar nova senha</button>
+                </form>
+            }
+            else
+            {
+                <form method="post" asp-page-handler="RequestPasswordCode" class="account-security-form">
+                    <input type="hidden" asp-for="EmailForm.Email" value="@Model.Profile!.Email">
+                    <button class="commerce-button commerce-button-secondary" type="submit">@(Model.Profile.HasPassword ? "Alterar minha senha" : "Definir minha senha")</button>
+                </form>
+            }
+            <details class="account-danger" open="@(Model.ModelState.ContainsKey("ConfirmClosure") || Model.ModelState.ContainsKey("CurrentPassword") ? "open" : null)">
                 <summary>Encerrar minha conta</summary>
                 <p>O encerramento é permanente. Por obrigação legal, alguns registros poderão ser mantidos pelo período exigido, mas sua conta não ficará disponível para uso.</p>
-                <form method="post" asp-page-handler="RequestClosureCode">
-                    <input type="hidden" asp-for="ChallengeKind">
+                <form method="post" asp-page-handler="Close">
                     <label class="account-check" asp-for="ConfirmClosure">
                         <input asp-for="ConfirmClosure">
                         <span>Entendo que o encerramento é permanente.</span>
                     </label>
                     <span asp-validation-for="ConfirmClosure" class="validation-error"></span>
-                    <button class="commerce-button commerce-button-danger" type="submit">Enviar código para encerrar a conta</button>
+                    <label asp-for="CurrentPassword">Senha atual</label>
+                    <input asp-for="CurrentPassword" type="password" autocomplete="current-password">
+                    <span asp-validation-for="CurrentPassword" class="validation-error"></span>
+                    <button class="commerce-button commerce-button-danger" type="submit">Encerrar conta permanentemente</button>
                 </form>
-                @if (Model.ClosureChallengeIssued)
-                {
-                    <form method="post" asp-page-handler="VerifyClosureCode">
-                        <input type="hidden" asp-for="ChallengeId">
-                        <input type="hidden" asp-for="ChallengeKind">
-                        <input type="hidden" asp-for="ChallengeExpiresAt">
-                        <label asp-for="Verification.Code">Código de encerramento</label>
-                        <input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code">
-                        <span asp-validation-for="Verification.Code" class="validation-error"></span>
-                        <p>Este código expira em @Model.ChallengeExpiresAt?.ToLocalTime().ToString("t").</p>
-                        <button class="commerce-button commerce-button-danger" type="submit">Encerrar conta permanentemente</button>
-                    </form>
-                }
             </details>
         </section>
-        <partial name="_AccountEmailChange" model="Model" />
             </div>
         </div>
     }
