@@ -90,16 +90,10 @@
           <div class="checkout-step-number">02</div>
           <div class="checkout-step-content checkout-contact">
             <h2 id="contact-heading">Seus dados</h2>
-            <label class="checkout-field">Nome<input class="checkout-control" asp-for="Contact.Name" autocomplete="name"></label><span asp-validation-for="Contact.Name" class="validation-error"></span>
-            <label class="checkout-field">E-mail<input class="checkout-control" asp-for="Contact.Email" autocomplete="email" type="email" readonly="@(Model.AccountPrefilled ? "readonly" : null)"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
-            <label class="checkout-field">Telefone<input class="checkout-control" asp-for="Contact.Phone" autocomplete="tel" inputmode="tel"></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
-            @if (Model.AccountPrefilled)
-            {
-                <label class="checkout-check" asp-for="SaveAccountDetails">
-                    <input class="checkout-check-input" asp-for="SaveAccountDetails">
-                    <span>Salvar nome e telefone na minha conta</span>
-                </label>
-            }
+            <label class="checkout-field">Nome<input class="checkout-control" asp-for="Contact.Name" autocomplete="name" readonly="readonly"></label><span asp-validation-for="Contact.Name" class="validation-error"></span>
+            <label class="checkout-field">E-mail<input class="checkout-control" asp-for="Contact.Email" autocomplete="email" type="email" readonly="readonly"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
+            <label class="checkout-field">Telefone<input class="checkout-control" asp-for="Contact.Phone" autocomplete="tel" inputmode="tel" readonly="readonly"></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
+            <p class="cart-estimate-note">Esses dados vêm da sua conta. Para alterá-los, acesse o seu perfil.</p>
           </div>
         </section>
 

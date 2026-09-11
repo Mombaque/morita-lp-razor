@@ -35,7 +35,6 @@ public sealed class CheckoutModel(
     [BindProperty] public string FulfillmentMethod { get; set; } = "pickup";
     [BindProperty] public Guid? PublicShippingQuoteId { get; set; }
     [BindProperty] public ShippingAddressInput ShippingAddress { get; set; } = new();
-    [BindProperty] public bool SaveAccountDetails { get; set; }
     [BindProperty] public Guid? SelectedAddressId { get; set; }
     [BindProperty] public string? SavedAddressLabel { get; set; } = "Meu endereço";
     [BindProperty] public bool SetSavedAddressDefault { get; set; }
@@ -61,6 +60,7 @@ public sealed class CheckoutModel(
         if (!AccountLoadedSuccessfully())
         {
             if (AccountWasUnauthorized()) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
+            if (ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, "Complete seu nome e telefone em Minha conta antes de continuar.", StringComparison.Ordinal)) return RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" });
             return Page();
         }
         FulfillmentMethod = Configuration.Configuration?.PickupEnabled == true ? "pickup" : "shipping";
@@ -113,7 +113,7 @@ public sealed class CheckoutModel(
             });
         var session = LoadedSession;
         if (session is null || LoadedProfile is null) return AccountFailureResult();
-        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = Contact.Name.Trim(), Email = LoadedProfile.Email, Phone = Contact.Phone.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, session.Token, cancellationToken);
+        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = LoadedProfile.Name!.Trim(), Email = LoadedProfile.Email, Phone = LoadedProfile.Phone!.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, session.Token, cancellationToken);
         if (result.State == CheckoutLoadState.Unauthorized)
         {
             accountCookies.Clear();
@@ -130,15 +130,6 @@ public sealed class CheckoutModel(
 
             draft.Clear();
             cart.Clear();
-            if (SaveAccountDetails)
-            {
-                var saved = await account.UpdateProfileAsync(session.Token, Contact.Name.Trim(), Contact.Phone.Trim(), cancellationToken);
-                if (!saved.Value)
-                {
-                    if (saved.State == AccountLoadState.Unauthorized) accountCookies.Clear();
-                    TempData["CheckoutAccountMessage"] = "Reserva criada. Não foi possível salvar seus dados na conta; sua compra não foi afetada.";
-                }
-            }
             if (SaveShippingAddress && FulfillmentMethod == "shipping" && SelectedAddressId is null && SavedAddresses.Count < 10)
             {
                 var created = await account.CreateAddressAsync(session.Token, new CustomerAccountAddress { Label = string.IsNullOrWhiteSpace(SavedAddressLabel) ? "Meu endereço" : SavedAddressLabel.Trim(), Recipient = ShippingAddress.Recipient.Trim(), Street = ShippingAddress.Street.Trim(), Number = ShippingAddress.Number.Trim(), Complement = string.IsNullOrWhiteSpace(ShippingAddress.Complement) ? null : ShippingAddress.Complement.Trim(), Neighborhood = ShippingAddress.Neighborhood.Trim(), City = ShippingAddress.City.Trim(), State = ShippingAddress.State.Trim().ToUpperInvariant(), PostalCode = ShippingAddress.PostalCode.Trim(), CountryCode = "BR" }, cancellationToken);
@@ -178,7 +169,14 @@ public sealed class CheckoutModel(
             LoadedSession = session;
             LoadedProfile = profile;
             AccountPrefilled = true;
-            Contact.Name = profile.Name ?? Contact.Name; Contact.Email = profile.Email; Contact.Phone = profile.Phone ?? Contact.Phone;
+            Contact.Name = profile.Name ?? ""; Contact.Email = profile.Email; Contact.Phone = profile.Phone ?? "";
+            if (string.IsNullOrWhiteSpace(profile.Name) || string.IsNullOrWhiteSpace(profile.Phone))
+            {
+                AccountMessage = "Complete seu nome e telefone em Minha conta antes de continuar.";
+                ErrorState = CheckoutLoadState.Validation;
+                ErrorMessage = AccountMessage;
+                return false;
+            }
         }
         else { ErrorState = ToCheckoutState(result.State); if (result.State == AccountLoadState.Unauthorized) accountCookies.Clear(); AccountMessage = result.Message ?? "Não foi possível validar sua conta. Tente novamente."; ErrorMessage = AccountMessage; return false; }
         var addresses = await account.GetAddressesAsync(session.Token, cancellationToken);
@@ -190,7 +188,11 @@ public sealed class CheckoutModel(
     }
     private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
     private bool AccountWasUnauthorized() => ErrorState == CheckoutLoadState.Unauthorized;
-    private IActionResult AccountFailureResult() => AccountWasUnauthorized() ? RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" }) : Page();
+    private IActionResult AccountFailureResult() => AccountWasUnauthorized()
+        ? RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" })
+        : ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, "Complete seu nome e telefone em Minha conta antes de continuar.", StringComparison.Ordinal)
+            ? RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" })
+            : Page();
     private static CheckoutLoadState ToCheckoutState(AccountLoadState state) => state switch
     {
         AccountLoadState.Success => CheckoutLoadState.Success,
