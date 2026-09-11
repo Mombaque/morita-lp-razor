@@ -84,7 +84,7 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
                 sum += line.LinePrice.Value;
             }
             else if (status == "insufficient" &&
-                (string.IsNullOrWhiteSpace(line.Currency) || !string.Equals(line.Currency, response.Currency, StringComparison.OrdinalIgnoreCase) || line.UnitPrice is null or <= 0 || line.LinePrice is null || line.LinePrice != line.UnitPrice * line.Quantity))
+                (string.IsNullOrWhiteSpace(line.Currency) || !string.Equals(line.Currency, response.Currency, StringComparison.OrdinalIgnoreCase) || line.UnitPrice is null or <= 0 || (line.LinePrice is not null && line.LinePrice != line.UnitPrice * line.Quantity)))
                 return false;
         }
         return seen.SetEquals(expected.Keys) && sum == response.Total.Value;

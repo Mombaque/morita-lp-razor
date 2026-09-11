@@ -129,6 +129,21 @@ public sealed class Phase03CatalogClientTests
     }
 
     [Fact]
+    public async Task Quote_accepts_insufficient_lines_without_line_price()
+    {
+        var id = Guid.NewGuid();
+        var body = $$"""{"lines":[{"publicOfferId":"{{id}}","quantity":1,"unitPrice":350,"currency":"BRL","availability":"insufficient"}],"total":0,"currency":"BRL"}""";
+
+        var result = await Create(body).QuoteAsync(new CatalogQuoteRequest([new CatalogQuoteItem(id, 1)]));
+
+        Assert.Equal(CatalogLoadState.Partial, result.State);
+        Assert.Equal(0m, result.Total);
+        Assert.Equal("insufficient", result.Lines[0].Availability);
+        Assert.Equal(350m, result.Lines[0].UnitPrice);
+        Assert.Null(result.Lines[0].LinePrice);
+    }
+
+    [Fact]
     public async Task Keeps_catalog_image_paths_relative_for_same_origin_proxying()
     {
         var id = Guid.NewGuid();
