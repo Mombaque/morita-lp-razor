@@ -1,13 +1,19 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Morita.LP.Razor.Configuration;
 using Morita.LP.Razor.Models;
 
 namespace Morita.LP.Razor.Services;
 
-public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOptions> options, ILogger<CatalogClient> logger) : ICatalogClient
+public sealed class CatalogClient(
+    HttpClient httpClient,
+    IOptions<CatalogApiOptions> options,
+    ILogger<CatalogClient> logger,
+    IHttpContextAccessor httpContextAccessor,
+    IHostEnvironment environment) : ICatalogClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly CatalogApiOptions _options = options.Value;
@@ -59,7 +65,11 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
     public async Task<CatalogQuoteResult> QuoteAsync(CatalogQuoteRequest request, CancellationToken cancellationToken = default)
     {
         var result = await PostAsync<QuoteResponse>("v1/storefront/catalog/quote", request, cancellationToken);
-        if (!result.IsSuccess || result.Value is null || !IsValidQuote(request, result.Value)) return CatalogQuoteResult.Unavailable();
+        if (!result.IsSuccess || result.Value is null || !IsValidQuote(request, result.Value))
+        {
+            logger.LogWarning("Catalog quote response was invalid for {LineCount} requested lines with status {StatusCode}", request.Lines?.Count ?? 0, result.Status is null ? 0 : (int)result.Status.Value);
+            return CatalogQuoteResult.Unavailable();
+        }
         var lines = result.Value.Lines!;
         foreach (var line in lines)
             line.ImageUrl = NormalizeQuoteImage(line.ImageUrl);
@@ -110,7 +120,8 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, 30)));
         try
         {
-            using var response = await httpClient.GetAsync(path, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            using var request = CreateRequest(HttpMethod.Get, path);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (!response.IsSuccessStatusCode) { logger.LogWarning("Catalog request returned status {StatusCode}", (int)response.StatusCode); return new(response.StatusCode, false, default); }
             await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
             return new(response.StatusCode, true, await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, timeout.Token));
@@ -126,15 +137,34 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, 30)));
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, path) { Content = JsonContent.Create(body, options: JsonOptions) };
+            using var request = CreateRequest(HttpMethod.Post, path);
+            request.Content = JsonContent.Create(body, options: JsonOptions);
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
-            if (!response.IsSuccessStatusCode) return new(response.StatusCode, false, default);
+            if (!response.IsSuccessStatusCode)
+            {
+                logger.LogWarning("Catalog POST request returned status {StatusCode} for {Path}", (int)response.StatusCode, path);
+                return new(response.StatusCode, false, default);
+            }
             await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
             return new(response.StatusCode, true, await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, timeout.Token));
         }
         catch (OperationCanceledException) when (!callerToken.IsCancellationRequested) { logger.LogWarning("Catalog quote request timed out"); return new(null, false, default); }
         catch (HttpRequestException ex) { logger.LogWarning(ex, "Catalog quote request unavailable"); return new(null, false, default); }
         catch (JsonException ex) { logger.LogWarning(ex, "Catalog quote response malformed"); return new(null, false, default); }
+    }
+
+    private HttpRequestMessage CreateRequest(HttpMethod method, string path)
+    {
+        var request = new HttpRequestMessage(method, path);
+        if (httpContextAccessor.HttpContext is { } context)
+        {
+            request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, environment));
+        }
+
+        if (!string.IsNullOrWhiteSpace(_options.ProxySecret))
+            request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", _options.ProxySecret);
+
+        return request;
     }
 
     private CatalogPage UnavailablePage(CatalogQuery query) => new([], query.Page, CatalogQuery.PageSize, 0, 0, CatalogLoadState.Unavailable);

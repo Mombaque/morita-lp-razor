@@ -5,6 +5,8 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Morita.LP.Razor.Configuration;
@@ -178,7 +180,7 @@ public sealed class Phase03CatalogClientTests
 
     private static ICatalogClient Create(string body) => Create(new RecordingHandler(body, HttpStatusCode.OK));
     private static ICatalogClient Create(HttpStatusCode status, string body) => Create(new RecordingHandler(body, status));
-    private static ICatalogClient Create(HttpMessageHandler handler) => new CatalogClient(new HttpClient(handler) { BaseAddress = new Uri("https://catalog.example/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.example", TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance);
+    private static ICatalogClient Create(HttpMessageHandler handler) => new CatalogClient(new HttpClient(handler) { BaseAddress = new Uri("https://catalog.example/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.example", TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance, new HttpContextAccessor(), new TestHostEnvironment());
 
     private sealed class RecordingHandler(string body, HttpStatusCode status = HttpStatusCode.OK) : HttpMessageHandler
     {
@@ -210,5 +212,13 @@ public sealed class Phase03CatalogClientTests
         public override int Read(byte[] buffer, int offset, int count) => 0;
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => new(Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ContinueWith(_ => 0, cancellationToken));
         public override void Flush() { } public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException(); public override void SetLength(long value) => throw new NotSupportedException(); public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class TestHostEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = Environments.Development;
+        public string ApplicationName { get; set; } = "Morita.LP.Razor.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 }

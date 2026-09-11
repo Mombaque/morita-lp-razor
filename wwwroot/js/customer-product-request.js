@@ -1,7 +1,4 @@
-const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === 'localhost'
-  ? 'http://localhost:5001'
-  : 'https://morita-api.fly.dev');
-const USE_REQUEST_RELAY = window.CUSTOMER_REQUEST_RELAY === true;
+const CUSTOMER_REQUEST_ENDPOINT = '/customer-product-request';
 
 const TOTAL_STEPS = 3;
 
@@ -593,11 +590,9 @@ async function submitRequest() {
   try {
     const payload = buildPayload();
     const headers = { 'Content-Type': 'application/json' };
-    if (USE_REQUEST_RELAY) {
-      const token = document.querySelector('meta[name="request-verification-token"]')?.content;
-      if (token) headers.RequestVerificationToken = token;
-    }
-    const response = await fetch(USE_REQUEST_RELAY ? window.CUSTOMER_REQUEST_RELAY_URL : `${API_BASE_URL}/v1/CustomerProductRequest`, {
+    const token = document.querySelector('meta[name="request-verification-token"]')?.content;
+    if (token) headers.RequestVerificationToken = token;
+    const response = await fetch(CUSTOMER_REQUEST_ENDPOINT, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload),
