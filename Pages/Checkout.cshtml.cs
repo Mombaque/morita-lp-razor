@@ -44,6 +44,22 @@ public sealed class CheckoutModel(
     public bool CanSubmit => !Empty && Quote.State == CatalogLoadState.Success && Configuration.State == CheckoutLoadState.Success &&
         (FulfillmentMethod == "pickup" && Configuration.Configuration?.PickupEnabled == true ||
          FulfillmentMethod == "shipping" && Configuration.Configuration?.ShippingEnabled == true && PublicShippingQuoteId.HasValue);
+    public string? SubmitFeedback
+    {
+        get
+        {
+            if (Empty || CanSubmit) return null;
+            if (Quote.State != CatalogLoadState.Success) return ErrorMessage ?? "Não foi possível confirmar os produtos agora. Atualize a página e tente novamente.";
+            if (Configuration.State != CheckoutLoadState.Success) return ErrorMessage ?? "O checkout está temporariamente indisponível. Tente novamente mais tarde.";
+            if (FulfillmentMethod == "shipping")
+            {
+                if (Configuration.Configuration?.ShippingEnabled != true) return "A entrega está temporariamente indisponível. Escolha outra forma de entrega.";
+                return "Calcule o frete e escolha uma opção de entrega.";
+            }
+            if (FulfillmentMethod == "pickup" && Configuration.Configuration?.PickupEnabled != true) return "A retirada na loja está temporariamente indisponível. Escolha outra forma de entrega.";
+            return "Escolha uma forma de entrega para continuar.";
+        }
+    }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {

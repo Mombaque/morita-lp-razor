@@ -7,7 +7,9 @@ if (form) {
   const addressChoices = [...form.querySelectorAll('input[name="SelectedAddressId"]')];
   const addressControls = form.querySelector('[data-new-address-controls]');
   const submit = form.querySelector('[data-checkout-submit]');
+  const feedback = form.querySelector('[data-checkout-feedback]');
   const checkoutReady = submit?.dataset.checkoutReady === 'true';
+  const initialFeedback = feedback?.textContent?.trim() ?? '';
   const addressFieldNames = {
     recipient: 'ShippingAddress.Recipient',
     street: 'ShippingAddress.Street',
@@ -32,15 +34,27 @@ if (form) {
 
   const update = () => {
     const method = methodInputs.find((input) => input.checked)?.value;
+    const hasShippingQuote = Boolean(form.querySelector('input[name="PublicShippingQuoteId"]:checked'));
     panels.forEach((panel) => {
       panel.hidden = panel.dataset.fulfillmentPanel !== method;
     });
     shippingFields.forEach((field) => {
       field.required = method === 'shipping' && field.name !== 'PublicShippingQuoteId';
     });
+    const disabled = !checkoutReady || !method || (method === 'shipping' && !hasShippingQuote);
     if (submit) {
-      const hasShippingQuote = Boolean(form.querySelector('input[name="PublicShippingQuoteId"]:checked'));
-      submit.disabled = !checkoutReady || !method || (method === 'shipping' && !hasShippingQuote);
+      submit.disabled = disabled;
+    }
+    if (feedback) {
+      const message = !checkoutReady
+        ? initialFeedback || 'Não foi possível preparar o checkout. Atualize a página e tente novamente.'
+        : !method
+          ? 'Escolha uma forma de entrega para continuar.'
+          : method === 'shipping' && !hasShippingQuote
+            ? 'Calcule o frete e escolha uma opção de entrega.'
+            : '';
+      feedback.textContent = disabled ? message : '';
+      feedback.hidden = !disabled;
     }
   };
 
