@@ -2620,6 +2620,7 @@ body {
 }
 
 .checkout-actions-content {
+  grid-column: 2;
   min-width: 0;
 }
 
