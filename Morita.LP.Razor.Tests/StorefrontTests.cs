@@ -98,6 +98,17 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
+    public async Task Browser_api_url_uses_public_api_base_url_when_catalog_uses_internal_host()
+    {
+        using var factory = CreateFactory(CatalogResult.Empty(), CatalogResult.Empty(),
+            catalogApiBaseUrl: "http://api:5001", publicApiBaseUrl: "http://localhost:5001");
+        var body = await (await factory.CreateClient().GetAsync("/")).Content.ReadAsStringAsync();
+
+        Assert.Contains("window.API_BASE_URL = \"http://localhost:5001\"", body);
+        Assert.DoesNotContain("window.API_BASE_URL = \"http://api:5001\"", body);
+    }
+
+    [Fact]
     public async Task Api_mode_renders_home_empty_state_without_carousel_controls()
     {
         using var factory = CreateFactory(CatalogResult.Empty(), CatalogResult.Empty());
@@ -143,10 +154,18 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains("API Kimono", body);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(CatalogResult jiuJitsu, CatalogResult muayThai) =>
+    private static WebApplicationFactory<Program> CreateFactory(
+        CatalogResult jiuJitsu,
+        CatalogResult muayThai,
+        string? catalogApiBaseUrl = null,
+        string? publicApiBaseUrl = null) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("E2E");
+            if (catalogApiBaseUrl is not null)
+                builder.UseSetting("CatalogApi:BaseUrl", catalogApiBaseUrl);
+            if (publicApiBaseUrl is not null)
+                builder.UseSetting("ApiBaseUrl", publicApiBaseUrl);
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<ICatalogClient>();

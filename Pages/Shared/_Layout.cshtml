@@ -5,7 +5,7 @@
 @inject Morita.LP.Razor.Services.ICustomerAccountCookieStore CustomerAccountCookies
 @using System.Text.Json
 @{
-    var apiBaseUrl = CatalogApiOptions.Value.BaseUrl;
+    var apiBaseUrl = Configuration["ApiBaseUrl"] ?? CatalogApiOptions.Value.BaseUrl;
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
     var title = ViewData["Title"] ?? "Morita - Equipamentos para Artes Marciais em Sorocaba";
     var description = ViewData["Description"] ?? "Equipamentos para Jiu-Jitsu e Muay Thai com retirada em Sorocaba e entrega para todo o Brasil.";
