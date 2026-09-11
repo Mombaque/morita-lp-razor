@@ -2630,6 +2630,14 @@ body {
   width: 100%;
 }
 
+.checkout-submit-feedback {
+  color: #ff4d4d;
+  font-size: .85rem;
+  font-weight: 800;
+  line-height: 1.4;
+  margin: .65rem 0 0;
+}
+
 .checkout-submit:disabled {
   cursor: not-allowed;
   filter: grayscale(1);

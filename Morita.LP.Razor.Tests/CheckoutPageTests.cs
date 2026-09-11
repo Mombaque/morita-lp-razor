@@ -38,6 +38,24 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public async Task Shipping_checkout_explains_that_a_quote_is_required_before_submission()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer);
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" });
+
+        var result = await page.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(page.CanSubmit);
+        Assert.Equal("Calcule o frete e escolha uma opção de entrega.", page.SubmitFeedback);
+    }
+
+    [Fact]
     public async Task Ambiguous_retries_reuse_the_same_draft_credentials()
     {
         var offer = Guid.NewGuid();
