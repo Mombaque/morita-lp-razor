@@ -9,6 +9,9 @@
     <Compile Remove="Morita.LP.Razor.Tests/**/*.cs" />
     <Content Remove="Morita.LP.Razor.Tests/**/*" />
     <None Remove="Morita.LP.Razor.Tests/**/*" />
+    <Compile Remove="worktrees/**/*.cs" />
+    <Content Remove="worktrees/**/*" />
+    <None Remove="worktrees/**/*" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.Extensions" Version="8.0.19" />
   </ItemGroup>
 

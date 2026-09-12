@@ -11,6 +11,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - Storefront__DataProtectionKeyDirectory=/var/morita/data-protection-keys
       - CatalogApi__BaseUrl=http://api:5001
+      - CatalogApi__ProxySecret=morita-local-relay-secret
     volumes:
       - ..:/src
       - razor-data-protection:/var/morita/data-protection-keys

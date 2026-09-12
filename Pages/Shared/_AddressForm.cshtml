@@ -4,7 +4,7 @@
     <fieldset>
         <legend>Dados completos do endereço</legend>
         <label asp-for="AddressLabel">Rótulo</label>
-        <input asp-for="AddressLabel" placeholder="Casa">
+        <input asp-for="AddressLabel" placeholder="Casa" maxlength="80">
         <span asp-validation-for="AddressLabel" class="validation-error"></span>
         <label asp-for="AddressForm.Recipient">Destinatário</label>
         <input asp-for="AddressForm.Recipient" autocomplete="name">

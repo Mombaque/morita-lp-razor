@@ -1,11 +1,8 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
-@inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.CatalogApiOptions> CatalogApiOptions
 @inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.StorefrontOptions> StorefrontOptions
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @inject Morita.LP.Razor.Services.ICustomerAccountCookieStore CustomerAccountCookies
-@using System.Text.Json
 @{
-    var apiBaseUrl = Configuration["ApiBaseUrl"] ?? CatalogApiOptions.Value.BaseUrl;
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
     var title = ViewData["Title"] ?? "Morita - Equipamentos para Artes Marciais em Sorocaba";
     var description = ViewData["Description"] ?? "Equipamentos para Jiu-Jitsu e Muay Thai com retirada em Sorocaba e entrega para todo o Brasil.";
@@ -106,11 +103,6 @@
         <div><strong>Visite</strong><a href="https://maps.app.goo.gl/pNYYiMimWGa4actz7">Rua Coronel Nogueira Padilha, 429<br>Sorocaba, SP</a><a href="https://wa.me/5515981079332">WhatsApp (15) 98107-9332</a>@if(customerAccountsEnabled && !customerSignedIn){<a href="/conta?mode=signin">Entrar</a><a href="/conta?mode=create">Criar conta</a>}</div>
     </footer>
 
-    <script>
-        window.API_BASE_URL = @Html.Raw(JsonSerializer.Serialize(apiBaseUrl));
-        window.CUSTOMER_REQUEST_RELAY = @Html.Raw(JsonSerializer.Serialize(Configuration.GetValue<bool>("Storefront:UseRelayForCustomerRequests")));
-        window.CUSTOMER_REQUEST_RELAY_URL = "/customer-product-request";
-    </script>
     <script src="~/js/carousel.js" asp-append-version="true"></script>
     <script type="module" src="~/js/customer-product-request.js" asp-append-version="true"></script>
     @if (publicAssistantEnabled) { <script type="module" src="~/js/public-assistant.js" asp-append-version="true"></script> }

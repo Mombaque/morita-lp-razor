@@ -5,6 +5,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="../worktrees/**/*.cs" />
+    <Content Remove="../worktrees/**/*" />
+    <None Remove="../worktrees/**/*" />
     <ProjectReference Include="../Morita.LP.Razor.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.19" />
     <PackageReference Include="xunit" Version="2.9.3" />

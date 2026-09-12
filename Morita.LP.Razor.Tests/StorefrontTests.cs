@@ -98,14 +98,14 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
-    public async Task Browser_api_url_uses_public_api_base_url_when_catalog_uses_internal_host()
+    public async Task Browser_does_not_expose_internal_api_base_url()
     {
         using var factory = CreateFactory(CatalogResult.Empty(), CatalogResult.Empty(),
             catalogApiBaseUrl: "http://api:5001", publicApiBaseUrl: "http://localhost:5001");
         var body = await (await factory.CreateClient().GetAsync("/")).Content.ReadAsStringAsync();
 
-        Assert.Contains("window.API_BASE_URL = \"http://localhost:5001\"", body);
-        Assert.DoesNotContain("window.API_BASE_URL = \"http://api:5001\"", body);
+        Assert.DoesNotContain("window.API_BASE_URL", body);
+        Assert.DoesNotContain("http://api:5001", body);
     }
 
     [Fact]
