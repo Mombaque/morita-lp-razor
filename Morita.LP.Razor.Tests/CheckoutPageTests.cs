@@ -61,6 +61,29 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public async Task Shipping_is_the_default_fulfillment_when_both_options_are_enabled()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer);
+        api.Configuration = new(CheckoutLoadState.Success, new()
+        {
+            PickupEnabled = true,
+            ShippingEnabled = true,
+            PublicPickupId = Guid.NewGuid(),
+            Currency = "BRL"
+        });
+
+        var result = await page.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("shipping", page.FulfillmentMethod);
+    }
+
+    [Fact]
     public async Task Ambiguous_retries_reuse_the_same_draft_credentials()
     {
         var offer = Guid.NewGuid();

@@ -188,7 +188,8 @@ public sealed class RelayTests
         public async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
             Request = request;
-            Body = await request.Content!.ReadAsStringAsync(cancellationToken);
+            if (request.Content is not null)
+                Body = await request.Content.ReadAsStringAsync(cancellationToken);
             return await response.SendAsync(request, cancellationToken);
         }
     }
