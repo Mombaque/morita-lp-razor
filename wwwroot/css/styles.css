@@ -2181,6 +2181,171 @@ body {
   margin: 0;
 }
 
+/* Variant matrix: compact industrial rows keep the exact offer visible without
+   competing with the product image, while the full hit area remains usable. */
+.product-card-variants,
+.detail-variant-matrix {
+  display: grid;
+  gap: .45rem;
+  margin-top: .9rem;
+  position: relative;
+  z-index: 3;
+}
+
+.product-variant-row,
+.detail-variant-row {
+  align-items: center;
+  display: grid;
+  gap: .55rem;
+  grid-template-columns: minmax(5.8rem, auto) minmax(0, 1fr);
+}
+
+.product-variant-color,
+.detail-variant-heading {
+  align-items: center;
+  color: var(--fight-paper);
+  display: inline-flex;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: .75rem;
+  gap: .4rem;
+  letter-spacing: .07em;
+  min-width: 0;
+  text-transform: uppercase;
+}
+
+.product-variant-swatch {
+  border: 1px solid rgba(243, 240, 232, .65);
+  border-radius: 50%;
+  display: inline-block;
+  flex: 0 0 1.15rem;
+  height: 1.15rem;
+  width: 1.15rem;
+}
+
+.product-variant-sizes,
+.detail-variant-sizes {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  min-width: 0;
+}
+
+.product-variant-size {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--fight-line);
+  border-radius: 0;
+  color: var(--fight-paper);
+  cursor: pointer;
+  display: inline-flex;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: .85rem;
+  justify-content: center;
+  letter-spacing: .04em;
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  padding: .25rem .55rem;
+  position: relative;
+  z-index: 4;
+  text-decoration: none;
+}
+
+.product-variant-size:hover,
+.product-variant-size.selected,
+.product-variant-size:focus-visible {
+  background: var(--fight-green);
+  border-color: var(--fight-green);
+  color: #06100c;
+}
+
+.product-variant-size:focus-visible,
+.offer-size-choice:has(input:focus-visible) {
+  outline: 2px solid var(--fight-green);
+  outline-offset: 3px;
+}
+
+.product-variant-more {
+  color: var(--fight-muted);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: .72rem;
+  letter-spacing: .04em;
+  padding: .4rem .2rem;
+  white-space: nowrap;
+}
+
+.product-variant-more-colors {
+  border-top: 1px solid var(--fight-line);
+  padding-top: .55rem;
+}
+
+.detail-variant-matrix {
+  border-top: 1px solid var(--fight-line);
+  padding-top: .8rem;
+}
+
+.detail-variant-row {
+  align-items: start;
+  border-bottom: 1px solid rgba(243, 240, 232, .12);
+  padding: .45rem 0 .7rem;
+}
+
+.detail-variant-heading {
+  padding-top: .6rem;
+}
+
+.offer-size-choice {
+  align-items: center;
+  border: 1px solid var(--fight-line);
+  color: var(--fight-paper);
+  cursor: pointer;
+  display: inline-flex;
+  gap: .35rem;
+  justify-content: center;
+  min-height: 2.75rem;
+  min-width: 3.5rem;
+  padding: .25rem .65rem;
+  position: relative;
+  z-index: 3;
+}
+
+.offer-size-choice input {
+  accent-color: var(--fight-green);
+  block-size: 1rem;
+  inline-size: 1rem;
+}
+
+.offer-size-choice:has(input:checked) {
+  background: var(--fight-green);
+  border-color: var(--fight-green);
+  color: #06100c;
+}
+
+.offer-size-choice.is-unavailable {
+  color: var(--fight-muted);
+  cursor: not-allowed;
+  opacity: .58;
+  text-decoration: line-through;
+}
+
+.offer-size-choice small {
+  color: #ffcf80;
+  font-size: .58rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 520px) {
+  .product-variant-row,
+  .detail-variant-row {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-variant-heading {
+    padding-top: 0;
+  }
+}
+
 .store-visit {
   background: var(--fight-panel);
   border: 1px solid var(--fight-line);
