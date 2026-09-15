@@ -116,6 +116,11 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         var body = await (await client.GetAsync("/")).Content.ReadAsStringAsync();
         Assert.Contains("Novos produtos entrando no corner", body);
         Assert.Contains("Estoque real", body);
+        Assert.Contains("class=\"commerce-hero-media\"", body);
+        Assert.Contains("src=\"/images/kimono/adulto/itg-azul.jpg\"", body);
+        Assert.Contains("alt=\"Kimono de Jiu-Jitsu azul\"", body);
+        Assert.Contains("Retire ou receba", body);
+        Assert.Contains("Ajuda para escolher", body);
         Assert.Contains("Explore nossos produtos", body);
         Assert.Contains("Kimonos, rashguards, faixas e acessórios", body);
         Assert.Contains("Luvas, shorts e proteções", body);
