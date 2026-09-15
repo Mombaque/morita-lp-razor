@@ -162,8 +162,15 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains("Novos produtos entrando no corner", body);
         Assert.Contains("Estoque real", body);
         Assert.Contains("class=\"commerce-hero-media\"", body);
+        Assert.Contains("class=\"hero-media-rotator\"", body);
+        Assert.Contains("data-hero-media=", body);
         Assert.Contains("src=\"/images/kimono/adulto/itg-azul.jpg\"", body);
         Assert.Contains("alt=\"Kimono de Jiu-Jitsu azul\"", body);
+        Assert.Contains("/images/rashguard/masculino/itg2.jpg", body);
+        Assert.Contains("Rashguard masculino para Jiu-Jitsu", body);
+        Assert.Contains("/images/muay-thai/luva-st.jpg", body);
+        Assert.Contains("/images/muay-thai/shorts-varios.jpg", body);
+        Assert.Contains("hero-media.js", body);
         Assert.Contains("Retire ou receba", body);
         Assert.Contains("Ajuda para escolher", body);
         Assert.Contains("Explore nossos produtos", body);
