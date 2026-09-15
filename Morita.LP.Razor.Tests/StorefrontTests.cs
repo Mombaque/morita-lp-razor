@@ -53,6 +53,20 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Theory]
+    [InlineData("/jiu-jitsu")]
+    [InlineData("/muay-thai")]
+    [InlineData("/kids")]
+    public async Task Category_pages_render_catalog_controls_without_hero_cta(string path)
+    {
+        var body = await (await _client.GetAsync(path)).Content.ReadAsStringAsync();
+
+        Assert.Contains("class=\"collection-hero", body);
+        Assert.Contains("class=\"collection-filters\"", body);
+        Assert.Contains("class=\"collection-catalog\"", body);
+        Assert.DoesNotContain("href=\"#catalog\"", body);
+    }
+
+    [Theory]
     [InlineData("/JiuJitsu", "/jiu-jitsu?campaign=test")]
     [InlineData("/MuayThai", "/muay-thai?utm_source=test")]
     public async Task Legacy_case_routes_permanently_redirect_with_query(string path, string expected)
