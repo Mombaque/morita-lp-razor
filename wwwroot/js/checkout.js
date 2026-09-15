@@ -6,6 +6,7 @@ if (form) {
   const shippingFields = [...form.querySelectorAll('[data-fulfillment-panel="shipping"] input:not([name="ShippingAddress.Complement"])')];
   const addressChoices = [...form.querySelectorAll('input[name="SelectedAddressId"]')];
   const addressControls = form.querySelector('[data-new-address-controls]');
+  const quoteShipping = form.querySelector('[data-quote-shipping]');
   const submit = form.querySelector('[data-checkout-submit]');
   const feedback = form.querySelector('[data-checkout-feedback]');
   const checkoutReady = submit?.dataset.checkoutReady === 'true';
@@ -60,6 +61,10 @@ if (form) {
 
   methodInputs.forEach((input) => input.addEventListener('change', update));
   form.querySelectorAll('input[name="PublicShippingQuoteId"]').forEach((input) => input.addEventListener('change', update));
+  quoteShipping?.addEventListener('click', () => {
+    quoteShipping.textContent = 'Calculando frete...';
+    quoteShipping.setAttribute('aria-busy', 'true');
+  });
   addressChoices.forEach((choice) => choice.addEventListener('change', () => setAddressFields(choice)));
   const selectedAddress = addressChoices.find((choice) => choice.checked);
   if (addressChoices.length === 0) {

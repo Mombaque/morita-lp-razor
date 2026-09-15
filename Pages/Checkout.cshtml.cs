@@ -177,8 +177,8 @@ public sealed class CheckoutModel(
         return Page();
     }
 
-    private async Task LoadAsync(CancellationToken cancellationToken) { Cart = cart.Read(); await LoadConfigurationAsync(cancellationToken); await LoadQuoteAsync(cancellationToken); if (accountCookies.Read() is not null) await LoadAccountAsync(cancellationToken); }
-    private async Task<bool> LoadAccountAsync(CancellationToken cancellationToken)
+    private async Task LoadAsync(CancellationToken cancellationToken) { Cart = cart.Read(); await LoadConfigurationAsync(cancellationToken); await LoadQuoteAsync(cancellationToken); if (accountCookies.Read() is not null) await LoadAccountAsync(cancellationToken, selectDefaultAddress: true); }
+    private async Task<bool> LoadAccountAsync(CancellationToken cancellationToken, bool selectDefaultAddress = false)
     {
         if (accountCookies.Read() is not { } session) return false;
         var result = await account.GetProfileAsync(session.Token, cancellationToken);
@@ -201,7 +201,7 @@ public sealed class CheckoutModel(
         if (addresses.State != AccountLoadState.Success || addresses.Value is null) { ErrorState = ToCheckoutState(addresses.State); if (addresses.State == AccountLoadState.Unauthorized) accountCookies.Clear(); AccountMessage = addresses.Message ?? "Não foi possível carregar seus endereços. Tente novamente."; ErrorMessage = AccountMessage; return false; }
         SavedAddresses = addresses.Value;
         var defaultAddress = SavedAddresses.FirstOrDefault(x => x.IsDefault);
-        if (defaultAddress is not null && string.IsNullOrWhiteSpace(ShippingAddress.Street)) { SelectedAddressId = defaultAddress.PublicAddressId; ApplySelectedAddress(); }
+        if (selectDefaultAddress && defaultAddress is not null && string.IsNullOrWhiteSpace(ShippingAddress.Street)) { SelectedAddressId = defaultAddress.PublicAddressId; ApplySelectedAddress(); }
         return true;
     }
     private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
