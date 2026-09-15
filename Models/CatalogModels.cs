@@ -45,9 +45,12 @@ public sealed class CatalogFilters
     public List<CatalogFilter> Categories { get; set; } = [];
     public List<CatalogFilter> Modalities { get; set; } = [];
     public List<CatalogFilter> Brands { get; set; } = [];
+    public List<CatalogFilter> Suppliers { get; set; } = [];
     public List<CatalogFilter> Audiences { get; set; } = [];
     public List<CatalogFilter> Sizes { get; set; } = [];
     public List<CatalogFilter> Colors { get; set; } = [];
+
+    public IReadOnlyList<CatalogFilter> PublicBrands => Brands.Count > 0 ? Brands : Suppliers;
 }
 
 public sealed record CatalogQuery(

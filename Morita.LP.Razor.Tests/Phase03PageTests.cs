@@ -74,6 +74,49 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
+    public async Task Category_route_combines_category_brand_and_sort_filters()
+    {
+        using var factory = Create(
+            new CatalogPage([new Product { Slug = "kimono", Nome = "Kimono" }], 1, 24, 1, 1, CatalogLoadState.Success),
+            new CatalogFilters
+            {
+                Categories = [new CatalogFilter { Id = 7, Slug = "kimonos", Label = "Kimonos" }],
+                Suppliers = [new CatalogFilter { Id = 4, Slug = "itg", Label = "In The Guard" }]
+            });
+        using var client = factory.CreateClient();
+
+        var html = await (await client.GetAsync("/jiu-jitsu?category=kimonos&brandId=4&sort=price-desc")).Content.ReadAsStringAsync();
+
+        Assert.Equal("kimonos", Stub.LastCatalogQuery!.Category);
+        Assert.Equal(4, Stub.LastCatalogQuery.BrandId);
+        Assert.Equal("price-desc", Stub.LastCatalogQuery.Sort);
+        Assert.Equal("jiu-jitsu", Stub.LastCatalogQuery.Modality);
+        Assert.Contains("Kimonos / In The Guard", html);
+        Assert.Contains("href=\"/jiu-jitsu?category=kimonos&amp;brandId=4&amp;sort=price-desc\"", html);
+        Assert.Contains("href=\"/jiu-jitsu?category=kimonos&amp;sort=price-desc\"", html);
+        Assert.Contains("href=\"/jiu-jitsu?brandId=4&amp;sort=price-desc\"", html);
+        Assert.Contains("Limpar filtros", html);
+    }
+
+    [Fact]
+    public async Task Kids_route_preserves_modality_when_combining_brand_and_sort()
+    {
+        using var factory = Create(
+            new CatalogPage([], 1, 24, 0, 0, CatalogLoadState.Empty),
+            new CatalogFilters
+            {
+                Suppliers = [new CatalogFilter { Id = 4, Slug = "itg", Label = "In The Guard" }]
+            });
+        using var client = factory.CreateClient();
+
+        await client.GetAsync("/kids?modality=jiu-jitsu&brandId=4&sort=name-asc");
+
+        Assert.Equal("jiu-jitsu", Stub.LastCatalogQuery!.Modality);
+        Assert.Equal(4, Stub.LastCatalogQuery.BrandId);
+        Assert.Equal("name-asc", Stub.LastCatalogQuery.Sort);
+    }
+
+    [Fact]
     public async Task Product_cards_render_bounded_available_offer_rows_with_exact_ids()
     {
         var product = new Product
@@ -277,8 +320,8 @@ public sealed class Phase03PageTests
         Assert.Contains("quantidade", html, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static WebApplicationFactory<Program> Create(CatalogPage page) => CreateDetail(new Product { Slug = "x", Nome = "x" }, page: page);
-    private static WebApplicationFactory<Program> CreateDetail(Product? detail, ProductDetailResult? forced = null, CatalogPage? page = null, CatalogQuoteResult? quote = null, CatalogResult? related = null)
+    private static WebApplicationFactory<Program> Create(CatalogPage page, CatalogFilters? filters = null) => CreateDetail(new Product { Slug = "x", Nome = "x" }, page: page, filters: filters);
+    private static WebApplicationFactory<Program> CreateDetail(Product? detail, ProductDetailResult? forced = null, CatalogPage? page = null, CatalogQuoteResult? quote = null, CatalogResult? related = null, CatalogFilters? filters = null)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -289,7 +332,7 @@ public sealed class Phase03PageTests
                 services.AddScoped<ICatalogClient>(_ => new Stub(
                     page ?? new CatalogPage([], 1, 24, 0, 0, CatalogLoadState.Empty),
                     related ?? CatalogResult.Empty(),
-                    forced ?? (detail is null ? ProductDetailResult.NotFound() : ProductDetailResult.Success(detail)), quote ?? CatalogQuoteResult.Unavailable()));
+                    forced ?? (detail is null ? ProductDetailResult.NotFound() : ProductDetailResult.Success(detail)), quote ?? CatalogQuoteResult.Unavailable(), filters ?? new()));
             });
         });
     }
@@ -304,13 +347,13 @@ public sealed class Phase03PageTests
         Assert.Equal(1, html.Split("product-card.js", StringSplitOptions.None).Length - 1);
     }
 
-    private sealed class Stub(CatalogPage page, CatalogResult related, ProductDetailResult detail, CatalogQuoteResult quote) : ICatalogClient
+    private sealed class Stub(CatalogPage page, CatalogResult related, ProductDetailResult detail, CatalogQuoteResult quote, CatalogFilters filters) : ICatalogClient
     {
         public static CatalogQuoteRequest? LastQuoteRequest { get; private set; }
         public static CatalogQuery? LastCatalogQuery { get; private set; }
         public Task<CatalogResult> GetProductsAsync(string modality, CancellationToken cancellationToken = default) => Task.FromResult(CatalogResult.Empty());
         public Task<CatalogPage> GetCatalogAsync(CatalogQuery query, CancellationToken cancellationToken = default) { LastCatalogQuery = query; return Task.FromResult(page); }
-        public Task<CatalogFilters?> GetFiltersAsync(CancellationToken cancellationToken = default) => Task.FromResult<CatalogFilters?>(new());
+        public Task<CatalogFilters?> GetFiltersAsync(CancellationToken cancellationToken = default) => Task.FromResult<CatalogFilters?>(filters);
         public Task<ProductDetailResult> GetProductAsync(string slug, CancellationToken cancellationToken = default) => Task.FromResult(detail);
         public Task<CatalogResult> GetRelatedAsync(string slug, int limit = 4, CancellationToken cancellationToken = default) => Task.FromResult(related);
         public Task<CatalogQuoteResult> QuoteAsync(CatalogQuoteRequest request, CancellationToken cancellationToken = default) { LastQuoteRequest = request; return Task.FromResult(quote); }
