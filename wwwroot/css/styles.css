@@ -2798,6 +2798,13 @@ body {
 .account-panel input:focus-visible, .account-panel select:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 2px; }
 .account-check { display: flex !important; gap: .6rem; align-items: center; }
 .account-check input { width: auto; margin: 0; }
+.account-access-links { border-top: 1px solid var(--fight-line); display: grid; gap: .45rem; margin-top: 1.35rem; padding-top: 1rem; }
+.account-access-links p { color: var(--fight-muted); font-size: .88rem; margin: 0; }
+.account-access-links a { align-items: center; border-left: 2px solid transparent; color: var(--fight-paper); display: inline-flex; font-family: "Barlow Condensed", sans-serif; font-weight: 700; letter-spacing: .04em; padding: .3rem .5rem; text-decoration: none; transition: background-color .2s ease, border-color .2s ease, color .2s ease; }
+.account-access-links a:hover, .account-access-links a:focus-visible { background: rgba(60, 249, 174, .1); border-left-color: var(--fight-green); color: var(--fight-green); }
+.account-access-links a:focus-visible, .account-secondary-link:focus-visible { outline: 2px solid var(--fight-green); outline-offset: 3px; }
+.account-secondary-link { color: var(--fight-paper); text-decoration-color: rgba(60, 249, 174, .6); text-underline-offset: .2em; }
+.account-secondary-link:hover { color: var(--fight-green); }
 .account-email, .account-status { color: #3CF9AE; }
 .order-ledger { list-style: none; padding: 0; margin: 0; }
 .order-ledger li { border-top: 1px solid #3b3b3b; }

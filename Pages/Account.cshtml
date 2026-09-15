@@ -34,7 +34,7 @@
 
     @if (!Model.SignedIn)
     {
-        <section class="account-panel" aria-labelledby="account-access-heading">
+        <section class="account-panel account-access-panel" aria-labelledby="account-access-heading">
             @if (Model.PasswordChallengeIssued)
             {
                 <h2 id="account-access-heading">Definir nova senha</h2>
@@ -75,8 +75,10 @@
                     <label asp-for="Login.Password">Senha</label><input asp-for="Login.Password" type="password" autocomplete="current-password"><span asp-validation-for="Login.Password" class="validation-error"></span>
                     <button class="commerce-button commerce-button-primary" type="submit">Entrar</button>
                 </form>
-                <p><a href="/conta?mode=forgot&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Esqueci minha senha</a></p>
-                <p>Ainda não tem uma conta? <a href="/conta?mode=create&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Criar conta</a></p>
+                <nav class="account-access-links" aria-label="Opções de acesso">
+                    <p><a class="account-secondary-link" href="/conta?mode=forgot&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Esqueci minha senha</a></p>
+                    <p>Ainda não tem uma conta? <a class="account-secondary-link" href="/conta?mode=create&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Criar conta</a></p>
+                </nav>
             }
             else if (Model.Mode == "forgot")
             {
@@ -87,7 +89,9 @@
                     <label asp-for="EmailForm.Email">E-mail</label><input asp-for="EmailForm.Email" type="email" autocomplete="email"><span asp-validation-for="EmailForm.Email" class="validation-error"></span>
                     <button class="commerce-button commerce-button-primary" type="submit">Enviar código</button>
                 </form>
-                <p><a href="/conta?mode=signin&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Voltar para entrar</a></p>
+                <nav class="account-access-links" aria-label="Opções de acesso">
+                    <p><a class="account-secondary-link" href="/conta?mode=signin&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">← Voltar para entrar</a></p>
+                </nav>
             }
             else
             {
@@ -100,11 +104,13 @@
                     <label asp-for="Registration.Email">E-mail</label><input asp-for="Registration.Email" type="email" autocomplete="email"><span asp-validation-for="Registration.Email" class="validation-error"></span>
                     <label asp-for="Registration.Password">Senha</label><input asp-for="Registration.Password" type="password" autocomplete="new-password"><span asp-validation-for="Registration.Password" class="validation-error"></span>
                     <label asp-for="Registration.Confirmation">Confirme a senha</label><input asp-for="Registration.Confirmation" type="password" autocomplete="new-password"><span asp-validation-for="Registration.Confirmation" class="validation-error"></span>
-                    <label class="account-check" asp-for="Registration.AcceptedPrivacyPolicy"><input asp-for="Registration.AcceptedPrivacyPolicy"><span>Aceito a política de privacidade @if (Model.PrivacyPolicyUrl is not null) { <text>(<a href="@Model.PrivacyPolicyUrl">ler a política</a>)</text> }.</span></label>
+                    <label class="account-check" asp-for="Registration.AcceptedPrivacyPolicy"><input asp-for="Registration.AcceptedPrivacyPolicy"><span>Aceito a política de privacidade @if (Model.PrivacyPolicyUrl is not null) { <text>(<a class="account-secondary-link" href="@Model.PrivacyPolicyUrl">ler a política</a>)</text> }.</span></label>
                     <span asp-validation-for="Registration.AcceptedPrivacyPolicy" class="validation-error"></span>
                     <button class="commerce-button commerce-button-primary" type="submit">Criar conta</button>
                 </form>
-                <p>Já tem uma conta? <a href="/conta?mode=signin&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Entrar</a></p>
+                <nav class="account-access-links" aria-label="Opções de acesso">
+                    <p>Já tem uma conta? <a class="account-secondary-link" href="/conta?mode=signin&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Entrar</a></p>
+                </nav>
             }
         </section>
     }
