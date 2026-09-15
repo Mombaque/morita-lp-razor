@@ -1,0 +1,104 @@
+@model CatalogSectionViewModel
+@{
+    var sortFormAction = Model.Route;
+}
+
+<header class="catalog-header" aria-labelledby="catalog-section-title">
+    <div class="catalog-header-copy">
+        <p class="fight-label">@Model.Eyebrow</p>
+        <h1 id="catalog-section-title">@Model.Title</h1>
+        <p>@Model.Description</p>
+    </div>
+    <div class="catalog-header-count" aria-live="polite">
+        <strong>@Model.Catalog.TotalCount</strong>
+        <span>@Model.ResultLabel</span>
+    </div>
+</header>
+
+<section class="catalog-filter-area" aria-label="Filtros do catálogo">
+    <div class="catalog-filter-group">
+        <h2>Categorias</h2>
+        <nav class="catalog-filter-options" aria-label="Categorias de @Model.Title">
+            <a class="catalog-filter-pill @(Model.Category is null ? "active" : null)" href="@Model.CategoryUrl(null)" aria-current="@(Model.Category is null ? "page" : null)" data-catalog-filter="category">Todas</a>
+            @foreach (var category in Model.Filters.Categories)
+            {
+                if (string.IsNullOrWhiteSpace(category.Slug))
+                    continue;
+
+                <a class="catalog-filter-pill @(string.Equals(Model.Category, category.Slug, StringComparison.OrdinalIgnoreCase) ? "active" : null)" href="@Model.CategoryUrl(category.Slug)" aria-current="@(string.Equals(Model.Category, category.Slug, StringComparison.OrdinalIgnoreCase) ? "page" : null)" data-catalog-filter="category">@category.Label</a>
+            }
+        </nav>
+    </div>
+
+    <div class="catalog-filter-group">
+        <h2>Marcas</h2>
+        @if (Model.BrandOptions.Count > 0)
+        {
+            <nav class="catalog-filter-options" aria-label="Marcas de @Model.Title">
+                <a class="catalog-filter-pill @(Model.BrandId is null ? "active" : null)" href="@Model.BrandUrl(null)" aria-current="@(Model.BrandId is null ? "page" : null)" data-catalog-filter="brand">Todas</a>
+                @foreach (var brand in Model.BrandOptions)
+                {
+                    <a class="catalog-filter-pill @(Model.BrandId == brand.Id ? "active" : null)" href="@Model.BrandUrl(brand.Id)" aria-current="@(Model.BrandId == brand.Id ? "page" : null)" data-catalog-filter="brand">@brand.Label</a>
+                }
+            </nav>
+        }
+        else
+        {
+            <p class="catalog-filter-empty">Nenhuma marca disponível</p>
+        }
+    </div>
+
+    @if (Model.HasFacetFilters)
+    {
+        <div class="catalog-filter-actions">
+            <a class="catalog-clear-link" href="@Model.ClearFiltersUrl()">Limpar filtros</a>
+        </div>
+    }
+</section>
+
+<section id="catalog" class="collection-catalog" aria-labelledby="catalog-title" aria-live="polite">
+    <div class="section-heading section-heading-row catalog-products-heading">
+        <div>
+            <p class="fight-label">@Model.CatalogEyebrow</p>
+            <h2 id="catalog-title">@Model.ProductHeading</h2>
+        </div>
+        <form class="catalog-sort-form" method="get" action="@sortFormAction">
+            @foreach (var query in Model.SortFormValues)
+            {
+                <input type="hidden" name="@query.Key" value="@query.Value">
+            }
+            <label for="catalog-sort"><span>Ordenar por</span>
+                <select id="catalog-sort" name="sort" data-catalog-sort>
+                    @foreach (var option in CatalogSectionViewModel.SortOptions)
+                    {
+                        <option value="@option.Value" selected="@(Model.Sort == option.Value ? "selected" : null)">@option.Label</option>
+                    }
+                </select>
+            </label>
+        </form>
+    </div>
+
+    @if (Model.Catalog.State == CatalogLoadState.Unavailable)
+    {
+        <div class="catalog-state catalog-unavailable" role="status">
+            <h3>Catálogo temporariamente indisponível</h3>
+            <p>Tente novamente em instantes.</p>
+        </div>
+    }
+    else if (Model.Catalog.State == CatalogLoadState.Empty)
+    {
+        <div class="catalog-state catalog-empty" role="status">
+            <h3>Nenhum produto encontrado</h3>
+            <p>@Model.EmptyDescription</p>
+        </div>
+    }
+    else
+    {
+        <div class="products storefront-products">
+            @for (var index = 0; index < Model.Catalog.Items.Count; index++)
+            {
+                <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Catalog.Items[index], Model.CardCategory, index))" />
+            }
+        </div>
+    }
+</section>
