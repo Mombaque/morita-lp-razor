@@ -65,14 +65,6 @@
       height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
 
-    @{
-        var currentPath = Context.Request.Path.Value?.TrimEnd('/');
-        var isHome = string.IsNullOrEmpty(currentPath);
-        var isJiuJitsu = currentPath == "/jiu-jitsu";
-        var isMuayThai = currentPath == "/muay-thai";
-        var isKids = currentPath == "/kids";
-        var isProducts = currentPath == "/products" || currentPath?.StartsWith("/products/") == true;
-    }
     <header class="commerce-site-header">
         <div class="commerce-nav-row">
             <a class="commerce-logo" href="/" aria-label="Morita Fight - início"><img src="~/images/logo.png" alt="Morita Fight"></a>
@@ -84,11 +76,7 @@
             <div class="commerce-cart">@await Component.InvokeAsync("CartIndicator")</div>
         </div>
         <nav class="main-nav" aria-label="Navegação principal">
-            <a href="/" class="nav-link @(isHome ? "active" : "")" aria-current="@(isHome ? "page" : null)">Início</a>
-            <a href="/products" class="nav-link @(isProducts ? "active" : "")" aria-current="@(isProducts ? "page" : null)">Todos os produtos</a>
-            <a href="/jiu-jitsu" class="nav-link @(isJiuJitsu ? "active" : "")" aria-current="@(isJiuJitsu ? "page" : null)">Jiu-Jitsu</a>
-            <a href="/muay-thai" class="nav-link @(isMuayThai ? "active" : "")" aria-current="@(isMuayThai ? "page" : null)">Muay Thai</a>
-            <a href="/kids" class="nav-link @(isKids ? "active" : "")" aria-current="@(isKids ? "page" : null)">Infantil</a>
+            @await Component.InvokeAsync("CatalogNavigation")
             @if (customerAccountsEnabled) { if (customerSignedIn) { <a href="/conta" class="nav-link nav-account">Minha conta</a> } else { <a href="/conta?mode=signin" class="nav-link nav-account">Entrar</a><a href="/conta?mode=create" class="nav-link nav-account">Criar conta</a> } }
         </nav>
     </header>

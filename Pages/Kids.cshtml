@@ -6,7 +6,7 @@
     ViewData["Title"] = "Equipamentos infantis para artes marciais | Morita Fight";
     ViewData["Description"] = "Kimonos, faixas e equipamentos infantis para jovens atletas, com tamanhos e estoque confirmados.";
     ViewData["Canonical"] = $"{canonicalBase.TrimEnd('/')}/kids";
-    ViewData["Robots"] = string.IsNullOrWhiteSpace(Model.Modality) ? "index,follow" : "noindex,follow";
+    ViewData["Robots"] = string.IsNullOrWhiteSpace(Model.Modality) && string.IsNullOrWhiteSpace(Model.Category) ? "index,follow" : "noindex,follow";
     ViewData["BodyClass"] = "collection-page commerce-page kids-page";
 }
 
@@ -21,7 +21,7 @@
   </section>
 
   <nav class="collection-filters" aria-label="Modalidades infantis">
-    <a class="@(Model.Modality is null ? "active" : "")" href="/kids">Todos</a>
+    <a class="@(Model.Modality is null && Model.Category is null ? "active" : "")" href="/kids">Todos</a>
     @foreach (var modality in Model.Filters.Modalities)
     {
       <a class="@(Model.Modality == modality.Slug ? "active" : "")" href="/kids?modality=@Uri.EscapeDataString(modality.Slug ?? "")">@modality.Label</a>
@@ -29,7 +29,7 @@
   </nav>
 
   <section id="catalog" class="collection-catalog" aria-labelledby="catalog-title">
-    <div class="section-heading section-heading-row"><div><p class="fight-label">Catálogo infantil</p><h2 id="catalog-title">@(Model.Modality is null ? "Para jovens atletas" : Model.Filters.Modalities.FirstOrDefault(x => x.Slug == Model.Modality)?.Label ?? "Produtos")</h2></div><span>@Model.Catalog.TotalCount produto(s)</span></div>
+    <div class="section-heading section-heading-row"><div><p class="fight-label">Catálogo infantil</p><h2 id="catalog-title">@(Model.Category is not null ? Model.Filters.Categories.FirstOrDefault(x => x.Slug == Model.Category)?.Label ?? "Produtos" : Model.Modality is null ? "Para jovens atletas" : Model.Filters.Modalities.FirstOrDefault(x => x.Slug == Model.Modality)?.Label ?? "Produtos")</h2></div><span>@Model.Catalog.TotalCount produto(s)</span></div>
     @if (Model.Catalog.State == CatalogLoadState.Unavailable)
     { <div class="catalog-state catalog-unavailable" role="status"><h3>Catálogo temporariamente indisponível</h3><p>Tente novamente em instantes.</p></div> }
     else if (Model.Catalog.State == CatalogLoadState.Empty)

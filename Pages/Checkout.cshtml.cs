@@ -82,7 +82,7 @@ public sealed class CheckoutModel(
             if (ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, "Complete seu nome e telefone em Minha conta antes de continuar.", StringComparison.Ordinal)) return RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" });
             return Page();
         }
-        FulfillmentMethod = Configuration.Configuration?.PickupEnabled == true ? "pickup" : "shipping";
+        FulfillmentMethod = Configuration.Configuration?.ShippingEnabled == true ? "shipping" : "pickup";
         draft.Ensure(); return Page();
     }
 

@@ -8,6 +8,8 @@ namespace Morita.LP.Razor.Pages;
 public class KidsModel(ICatalogClient catalog) : PageModel
 {
     [BindProperty(SupportsGet = true)]
+    public string? Category { get; set; }
+    [BindProperty(SupportsGet = true)]
     public string? Modality { get; set; }
     public CatalogPage Catalog { get; private set; } = new([], 1, CatalogQuery.PageSize, 0, 0, CatalogLoadState.Unavailable);
     public CatalogFilters Filters { get; private set; } = new();
@@ -15,9 +17,10 @@ public class KidsModel(ICatalogClient catalog) : PageModel
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
+        Category = NormalizeSlug(Category);
         Modality = NormalizeSlug(Modality);
         var products = catalog.GetCatalogAsync(
-            new CatalogQuery(null, null, null, null, null, null, true, 1, Modality: Modality, Audience: PublicCatalogAudience.Kids),
+            new CatalogQuery(null, null, null, null, null, null, true, 1, Category: Category, Modality: Modality, Audience: PublicCatalogAudience.Kids),
             cancellationToken);
         var filters = catalog.GetFiltersAsync(cancellationToken);
         await Task.WhenAll(products, filters);

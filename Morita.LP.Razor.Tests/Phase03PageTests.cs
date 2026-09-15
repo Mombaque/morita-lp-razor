@@ -61,6 +61,19 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
+    public async Task Kids_route_preserves_category_filter_with_first_class_audience()
+    {
+        using var factory = Create(new CatalogPage([], 1, 24, 0, 0, CatalogLoadState.Empty));
+        using var client = factory.CreateClient();
+
+        await client.GetAsync("/kids?category=kimonos");
+
+        Assert.Equal("kimonos", Stub.LastCatalogQuery!.Category);
+        Assert.Equal(PublicCatalogAudience.Kids, Stub.LastCatalogQuery.Audience);
+        Assert.True(Stub.LastCatalogQuery.Available);
+    }
+
+    [Fact]
     public async Task Home_uses_catalog_products_and_renders_honest_empty_state()
     {
         using var productFactory = Create(new CatalogPage([
