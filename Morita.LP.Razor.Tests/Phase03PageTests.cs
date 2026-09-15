@@ -74,6 +74,40 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
+    public async Task Product_cards_render_bounded_available_offer_rows_with_exact_ids()
+    {
+        var product = new Product
+        {
+            Slug = "matrix",
+            Nome = "Matrix",
+            FormattedPrice = "R$ 99,00",
+            Variants = Enumerable.Range(0, 4).Select(index => new ProductVariant
+            {
+                ColorId = index + 1,
+                ColorLabel = $"Cor {index + 1}",
+                ColorHex = "#1255CC",
+                Offers = Enumerable.Range(0, 8).Select(size => new ProductOffer
+                {
+                    PublicOfferId = Guid.NewGuid(),
+                    SizeLabel = $"A{size}",
+                    UnitPrice = 100 + size,
+                    Availability = size == 7 ? "unavailable" : "available"
+                }).ToList()
+            }).ToList()
+        };
+        using var factory = Create(new CatalogPage([product], 1, 24, 1, 1, CatalogLoadState.Success));
+
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products")).Content.ReadAsStringAsync());
+        Assert.Equal(3, html.Split("class=\"product-variant-row\"", StringSplitOptions.None).Length - 1);
+        Assert.Contains("+1 cores", html);
+        Assert.Equal(3, html.Split("+1 tamanhos", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain(">A7<", html);
+        Assert.Contains("data-product-offer", html);
+        Assert.Contains("data-offer-id=\"", html);
+        Assert.Contains("#1255CC", html);
+    }
+
+    [Fact]
     public async Task Home_uses_catalog_products_and_renders_honest_empty_state()
     {
         using var productFactory = Create(new CatalogPage([
@@ -115,10 +149,12 @@ public sealed class Phase03PageTests
         {
             var html = await (await client.GetAsync(path)).Content.ReadAsStringAsync();
             AssertCarouselScriptLoadedOnce(html);
+            AssertProductCardScriptLoadedOnce(html);
         }
 
         var detailHtml = await (await client.GetAsync("/products/detail")).Content.ReadAsStringAsync();
         AssertCarouselScriptLoadedOnce(detailHtml);
+        AssertProductCardScriptLoadedOnce(detailHtml);
         Assert.Contains("class=\"prev\" type=\"button\"", detailHtml);
         Assert.Contains("class=\"next\" type=\"button\"", detailHtml);
     }
@@ -128,7 +164,7 @@ public sealed class Phase03PageTests
     {
         var available = Guid.NewGuid();
         var unavailable = Guid.NewGuid();
-        var product = new Product { Slug = "kimono", Nome = "Kimono", Variants = [new ProductVariant { ColorLabel = "Azul", Offers = [new ProductOffer { PublicOfferId = available, SizeLabel = "A1", Availability = "available" }, new ProductOffer { PublicOfferId = unavailable, SizeLabel = "A2", Availability = "unavailable" }] }] };
+        var product = new Product { Slug = "kimono", Nome = "Kimono", Variants = [new ProductVariant { ColorLabel = "Azul", Images = ["/images/azul.jpg"], Offers = [new ProductOffer { PublicOfferId = available, SizeLabel = "A1", UnitPrice = 1234.5m, Availability = "available" }, new ProductOffer { PublicOfferId = unavailable, SizeLabel = "A2", Availability = "unavailable" }] }] };
         using var factory = CreateDetail(product);
         using var client = factory.CreateClient();
         var html = WebUtility.HtmlDecode(await (await client.GetAsync($"/products/kimono?publicOfferId={available}&quantity=2")).Content.ReadAsStringAsync());
@@ -139,6 +175,21 @@ public sealed class Phase03PageTests
         Assert.Contains("application/ld+json", html);
         Assert.Contains("novalidate", html);
         Assert.Contains("offer-validation-message", html);
+        Assert.Contains("data-price=\"1234.5\"", html);
+        Assert.Contains("id=\"detail-image\" src=\"/images/azul.jpg\"", html);
+    }
+
+    [Fact]
+    public async Task Product_card_offer_anchor_has_exact_detail_fallback()
+    {
+        var offer = Guid.NewGuid();
+        var product = new Product { Slug = "kimono", Nome = "Kimono", Variants = [new ProductVariant { ColorLabel = "Preto", Offers = [new ProductOffer { PublicOfferId = offer, SizeLabel = "M", Availability = "available" }] }] };
+        using var factory = Create(new CatalogPage([product], 1, 24, 1, 1, CatalogLoadState.Success));
+
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products")).Content.ReadAsStringAsync());
+
+        Assert.Contains($"href=\"/products/kimono?publicOfferId={offer}\"", html);
+        Assert.Contains("class=\"product-variant-size\"", html);
     }
 
     [Fact]
@@ -246,6 +297,11 @@ public sealed class Phase03PageTests
     private static void AssertCarouselScriptLoadedOnce(string html)
     {
         Assert.Equal(1, html.Split("carousel.js", StringSplitOptions.None).Length - 1);
+    }
+
+    private static void AssertProductCardScriptLoadedOnce(string html)
+    {
+        Assert.Equal(1, html.Split("product-card.js", StringSplitOptions.None).Length - 1);
     }
 
     private sealed class Stub(CatalogPage page, CatalogResult related, ProductDetailResult detail, CatalogQuoteResult quote) : ICatalogClient

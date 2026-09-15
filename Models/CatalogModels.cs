@@ -16,6 +16,7 @@ public sealed class ProductVariant
 {
     public int? ColorId { get; set; }
     public string? ColorLabel { get; set; }
+    public string? ColorHex { get; set; }
     public List<string> Images { get; set; } = [];
     public List<ProductOffer> Offers { get; set; } = [];
 }
