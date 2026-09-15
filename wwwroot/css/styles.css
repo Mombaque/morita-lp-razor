@@ -1783,6 +1783,14 @@ body {
   overflow: hidden;
 }
 
+.hero-media-rotator {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  width: 100%;
+}
+
 .commerce-hero-image {
   display: block;
   height: 100%;
@@ -1790,6 +1798,17 @@ body {
   max-width: 100%;
   object-fit: contain;
   width: 100%;
+}
+
+.hero-media-image {
+  inset: 0;
+  opacity: 0;
+  position: absolute;
+  transition: opacity .65s ease;
+}
+
+.hero-media-image.is-active {
+  opacity: 1;
 }
 
 .commerce-hero h1,
@@ -2364,7 +2383,7 @@ body {
     min-height: 0;
   }
 
-  .commerce-hero-image {
+  .commerce-hero-media {
     height: clamp(280px, 88vw, 420px);
   }
 
