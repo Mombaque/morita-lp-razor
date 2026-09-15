@@ -1652,6 +1652,26 @@ body {
   gap: .4rem;
 }
 
+.nav-menu-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: var(--fight-paper);
+  cursor: pointer;
+  display: inline-flex;
+  height: 100%;
+  justify-content: center;
+  padding: 0 .75rem;
+  position: absolute;
+  right: 0;
+  top: 0;
+}
+
+.nav-menu-toggle:focus-visible {
+  outline: 2px solid var(--fight-green);
+  outline-offset: -2px;
+}
+
 .nav-menu-item:hover > .nav-link,
 .nav-menu-item:focus-within > .nav-link {
   background: var(--fight-green);
@@ -1665,7 +1685,8 @@ body {
 }
 
 .nav-menu-item:hover .nav-menu-caret,
-.nav-menu-item:focus-within .nav-menu-caret {
+.nav-menu-item:focus-within .nav-menu-caret,
+.nav-menu-item.is-open .nav-menu-caret {
   transform: rotate(180deg);
 }
 
@@ -1690,7 +1711,8 @@ body {
 }
 
 .nav-menu-item:hover > .nav-category-menu,
-.nav-menu-item:focus-within > .nav-category-menu {
+.nav-menu-item:focus-within > .nav-category-menu,
+.nav-menu-item.is-open > .nav-category-menu {
   opacity: 1;
   pointer-events: auto;
   transform: none;
@@ -2371,6 +2393,50 @@ body {
 
   .main-nav {
     justify-content: flex-start;
+  }
+
+  .nav-menu-item {
+    width: 100%;
+  }
+
+  .main-nav .nav-menu-item > .nav-link {
+    padding-right: 3.25rem;
+    width: 100%;
+  }
+
+  .nav-menu-toggle {
+    min-width: 3rem;
+    padding: 0 .9rem;
+  }
+
+  .nav-category-menu {
+    border-top: 1px solid var(--fight-line);
+    box-shadow: none;
+    display: grid;
+    max-height: 0;
+    min-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    padding-block: 0;
+    position: static;
+    transform: none;
+    transition: max-height .18s ease, opacity .18s ease, padding .18s ease, visibility .18s ease;
+    visibility: hidden;
+  }
+
+  .nav-menu-item:hover > .nav-category-menu,
+  .nav-menu-item:focus-within > .nav-category-menu {
+    opacity: 0;
+    pointer-events: none;
+    visibility: hidden;
+  }
+
+  .nav-menu-item.is-open > .nav-category-menu {
+    max-height: 30rem;
+    opacity: 1;
+    padding-block: .45rem;
+    pointer-events: auto;
+    visibility: visible;
   }
 
   .commerce-hero,
