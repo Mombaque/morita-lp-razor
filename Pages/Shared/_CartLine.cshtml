@@ -30,7 +30,7 @@
         {
             <p class="cart-line-status" role="alert">@statusMessage</p>
         }
-        @if (available)
+        @if (available || status == "insufficient")
         {
             <form class="cart-quantity-form" method="post" asp-page-handler="Update">
                 <input type="hidden" name="publicOfferId" value="@Model.PublicOfferId">

@@ -68,6 +68,7 @@ if (!string.IsNullOrWhiteSpace(keyDirectory))
     dataProtection.PersistKeysToFileSystem(Directory.CreateDirectory(keyDirectory));
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddScoped<ICartCookieStore, CartCookieStore>();
+builder.Services.AddScoped<ICartMutationService, CartMutationService>();
 builder.Services.AddScoped<ICheckoutDraftCookieStore, CheckoutDraftCookieStore>();
 builder.Services.AddScoped<ICheckoutAccessCookieStore, CheckoutAccessCookieStore>();
 builder.Services.AddScoped<IPaymentAttemptCookieStore, PaymentAttemptCookieStore>();
