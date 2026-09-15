@@ -20,18 +20,9 @@ namespace Morita.LP.Razor.Tests;
 public sealed class RelayTests
 {
     [Fact]
-    public async Task Disabled_relay_returns_not_found()
-    {
-        using var factory = CreateFactory(false, new StubResponse(HttpStatusCode.OK, "{}"));
-        using var client = factory.CreateClient();
-        var response = await client.PostAsync("/customer-product-request", Json("{}"));
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
     public async Task Relay_rejects_missing_antiforgery_token()
     {
-        using var factory = CreateFactory(true, new StubResponse(HttpStatusCode.OK, "{}"));
+        using var factory = CreateFactory(new StubResponse(HttpStatusCode.OK, "{}"));
         using var client = factory.CreateClient();
         var response = await client.PostAsync("/customer-product-request", Json(ValidPayload));
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -40,7 +31,7 @@ public sealed class RelayTests
     [Fact]
     public async Task Relay_rejects_null_items_without_throwing()
     {
-        using var factory = CreateFactory(true, new StubResponse(HttpStatusCode.OK, "{}"));
+        using var factory = CreateFactory(new StubResponse(HttpStatusCode.OK, "{}"));
         using var client = factory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Post, "/customer-product-request")
         {
@@ -56,7 +47,7 @@ public sealed class RelayTests
     [Fact]
     public async Task Relay_rejects_an_oversized_chunked_body_before_forwarding()
     {
-        using var factory = CreateFactory(true, new StubResponse(HttpStatusCode.OK, "{}"));
+        using var factory = CreateFactory(new StubResponse(HttpStatusCode.OK, "{}"));
         using var client = factory.CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Post, "/customer-product-request")
         {
@@ -73,7 +64,7 @@ public sealed class RelayTests
     public async Task Relay_forwards_raw_payload_headers_and_success()
     {
         var handler = new RecordingHandler(new StubResponse(HttpStatusCode.OK, "{\"id\":7}"));
-        using var factory = CreateFactory(true, handler);
+        using var factory = CreateFactory(handler);
         using var client = factory.CreateClient();
         var token = await GetToken(client);
         using var request = new HttpRequestMessage(HttpMethod.Post, "/customer-product-request") { Content = Json(ValidPayload) };
@@ -89,18 +80,18 @@ public sealed class RelayTests
     [Fact]
     public async Task Relay_passthroughs_api_400_and_maps_unavailable_or_timeout()
     {
-        using (var badFactory = CreateFactory(true, new StubResponse(HttpStatusCode.BadRequest, "")))
+        using (var badFactory = CreateFactory(new StubResponse(HttpStatusCode.BadRequest, "")))
         using (var client = badFactory.CreateClient())
         {
             var response = await PostWithToken(client);
             Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         }
 
-        using (var unavailableFactory = CreateFactory(true, new StubResponseException(new HttpRequestException())))
+        using (var unavailableFactory = CreateFactory(new StubResponseException(new HttpRequestException())))
         using (var client = unavailableFactory.CreateClient())
             Assert.Equal(HttpStatusCode.BadGateway, (await PostWithToken(client)).StatusCode);
 
-        using (var timeoutFactory = CreateFactory(true, new StubResponseException(new TaskCanceledException())))
+        using (var timeoutFactory = CreateFactory(new StubResponseException(new TaskCanceledException())))
         using (var client = timeoutFactory.CreateClient())
             Assert.Equal(HttpStatusCode.GatewayTimeout, (await PostWithToken(client)).StatusCode);
     }
@@ -108,7 +99,7 @@ public sealed class RelayTests
     [Fact]
     public async Task Relay_rate_limit_rejects_the_thirteenth_request_with_429()
     {
-        using var factory = CreateFactory(true, new StubResponse(HttpStatusCode.OK, "{}"));
+        using var factory = CreateFactory(new StubResponse(HttpStatusCode.OK, "{}"));
         using var client = factory.CreateClient();
         var token = await GetToken(client);
 
@@ -122,11 +113,31 @@ public sealed class RelayTests
         Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(bool enabled, IResponseHandler handler) =>
+    [Fact]
+    public async Task AnalyticsRelay_forwards_payload_and_request_headers()
+    {
+        var handler = new RecordingHandler(new StubResponse(HttpStatusCode.Accepted, ""));
+        using var factory = CreateFactory(handler);
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/analytics/website-usage-event")
+        {
+            Content = Json("{\"eventName\":\"page_view\"}")
+        };
+        request.Headers.UserAgent.ParseAdd("mobile-test/1.0");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal("{\"eventName\":\"page_view\"}", handler.Body);
+        Assert.EndsWith("/v1/WebsiteUsageEvent", handler.Request!.RequestUri!.AbsolutePath);
+        Assert.Equal("relay-secret", handler.Request.Headers.GetValues("X-Morita-Proxy-Secret").Single());
+        Assert.Equal("mobile-test/1.0", handler.Request.Headers.UserAgent.ToString());
+    }
+
+    private static WebApplicationFactory<Program> CreateFactory(IResponseHandler handler) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("E2E");
-            builder.UseSetting("Storefront:UseRelayForCustomerRequests", enabled.ToString());
             builder.UseSetting("CatalogApi:ProxySecret", "relay-secret");
             builder.ConfigureTestServices(services =>
             {

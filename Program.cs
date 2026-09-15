@@ -23,10 +23,6 @@ builder.Services.AddOptions<StorefrontOptions>()
         string.Equals(options.ProductSource, "Legacy", StringComparison.OrdinalIgnoreCase) ||
         string.Equals(options.ProductSource, "Api", StringComparison.OrdinalIgnoreCase),
         "Storefront:ProductSource must be Legacy or Api.")
-    .Validate(options =>
-        !options.UseRelayForCustomerRequests && !options.PublicAssistantEnabled ||
-        !string.IsNullOrWhiteSpace(builder.Configuration[$"{CatalogApiOptions.SectionName}:ProxySecret"]),
-        "CatalogApi:ProxySecret is required when a public relay is enabled.")
     .Validate(options => options.PublicAssistantTimeoutSeconds is >= 5 and <= 60,
         "Storefront:PublicAssistantTimeoutSeconds must be between 5 and 60.")
     .Validate(options =>
@@ -122,6 +118,12 @@ builder.Services.AddHttpClient("customer-request", (serviceProvider, client) =>
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
 });
+builder.Services.AddHttpClient("website-usage-event", (serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = Timeout.InfiniteTimeSpan;
+});
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -131,6 +133,16 @@ builder.Services.AddRateLimiter(options =>
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 12,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
+    options.AddPolicy("website-usage-relay", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ClientIdentityResolver.Resolve(httpContext, builder.Environment),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
                 Window = TimeSpan.FromMinutes(1),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
@@ -199,12 +211,68 @@ app.MapGet("/v1/storefront/catalog/images/{imageId:guid}", async (Guid imageId, 
         return Results.StatusCode(StatusCodes.Status502BadGateway);
     }
 });
-app.MapPost("/customer-product-request", async (HttpContext context, IHttpClientFactory clients, IOptions<CatalogApiOptions> catalogOptions, IOptions<StorefrontOptions> storefrontOptions, IAntiforgery antiforgery, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
+app.MapPost("/analytics/website-usage-event", async (HttpContext context, IHttpClientFactory clients, IOptions<CatalogApiOptions> catalogOptions, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
+{
+    var logger = loggerFactory.CreateLogger("WebsiteUsageEventRelay");
+    const int maximumRequestBytes = 32 * 1024;
+    if (context.Request.ContentLength is > maximumRequestBytes)
+        return Results.BadRequest(new { error = "request_too_large" });
+
+    var body = await ReadBoundedRequestBodyAsync(context, maximumRequestBytes, cancellationToken);
+    if (body is null)
+        return Results.BadRequest(new { error = "invalid_request" });
+
+    try
+    {
+        using var document = JsonDocument.Parse(body);
+        if (document.RootElement.ValueKind != JsonValueKind.Object)
+            return Results.BadRequest(new { error = "invalid_request" });
+    }
+    catch (JsonException)
+    {
+        return Results.BadRequest(new { error = "invalid_request" });
+    }
+
+    using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+    timeout.CancelAfter(TimeSpan.FromSeconds(8));
+    using var request = new HttpRequestMessage(HttpMethod.Post, "v1/WebsiteUsageEvent")
+    {
+        Content = new StringContent(body, Encoding.UTF8, "application/json")
+    };
+    request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, app.Environment));
+    if (!string.IsNullOrWhiteSpace(catalogOptions.Value.ProxySecret))
+        request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", catalogOptions.Value.ProxySecret);
+    var userAgent = context.Request.Headers.UserAgent.ToString();
+    if (!string.IsNullOrWhiteSpace(userAgent))
+        request.Headers.TryAddWithoutValidation("User-Agent", userAgent);
+
+    try
+    {
+        using var response = await clients.CreateClient("website-usage-event").SendAsync(request, timeout.Token);
+        if ((int)response.StatusCode >= 400 && (int)response.StatusCode < 500)
+            return Results.StatusCode((int)response.StatusCode);
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.LogWarning("Website usage event relay returned status {StatusCode}", (int)response.StatusCode);
+            return Results.StatusCode(StatusCodes.Status502BadGateway);
+        }
+
+        return Results.StatusCode((int)response.StatusCode);
+    }
+    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+    {
+        logger.LogWarning("Website usage event relay timed out");
+        return Results.StatusCode(StatusCodes.Status504GatewayTimeout);
+    }
+    catch (HttpRequestException exception)
+    {
+        logger.LogWarning(exception, "Website usage event relay unavailable");
+        return Results.StatusCode(StatusCodes.Status502BadGateway);
+    }
+}).RequireRateLimiting("website-usage-relay").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(32 * 1024));
+app.MapPost("/customer-product-request", async (HttpContext context, IHttpClientFactory clients, IOptions<CatalogApiOptions> catalogOptions, IAntiforgery antiforgery, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
 {
     var logger = loggerFactory.CreateLogger("CustomerProductRequestRelay");
-    if (!storefrontOptions.Value.UseRelayForCustomerRequests)
-        return Results.NotFound();
-
     try
     {
         await antiforgery.ValidateRequestAsync(context);
@@ -363,6 +431,23 @@ static async Task<T?> ReadAssistantPayload<T>(HttpContext context, CancellationT
     if (bytesRead == 0 || bytesRead > maximumRequestBytes) return null;
     try { return JsonSerializer.Deserialize<T>(bodyBytes.AsSpan(0, bytesRead), new JsonSerializerOptions(JsonSerializerDefaults.Web)); }
     catch (JsonException) { return null; }
+}
+
+static async Task<string?> ReadBoundedRequestBodyAsync(HttpContext context, int maximumRequestBytes, CancellationToken cancellationToken)
+{
+    var bodyBytes = new byte[maximumRequestBytes + 1];
+    var bytesRead = 0;
+    while (bytesRead < bodyBytes.Length)
+    {
+        var read = await context.Request.Body.ReadAsync(bodyBytes.AsMemory(bytesRead), cancellationToken);
+        if (read == 0)
+            break;
+        bytesRead += read;
+    }
+
+    return bytesRead == 0 || bytesRead > maximumRequestBytes
+        ? null
+        : Encoding.UTF8.GetString(bodyBytes, 0, bytesRead);
 }
 
 static bool ValidSessionPayload(CreatePublicAssistantSessionRequest payload) =>

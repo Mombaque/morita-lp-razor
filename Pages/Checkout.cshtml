@@ -70,7 +70,7 @@
                              <input class="checkout-check-input" asp-for="SaveShippingAddress">
                              <span>Guardar este endereço na minha conta</span>
                          </label>
-                         <label class="checkout-field" asp-for="SavedAddressLabel">Rótulo do endereço<input class="checkout-control" asp-for="SavedAddressLabel" placeholder="Casa" autocomplete="off"></label>
+                         <label class="checkout-field" asp-for="SavedAddressLabel">Rótulo do endereço<input class="checkout-control" asp-for="SavedAddressLabel" placeholder="Casa" maxlength="80" autocomplete="off"></label>
                          <label class="checkout-check" asp-for="SetSavedAddressDefault">
                              <input class="checkout-check-input" asp-for="SetSavedAddressDefault">
                              <span>Usar como endereço padrão</span>

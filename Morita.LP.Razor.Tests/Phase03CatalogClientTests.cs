@@ -5,6 +5,8 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Morita.LP.Razor.Configuration;
@@ -129,6 +131,21 @@ public sealed class Phase03CatalogClientTests
     }
 
     [Fact]
+    public async Task Quote_accepts_insufficient_lines_without_line_price()
+    {
+        var id = Guid.NewGuid();
+        var body = $$"""{"lines":[{"publicOfferId":"{{id}}","quantity":1,"unitPrice":350,"currency":"BRL","availability":"insufficient"}],"total":0,"currency":"BRL"}""";
+
+        var result = await Create(body).QuoteAsync(new CatalogQuoteRequest([new CatalogQuoteItem(id, 1)]));
+
+        Assert.Equal(CatalogLoadState.Partial, result.State);
+        Assert.Equal(0m, result.Total);
+        Assert.Equal("insufficient", result.Lines[0].Availability);
+        Assert.Equal(350m, result.Lines[0].UnitPrice);
+        Assert.Null(result.Lines[0].LinePrice);
+    }
+
+    [Fact]
     public async Task Keeps_catalog_image_paths_relative_for_same_origin_proxying()
     {
         var id = Guid.NewGuid();
@@ -163,7 +180,7 @@ public sealed class Phase03CatalogClientTests
 
     private static ICatalogClient Create(string body) => Create(new RecordingHandler(body, HttpStatusCode.OK));
     private static ICatalogClient Create(HttpStatusCode status, string body) => Create(new RecordingHandler(body, status));
-    private static ICatalogClient Create(HttpMessageHandler handler) => new CatalogClient(new HttpClient(handler) { BaseAddress = new Uri("https://catalog.example/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.example", TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance);
+    private static ICatalogClient Create(HttpMessageHandler handler) => new CatalogClient(new HttpClient(handler) { BaseAddress = new Uri("https://catalog.example/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.example", TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance, new HttpContextAccessor(), new TestHostEnvironment());
 
     private sealed class RecordingHandler(string body, HttpStatusCode status = HttpStatusCode.OK) : HttpMessageHandler
     {
@@ -195,5 +212,13 @@ public sealed class Phase03CatalogClientTests
         public override int Read(byte[] buffer, int offset, int count) => 0;
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => new(Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ContinueWith(_ => 0, cancellationToken));
         public override void Flush() { } public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException(); public override void SetLength(long value) => throw new NotSupportedException(); public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class TestHostEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = Environments.Development;
+        public string ApplicationName { get; set; } = "Morita.LP.Razor.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 }

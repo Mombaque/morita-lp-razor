@@ -169,7 +169,7 @@
                             </form>
                         }
                         <form method="post" asp-page-handler="DeleteAddress">
-                            <button name="id" value="@address.PublicAddressId" class="commerce-button commerce-button-danger" type="submit" aria-label="Excluir o endereço @address.Label" onclick="return confirm('Excluir o endereço @address.Label?');">Excluir endereço</button>
+                            <button name="id" value="@address.PublicAddressId" class="commerce-button commerce-button-danger" type="submit" aria-label="Excluir o endereço @address.Label" data-confirm-delete-address="@address.Label">Excluir endereço</button>
                         </form>
                     </div>
                 </article>

@@ -42,4 +42,11 @@
   document.querySelector('[data-dismiss-account-error]')?.addEventListener('click', () => {
     errorToast?.remove();
   });
+
+  account.querySelectorAll('[data-confirm-delete-address]').forEach(button => {
+    button.addEventListener('click', event => {
+      const label = button.dataset.confirmDeleteAddress || 'este endereço';
+      if (!window.confirm(`Excluir o endereço ${label}?`)) event.preventDefault();
+    });
+  });
 })();

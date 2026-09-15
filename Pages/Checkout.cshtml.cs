@@ -36,7 +36,9 @@ public sealed class CheckoutModel(
     [BindProperty] public Guid? PublicShippingQuoteId { get; set; }
     [BindProperty] public ShippingAddressInput ShippingAddress { get; set; } = new();
     [BindProperty] public Guid? SelectedAddressId { get; set; }
-    [BindProperty] public string? SavedAddressLabel { get; set; } = "Meu endereço";
+    [BindProperty]
+    [StringLength(80, ErrorMessage = "O rótulo deve ter no máximo 80 caracteres.")]
+    public string? SavedAddressLabel { get; set; } = "Meu endereço";
     [BindProperty] public bool SetSavedAddressDefault { get; set; }
     [BindProperty] public bool SaveShippingAddress { get; set; }
     public bool Empty => Cart.Lines.Count == 0;

@@ -40,7 +40,9 @@ public sealed class AccountModel(
     [BindProperty] public VerificationInput Verification { get; set; } = new();
     [BindProperty] public ProfileInput ProfileForm { get; set; } = new();
     [BindProperty] public AddressInput AddressForm { get; set; } = new();
-    [BindProperty] public string AddressLabel { get; set; } = "Meu endereço";
+    [BindProperty]
+    [StringLength(80, ErrorMessage = "O rótulo deve ter no máximo 80 caracteres.")]
+    public string AddressLabel { get; set; } = "Meu endereço";
     [BindProperty] public Guid AddressId { get; set; }
     public bool IsEditingAddress => AddressId != Guid.Empty;
     public bool CanAddAddress => Addresses.Count < 10;
@@ -202,6 +204,7 @@ public sealed class AccountModel(
     private bool ValidateAddress(AddressInput address)
     {
         Required(AddressLabel, "AddressLabel", "Informe um rótulo para o endereço."); Required(address.Recipient, "AddressForm.Recipient", "Informe o destinatário."); Required(address.Street, "AddressForm.Street", "Informe a rua."); Required(address.Number, "AddressForm.Number", "Informe o número."); Required(address.Neighborhood, "AddressForm.Neighborhood", "Informe o bairro."); Required(address.City, "AddressForm.City", "Informe a cidade.");
+        if (AddressLabel.Length > 80) ModelState.AddModelError("AddressLabel", "O rótulo deve ter no máximo 80 caracteres.");
         if (!BrazilianStateCodes.Contains(Clean(address.State).ToUpperInvariant())) ModelState.AddModelError("AddressForm.State", "Informe uma UF brasileira válida.");
         if (!ValidPostalCode(address.PostalCode)) ModelState.AddModelError("AddressForm.PostalCode", "Informe um CEP brasileiro válido."); return ModelState.IsValid;
     }
