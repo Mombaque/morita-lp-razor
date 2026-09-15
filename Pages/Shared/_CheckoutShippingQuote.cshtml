@@ -1,0 +1,19 @@
+@model Morita.LP.Razor.Pages.CheckoutModel
+
+<div data-shipping-quote>
+  @if (Model.ErrorMessage is not null)
+  {
+    <p class="validation-error" data-shipping-quote-error role="alert">@Model.ErrorMessage</p>
+  }
+  @if (Model.ShippingQuotes.Quote is { } shippingQuote)
+  {
+    <fieldset class="shipping-options"><legend>Escolha a entrega</legend>
+      @foreach (var option in shippingQuote.Options)
+      {
+        <label><input asp-for="PublicShippingQuoteId" type="radio" value="@option.PublicShippingQuoteId"><span><strong>@option.ServiceName</strong><small>@option.CarrierName · @option.MinimumDeliveryDays a @option.MaximumDeliveryDays dias úteis</small></span><em>@shippingQuote.Currency @option.Price.ToString("0.00")</em></label>
+      }
+    </fieldset>
+    <p class="cart-estimate-note">Cotação válida até <time datetime="@shippingQuote.ExpiresAt.ToString("O")">@shippingQuote.ExpiresAt.ToLocalTime().ToString("t")</time>. Se expirar, calcule novamente.</p>
+  }
+  <span asp-validation-for="PublicShippingQuoteId" class="validation-error"></span>
+</div>

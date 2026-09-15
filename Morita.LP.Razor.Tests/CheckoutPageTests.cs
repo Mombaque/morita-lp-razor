@@ -212,6 +212,24 @@ public sealed class CheckoutPageTests
         Assert.Equal(System.Net.HttpStatusCode.OK, posted.StatusCode);
         Assert.Equal("18000000", api.LastShippingQuoteRequest!.DestinationPostalCode);
         Assert.Contains("Escolha a entrega", await posted.Content.ReadAsStringAsync());
+
+        using var fragmentRequest = new HttpRequestMessage(HttpMethod.Post, "/checkout?handler=QuoteShipping")
+        {
+            Content = new FormUrlEncodedContent([
+                new KeyValuePair<string, string>("FulfillmentMethod", "shipping"),
+                new KeyValuePair<string, string>("ShippingAddress.PostalCode", "18000000"),
+                new KeyValuePair<string, string>("__RequestVerificationToken", token)
+            ])
+        };
+        fragmentRequest.Headers.Add("X-Requested-With", "XMLHttpRequest");
+
+        var fragmentResponse = await client.SendAsync(fragmentRequest);
+        var fragmentBody = await fragmentResponse.Content.ReadAsStringAsync();
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, fragmentResponse.StatusCode);
+        Assert.Contains("data-shipping-quote", fragmentBody);
+        Assert.Contains("Escolha a entrega", fragmentBody);
+        Assert.DoesNotContain("<main", fragmentBody, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]

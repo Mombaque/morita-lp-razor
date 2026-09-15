@@ -42,6 +42,7 @@ public sealed class CheckoutModel(
     [BindProperty] public bool SetSavedAddressDefault { get; set; }
     [BindProperty] public bool SaveShippingAddress { get; set; }
     public bool Empty => Cart.Lines.Count == 0;
+    private bool IsQuoteFragmentRequest => string.Equals(Request.Headers["X-Requested-With"].ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
     public bool CanSubmit => !Empty && Quote.State == CatalogLoadState.Success && Configuration.State == CheckoutLoadState.Success &&
         (FulfillmentMethod == "pickup" && Configuration.Configuration?.PickupEnabled == true ||
          FulfillmentMethod == "shipping" && Configuration.Configuration?.ShippingEnabled == true && PublicShippingQuoteId.HasValue);
@@ -96,14 +97,14 @@ public sealed class CheckoutModel(
         await LoadConfigurationAsync(cancellationToken);
         if (!await LoadAccountAsync(cancellationToken)) return AccountFailureResult();
         ApplySelectedAddress();
-        if (!ModelState.IsValid) return Page();
+        if (!ModelState.IsValid) return QuoteShippingResult();
         await LoadQuoteAsync(cancellationToken);
-        if (Empty) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Seu carrinho está vazio."; return Page(); }
-        if (Configuration.Configuration?.ShippingEnabled != true) { ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "A entrega está temporariamente indisponível."; return Page(); }
-        if (!ValidPostalCode(ShippingAddress.PostalCode)) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Informe um CEP brasileiro válido para calcular o frete."; return Page(); }
-        if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "checkout-shipping-quote")) { ErrorState = CheckoutLoadState.RateLimited; ErrorMessage = "Muitas consultas de frete. Aguarde um pouco."; return Page(); }
+        if (Empty) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Seu carrinho está vazio."; return QuoteShippingResult(); }
+        if (Configuration.Configuration?.ShippingEnabled != true) { ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "A entrega está temporariamente indisponível."; return QuoteShippingResult(); }
+        if (!ValidPostalCode(ShippingAddress.PostalCode)) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Informe um CEP brasileiro válido para calcular o frete."; return QuoteShippingResult(); }
+        if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "checkout-shipping-quote")) { ErrorState = CheckoutLoadState.RateLimited; ErrorMessage = "Muitas consultas de frete. Aguarde um pouco."; return QuoteShippingResult(); }
         await LoadShippingQuotesAsync(cancellationToken);
-        return Page();
+        return QuoteShippingResult();
     }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
@@ -214,6 +215,7 @@ public sealed class CheckoutModel(
         return true;
     }
     private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
+    private IActionResult QuoteShippingResult() => IsQuoteFragmentRequest ? Partial("_CheckoutShippingQuote", this) : Page();
     private bool AccountWasUnauthorized() => ErrorState == CheckoutLoadState.Unauthorized;
     private IActionResult AccountFailureResult() => AccountWasUnauthorized()
         ? RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" })
