@@ -1,19 +1,24 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Linq;
 using System.Reflection;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -113,6 +118,100 @@ public sealed class CheckoutPageTests
         Assert.Equal("shipping", fulfillment.Method);
         Assert.Equal(quoteId, fulfillment.PublicShippingQuoteId);
         Assert.Equal("01310-100", fulfillment.ShippingAddress!.PostalCode);
+    }
+
+    [Fact]
+    public async Task New_address_quote_preserves_posted_postal_code_when_default_exists()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" }),
+            ShippingQuote = new(CheckoutLoadState.Success, new ShippingQuote
+            {
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+                Options = [new() { PublicShippingQuoteId = Guid.NewGuid(), ServiceName = "PAC", CarrierName = "Correios", Price = 18, MinimumDeliveryDays = 4, MaximumDeliveryDays = 7 }]
+            })
+        };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, new RecordingAccount(), new RecordingAccountCookie());
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" });
+        page.SelectedAddressId = null;
+        page.ShippingAddress.PostalCode = "18120000";
+
+        var result = await page.OnPostQuoteShippingAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(api.LastShippingQuoteRequest is not null, $"{page.ErrorState}: {page.ErrorMessage}; postal={page.ShippingAddress?.PostalCode}; modelState={string.Join(" | ", page.ModelState.Values.SelectMany(value => value.Errors).Select(error => error.ErrorMessage))}");
+        Assert.Equal("18120000", api.LastShippingQuoteRequest!.DestinationPostalCode);
+    }
+
+    [Fact]
+    public async Task Shipping_quote_button_posts_to_quote_handler()
+    {
+        var offer = Guid.NewGuid();
+        var quoteId = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" }),
+            ShippingQuote = new(CheckoutLoadState.Success, new ShippingQuote
+            {
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+                Options = [new() { PublicShippingQuoteId = quoteId, ServiceName = "PAC", CarrierName = "Correios", Price = 18, MinimumDeliveryDays = 4, MaximumDeliveryDays = 7 }]
+            })
+        };
+        var account = new RecordingAccount();
+        var accountCookies = new RecordingAccountCookie();
+
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("E2E");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<ICartCookieStore>();
+                services.RemoveAll<ICatalogClient>();
+                services.RemoveAll<ICheckoutClient>();
+                services.RemoveAll<ICustomerAccountClient>();
+                services.RemoveAll<ICustomerAccountCookieStore>();
+                services.AddScoped<ICartCookieStore>(_ => cart);
+                services.AddScoped<ICatalogClient>(_ => new StubCatalog(CatalogQuoteResult.Success("BRL", 10, [new CatalogQuoteLine
+                {
+                    PublicOfferId = offer,
+                    Quantity = 1,
+                    Availability = "available",
+                    Presentation = "Kimono",
+                    Currency = "BRL",
+                    UnitPrice = 10,
+                    LinePrice = 10
+                }])));
+                services.AddScoped<ICheckoutClient>(_ => api);
+                services.AddScoped<ICustomerAccountClient>(_ => account);
+                services.AddScoped<ICustomerAccountCookieStore>(_ => accountCookies);
+            });
+        });
+
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var response = await client.GetAsync("/checkout");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("name=\"__RequestVerificationToken\"", body);
+        var quoteButton = System.Text.RegularExpressions.Regex.Match(body, "<button[^>]*>Calcular frete").Value;
+        Assert.Equal("<button class=\"commerce-button commerce-button-secondary\" type=\"submit\" formnovalidate data-quote-shipping formaction=\"/checkout?handler=QuoteShipping\">Calcular frete", quoteButton);
+
+        var token = System.Text.RegularExpressions.Regex.Match(body, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+        var posted = await client.PostAsync("/checkout?handler=QuoteShipping", new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("FulfillmentMethod", "shipping"),
+            new KeyValuePair<string, string>("ShippingAddress.PostalCode", "18000000"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]));
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, posted.StatusCode);
+        Assert.Equal("18000000", api.LastShippingQuoteRequest!.DestinationPostalCode);
+        Assert.Contains("Escolha a entrega", await posted.Content.ReadAsStringAsync());
     }
 
     [Fact]
