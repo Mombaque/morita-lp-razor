@@ -5,23 +5,62 @@
     var carouselId = $"carousel-{cleanName}-{Model.Index}";
     var images = p.Imagens;
     var productUrl = string.IsNullOrWhiteSpace(p.Slug) ? null : $"/products/{Uri.EscapeDataString(p.Slug)}";
+    var visibleVariants = p.Variants.Where(variant => variant.Offers.Any(offer => string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase))).ToList();
+    var visibleVariantRows = visibleVariants.Take(3).ToList();
+    var hiddenVariantCount = Math.Max(0, visibleVariants.Count - visibleVariantRows.Count);
+    string VariantKey(ProductVariant variant, int index) => variant.ColorId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? $"variant-{index}";
+    string ColorValue(string? colorHex) => System.Text.RegularExpressions.Regex.IsMatch(colorHex ?? "", "^#[0-9a-fA-F]{6}$") ? colorHex! : "#68716d";
 }
 <div class="product@(productUrl is not null ? " product-clickable" : "")">
   @if (productUrl is not null)
-  { <a class="product-card-hit-area" href="@productUrl" aria-label="Ver produto: @p.Nome"></a> }
+  { <a class="product-card-hit-area" href="@productUrl" aria-label="Ver produto: @p.Nome" data-product-link data-base-href="@productUrl"></a> }
   <div class="carousel" id="@carouselId">
     @if (images.Count == 0)
     { <div class="product-image-empty" role="img" aria-label="@p.Alt">Imagem indisponível</div> }
     else
     {
       @for (var i = 0; i < images.Count; i++)
-      { <img src="@(images[i].StartsWith("/", StringComparison.Ordinal) ? Url.Content("~" + images[i]) : images[i])" alt="@(i == 0 ? p.Alt : "")" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i" loading="@(Model.Index > 3 ? "lazy" : "eager")"> }
+      { <img src="@(images[i].StartsWith("/", StringComparison.Ordinal) ? Url.Content("~" + images[i]) : images[i])" alt="@(i == 0 ? p.Alt : "")" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i" data-image-source="@images[i]" loading="@(Model.Index > 3 ? "lazy" : "eager")"> }
     }
     @if (images.Count > 1)
     { <button class="prev" type="button" onclick="getImage('@carouselId', false)" aria-label="Imagem anterior">&#10094;</button><button class="next" type="button" onclick="getImage('@carouselId', true)" aria-label="Próxima imagem">&#10095;</button> }
   </div>
-  <div class="product-card-body"><p class="product-taxonomy">@(p.Modality?.Label ?? Model.Category) @if(p.Category is not null){<span>/ @p.Category.Label</span>} @if(p.Audience == PublicCatalogAudience.Kids){<span>/ Infantil</span>}</p><h3>@p.Nome</h3><p class="product-description">@p.Descricao</p>
-  @if (!string.IsNullOrWhiteSpace(p.FormattedPrice))
-  { <partial name="_ProductPrice" model="p.FormattedPrice" /> }
-  @if (productUrl is null) { <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="@Model.Category" data-track-selected-category="@p.Nome"><i class="fas fa-magnifying-glass"></i> Consultar disponibilidade</button> } else { <div class="product-card-footer"><span class="product-cta">Ver produto</span><span class="product-availability">@(p.Availability == "available" ? "Em estoque" : "Indisponível")</span></div> }</div>
+  <div class="product-card-body">
+    <p class="product-taxonomy">@(p.Modality?.Label ?? Model.Category) @if (p.Category is not null) { <span>/ @p.Category.Label</span> } @if (p.Audience == PublicCatalogAudience.Kids) { <span>/ Infantil</span> }</p>
+    <h3>@p.Nome</h3>
+    <p class="product-description">@p.Descricao</p>
+    @if (!string.IsNullOrWhiteSpace(p.FormattedPrice))
+    { <partial name="_ProductPrice" model="p.FormattedPrice" /> }
+    @if (visibleVariantRows.Count > 0)
+    {
+      <div class="product-card-variants" aria-label="Variantes disponíveis">
+        @for (var variantIndex = 0; variantIndex < visibleVariantRows.Count; variantIndex++)
+        {
+          var variant = visibleVariantRows[variantIndex];
+          var key = VariantKey(variant, variantIndex);
+          var availableOffers = variant.Offers.Where(offer => string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase)).ToList();
+          var shownOffers = availableOffers.Take(6).ToList();
+          var hiddenOfferCount = Math.Max(0, availableOffers.Count - shownOffers.Count);
+          var colorLabel = string.IsNullOrWhiteSpace(variant.ColorLabel) ? "Cor única" : variant.ColorLabel;
+          var firstImage = variant.Images.FirstOrDefault();
+          <div class="product-variant-row" data-variant-row="@key">
+            <span class="product-variant-color" title="@colorLabel"><span class="product-variant-swatch" style="background-color: @ColorValue(variant.ColorHex)" aria-hidden="true"></span><span>@colorLabel</span></span>
+            <div class="product-variant-sizes" aria-label="Tamanhos @colorLabel">
+              @foreach (var offer in shownOffers)
+              {
+                var sizeLabel = string.IsNullOrWhiteSpace(offer.SizeLabel) ? "Tamanho único" : offer.SizeLabel;
+                <a class="product-variant-size" href="@(productUrl is null ? "#" : $"{productUrl}?publicOfferId={offer.PublicOfferId}")" data-product-offer data-offer-id="@offer.PublicOfferId" data-variant-key="@key" data-price="@(offer.UnitPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture))" data-currency="@offer.Currency" data-image="@firstImage" aria-label="Selecionar @colorLabel / @sizeLabel" aria-pressed="false">@sizeLabel</a>
+              }
+              @if (hiddenOfferCount > 0) { <span class="product-variant-more">+@hiddenOfferCount tamanhos</span> }
+            </div>
+          </div>
+        }
+        @if (hiddenVariantCount > 0) { <span class="product-variant-more product-variant-more-colors">+@hiddenVariantCount cores</span> }
+      </div>
+    }
+    @if (productUrl is null)
+    { <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="@Model.Category" data-track-selected-category="@p.Nome"><i class="fas fa-magnifying-glass"></i> Consultar disponibilidade</button> }
+    else
+    { <div class="product-card-footer"><span class="product-cta">Ver produto</span><span class="product-availability">@(p.Availability == "available" ? "Em estoque" : "Indisponível")</span></div> }
+  </div>
 </div>
