@@ -3,7 +3,7 @@ const form = document.querySelector('[data-fulfillment-form]');
 if (form) {
   const methodInputs = [...form.querySelectorAll('input[name="FulfillmentMethod"]')];
   const panels = [...form.querySelectorAll('[data-fulfillment-panel]')];
-  const shippingFields = [...form.querySelectorAll('[data-fulfillment-panel="shipping"] input:not([name="ShippingAddress.Complement"])')];
+  const shippingFields = [...form.querySelectorAll('[data-fulfillment-panel="shipping"] input[name^="ShippingAddress."]:not([name="ShippingAddress.Complement"])')];
   const addressChoices = [...form.querySelectorAll('input[name="SelectedAddressId"]')];
   const addressControls = form.querySelector('[data-new-address-controls]');
   const quoteShipping = form.querySelector('[data-quote-shipping]');
