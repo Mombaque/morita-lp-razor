@@ -414,11 +414,63 @@ public sealed class CheckoutPageTests
         Assert.Equal(1, account.CreateAddressCalls);
     }
 
-    private static CheckoutModel CreatePage(DefaultHttpContext context, TestCart cart, RecordingCheckout api, ICheckoutDraftCookieStore draft, Guid offer, ICustomerAccountClient? account = null, ICustomerAccountCookieStore? accountCookies = null, IOptions<StorefrontOptions>? storefrontOptions = null)
+    [Fact]
+    public async Task Validation_after_stock_loss_redirects_to_cart_with_preserved_cart_and_message()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 2)]));
+        var api = new RecordingCheckout { CreateResults = new Queue<CheckoutResult>([CheckoutResult.Failure(CheckoutLoadState.Validation)]) };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var initialQuote = Quote(offer, 2);
+        var partialQuote = Quote(offer, 2, "insufficient");
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, catalog: new StubCatalog(initialQuote, partialQuote));
+        page.TempData = new TempDataDictionary(context, new TestTempDataProvider());
+        page.Contact = new() { Name = "Customer", Email = "customer@example.com", Phone = "15999999999" };
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/Cart", redirect.PageName);
+        Assert.Equal(2, Assert.Single(cart.Read().Lines).Quantity);
+        Assert.Equal(0, cart.ClearCalls);
+        Assert.Equal("A disponibilidade dos itens mudou. Ajuste as quantidades no carrinho antes de tentar novamente.", page.TempData["CartMessage"]?.ToString());
+        Assert.Single(api.Requests);
+    }
+
+    [Fact]
+    public async Task Validation_with_still_successful_quote_stays_on_checkout()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout { CreateResults = new Queue<CheckoutResult>([CheckoutResult.Failure(CheckoutLoadState.Validation, "Confira os dados informados.")]) };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var quote = Quote(offer, 1);
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, catalog: new StubCatalog(quote, quote));
+        page.TempData = new TempDataDictionary(context, new TestTempDataProvider());
+        page.Contact = new() { Name = "Customer", Email = "customer@example.com", Phone = "15999999999" };
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(CheckoutLoadState.Validation, page.ErrorState);
+        Assert.Equal(CatalogLoadState.Success, page.Quote.State);
+        Assert.Null(page.TempData["CartMessage"]);
+        Assert.Equal(0, cart.ClearCalls);
+    }
+
+    private static CatalogQuoteResult Quote(Guid offer, int quantity, string availability = "available")
+    {
+        var available = availability == "available";
+        return CatalogQuoteResult.Success("BRL", available ? 10 * quantity : 0, [new CatalogQuoteLine { PublicOfferId = offer, Quantity = quantity, Availability = availability, Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = available ? 10 * quantity : null }]);
+    }
+
+    private static CheckoutModel CreatePage(DefaultHttpContext context, TestCart cart, RecordingCheckout api, ICheckoutDraftCookieStore draft, Guid offer, ICustomerAccountClient? account = null, ICustomerAccountCookieStore? accountCookies = null, IOptions<StorefrontOptions>? storefrontOptions = null, ICatalogClient? catalog = null)
     {
         var config = new CheckoutConfigurationResult(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), Currency = "BRL", Pickup = new() { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } } });
-        var quote = CatalogQuoteResult.Success("BRL", 10, [new CatalogQuoteLine { PublicOfferId = offer, Quantity = 1, Availability = "available", Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = 10 }]);
-        var page = new CheckoutModel(cart, new StubCatalog(quote), api, draft, new NoopAccess(), new CheckoutRateLimiter(TimeProvider.System), account ?? new NoopAccount(), accountCookies ?? new NoopAccountCookie(), storefrontOptions)
+        var quote = Quote(offer, 1);
+        var page = new CheckoutModel(cart, catalog ?? new StubCatalog(quote), api, draft, new NoopAccess(), new CheckoutRateLimiter(TimeProvider.System), account ?? new NoopAccount(), accountCookies ?? new NoopAccountCookie(), storefrontOptions)
         {
             Contact = new CheckoutModel.ContactInput()
         };
@@ -468,19 +520,24 @@ public sealed class CheckoutPageTests
         public Task<CheckoutResult> CancelAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.NotFound));
     }
 
-    private sealed class StubCatalog(CatalogQuoteResult quote) : ICatalogClient
+    private sealed class StubCatalog : ICatalogClient
     {
+        private readonly Queue<CatalogQuoteResult> quotes;
+
+        public StubCatalog(params CatalogQuoteResult[] quotes) => this.quotes = new(quotes);
+
         public Task<CatalogResult> GetProductsAsync(string modality, CancellationToken cancellationToken = default) => Task.FromResult(CatalogResult.Empty());
-        public Task<CatalogQuoteResult> QuoteAsync(CatalogQuoteRequest request, CancellationToken cancellationToken = default) => Task.FromResult(quote);
+        public Task<CatalogQuoteResult> QuoteAsync(CatalogQuoteRequest request, CancellationToken cancellationToken = default) => Task.FromResult(quotes.Count > 1 ? quotes.Dequeue() : quotes.Single());
     }
 
     private sealed class TestCart(CartState state) : ICartCookieStore
     {
         public CartState Read() => state;
+        public int ClearCalls { get; private set; }
         public bool Add(Guid offerId, int quantity) => true;
         public bool Update(Guid offerId, int quantity) => true;
         public bool Remove(Guid offerId) => true;
-        public void Clear() { }
+        public void Clear() => ClearCalls++;
     }
 
     private sealed class NoopAccess : ICheckoutAccessCookieStore

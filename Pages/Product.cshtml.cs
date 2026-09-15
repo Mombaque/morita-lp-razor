@@ -6,7 +6,7 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartCookieStore cart) : PageModel
+public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations) : PageModel
 {
     public Product? Product { get; private set; }
     public CatalogResult Related { get; private set; } = CatalogResult.Empty();
@@ -60,11 +60,24 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
             ModelState.AddModelError("publicOfferId", "A oferta selecionada está indisponível.");
         if (quantity is < 1 or > CartCookieStore.MaxUnitsPerLine)
             ModelState.AddModelError("quantity", $"A quantidade deve estar entre 1 e {CartCookieStore.MaxUnitsPerLine} unidades.");
-        if (ModelState.IsValid && cart.Add(publicOfferId, quantity))
-            return RedirectToPage("/Cart");
         if (ModelState.IsValid)
-            ModelState.AddModelError("quantity", "Não foi possível adicionar ao carrinho. Verifique os limites e tente novamente.");
+        {
+            var result = await cartMutations.AddAsync(publicOfferId, quantity, cancellationToken);
+            if (result.Succeeded)
+                return RedirectToPage("/Cart");
+            ModelState.AddModelError("quantity", MutationMessage(result.Status));
+        }
         Related = await client.GetRelatedAsync(slug, 4, cancellationToken);
         return Page();
     }
+
+    private static string MutationMessage(CartMutationStatus status) => status switch
+    {
+        CartMutationStatus.Insufficient => "A quantidade solicitada não está disponível. Reduza a quantidade e tente novamente.",
+        CartMutationStatus.Inactive => "Esta oferta está inativa e não pode ser adicionada.",
+        CartMutationStatus.Removed => "Esta oferta foi removida e não pode ser adicionada.",
+        CartMutationStatus.Unavailable => "Não foi possível confirmar a disponibilidade agora. Seus itens foram preservados; tente novamente.",
+        CartMutationStatus.PersistenceFailed => "Não foi possível adicionar este item. Seus itens foram preservados; tente novamente.",
+        _ => "A quantidade deve estar entre 1 e 10 unidades."
+    };
 }

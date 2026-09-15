@@ -61,6 +61,25 @@ public sealed class CartPageTests
     }
 
     [Fact]
+    public async Task Insufficient_only_cart_keeps_quantity_controls_and_disables_checkout()
+    {
+        var offer = Guid.NewGuid();
+        var state = new CartState(DateTimeOffset.UtcNow, [new(offer, 4)]);
+        var quote = new CatalogQuoteResult(CatalogLoadState.Partial, "BRL", 0, [
+            new() { PublicOfferId = offer, Quantity = 4, Availability = "insufficient", Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = 40 }
+        ]);
+        using var factory = CreateFactory(state, quote);
+
+        var body = await (await factory.CreateClient().GetAsync("/cart")).Content.ReadAsStringAsync();
+
+        Assert.Contains("data-cart=\"quantity-stepper\"", body);
+        Assert.Contains("data-cart=\"quantity-input\"", body);
+        Assert.Contains("disabled data-cart=\"checkout\"", body);
+        Assert.Contains("data-cart=\"correction\"", body);
+        Assert.DoesNotContain("data-cart=\"total\"", body);
+    }
+
+    [Fact]
     public async Task Quote_unavailable_preserves_opaque_state_and_mutations_report_failures()
     {
         var state = new CartState(DateTimeOffset.UtcNow, [new(Guid.NewGuid(), 2)]);
@@ -80,6 +99,89 @@ public sealed class CartPageTests
         var followupBody = await followup.Content.ReadAsStringAsync();
         Assert.Contains("atualizar este item", followupBody);
         Assert.Equal(state.Lines, cart.Read().Lines);
+    }
+
+    [Fact]
+    public async Task Failed_availability_preflight_preserves_cart_without_writing_cookie()
+    {
+        var offer = Guid.NewGuid();
+        var state = new CartState(DateTimeOffset.UtcNow, [new(offer, 2)]);
+        var cart = new TestCart(state);
+        using var factory = CreateFactory(cart, CatalogQuoteResult.Unavailable());
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var body = await (await client.GetAsync("/cart")).Content.ReadAsStringAsync();
+        var token = Regex.Match(body, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+
+        var mutation = await client.PostAsync("/cart?handler=Update", new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("publicOfferId", offer.ToString()),
+            new KeyValuePair<string, string>("quantity", "1"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]));
+
+        Assert.Equal(HttpStatusCode.Redirect, mutation.StatusCode);
+        Assert.Equal(0, cart.UpdateCalls);
+        Assert.Equal(state.Lines, cart.Read().Lines);
+        var followup = await client.GetAsync("/cart");
+        Assert.Contains("Seus itens foram preservados", await followup.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Insufficient_preflight_preserves_cart_without_writing_cookie()
+    {
+        var offer = Guid.NewGuid();
+        var state = new CartState(DateTimeOffset.UtcNow, [new(offer, 2)]);
+        var cart = new TestCart(state);
+        var initialQuote = CatalogQuoteResult.Success("BRL", 20, [
+            new() { PublicOfferId = offer, Quantity = 2, Availability = "available", Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = 20 }
+        ]);
+        var mutationQuote = new CatalogQuoteResult(CatalogLoadState.Partial, "BRL", 0, [
+            new() { PublicOfferId = offer, Quantity = 1, Availability = "insufficient", Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = 10 }
+        ]);
+        using var factory = CreateFactory(cart, [initialQuote, mutationQuote]);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var body = await (await client.GetAsync("/cart")).Content.ReadAsStringAsync();
+        var token = Regex.Match(body, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+
+        var mutation = await client.PostAsync("/cart?handler=Update", new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("publicOfferId", offer.ToString()),
+            new KeyValuePair<string, string>("quantity", "1"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]));
+
+        Assert.Equal(HttpStatusCode.Redirect, mutation.StatusCode);
+        Assert.Equal(0, cart.UpdateCalls);
+        Assert.Equal(state.Lines, cart.Read().Lines);
+        var responseBody = await (await client.GetAsync("/cart")).Content.ReadAsStringAsync();
+        Assert.Contains("A quantidade solicitada n", responseBody);
+        Assert.Contains("Reduza a quantidade", responseBody);
+    }
+
+    [Fact]
+    public async Task Available_lower_quantity_is_written_after_preflight()
+    {
+        var offer = Guid.NewGuid();
+        var state = new CartState(DateTimeOffset.UtcNow, [new(offer, 4)]);
+        var cart = new TestCart(state);
+        var initialQuote = new CatalogQuoteResult(CatalogLoadState.Partial, "BRL", 0, [
+            new() { PublicOfferId = offer, Quantity = 4, Availability = "insufficient", Presentation = "Kimono", Currency = "BRL", UnitPrice = 10 }
+        ]);
+        var mutationQuote = CatalogQuoteResult.Success("BRL", 10, [
+            new() { PublicOfferId = offer, Quantity = 1, Availability = "available", Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = 10 }
+        ]);
+        using var factory = CreateFactory(cart, [initialQuote, mutationQuote]);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var body = await (await client.GetAsync("/cart")).Content.ReadAsStringAsync();
+        var token = Regex.Match(body, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+
+        var mutation = await client.PostAsync("/cart?handler=Update", new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("publicOfferId", offer.ToString()),
+            new KeyValuePair<string, string>("quantity", "1"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]));
+
+        Assert.Equal(HttpStatusCode.Redirect, mutation.StatusCode);
+        Assert.Equal(1, cart.UpdateCalls);
+        Assert.Equal(1, cart.LastUpdatedQuantity);
     }
 
     [Fact]
@@ -108,7 +210,11 @@ public sealed class CartPageTests
 
     private static WebApplicationFactory<Program> CreateFactory(CartState state, CatalogQuoteResult quote, Product? product = null) => CreateFactory(new TestCart(state), quote, product);
     private static WebApplicationFactory<Program> CreateFactory(TestCart cart, CatalogQuoteResult quote, Product? product = null) =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        CreateFactory(cart, [quote], product);
+    private static WebApplicationFactory<Program> CreateFactory(TestCart cart, IReadOnlyList<CatalogQuoteResult> quotes, Product? product = null)
+    {
+        var quoteQueue = new Queue<CatalogQuoteResult>(quotes);
+        return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("E2E");
             builder.ConfigureTestServices(services =>
@@ -116,24 +222,27 @@ public sealed class CartPageTests
                 services.RemoveAll<ICartCookieStore>();
                 services.RemoveAll<ICatalogClient>();
                 services.AddScoped<ICartCookieStore>(_ => cart);
-                services.AddScoped<ICatalogClient>(_ => new StubClient(quote, product));
+                services.AddScoped<ICatalogClient>(_ => new StubClient(quoteQueue, product));
             });
         });
+    }
 
     private sealed class TestCart(CartState state) : ICartCookieStore
     {
         public bool UpdateResult { get; set; } = true;
+        public int UpdateCalls { get; private set; }
+        public int? LastUpdatedQuantity { get; private set; }
         public CartState Read() => state;
         public bool Add(Guid offerId, int quantity) => true;
-        public bool Update(Guid offerId, int quantity) => UpdateResult;
+        public bool Update(Guid offerId, int quantity) { UpdateCalls++; LastUpdatedQuantity = quantity; return UpdateResult; }
         public bool Remove(Guid offerId) => true;
         public void Clear() { }
     }
 
-    private sealed class StubClient(CatalogQuoteResult quote, Product? product) : ICatalogClient
+    private sealed class StubClient(Queue<CatalogQuoteResult> quotes, Product? product) : ICatalogClient
     {
         public Task<CatalogResult> GetProductsAsync(string modality, CancellationToken cancellationToken = default) => Task.FromResult(CatalogResult.Empty());
         public Task<ProductDetailResult> GetProductAsync(string slug, CancellationToken cancellationToken = default) => Task.FromResult(product is null ? ProductDetailResult.Unavailable() : ProductDetailResult.Success(product));
-        public Task<CatalogQuoteResult> QuoteAsync(CatalogQuoteRequest request, CancellationToken cancellationToken = default) => Task.FromResult(quote);
+        public Task<CatalogQuoteResult> QuoteAsync(CatalogQuoteRequest request, CancellationToken cancellationToken = default) => Task.FromResult(quotes.Count > 1 ? quotes.Dequeue() : quotes.Peek());
     }
 }

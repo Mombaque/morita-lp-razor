@@ -172,6 +172,15 @@ public sealed class CheckoutModel(
         if (result.State is CheckoutLoadState.Validation or CheckoutLoadState.Conflict)
         {
             draft.Clear(); draft.Ensure();
+            if (result.State == CheckoutLoadState.Validation)
+            {
+                await LoadQuoteAsync(cancellationToken);
+                if (Quote.State == CatalogLoadState.Partial)
+                {
+                    TempData["CartMessage"] = "A disponibilidade dos itens mudou. Ajuste as quantidades no carrinho antes de tentar novamente.";
+                    return RedirectToPage("/Cart");
+                }
+            }
             if (FulfillmentMethod == "shipping") { PublicShippingQuoteId = null; await LoadShippingQuotesAsync(cancellationToken); }
         }
         return Page();

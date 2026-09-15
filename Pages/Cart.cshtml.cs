@@ -5,7 +5,7 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public sealed class CartModel(ICartCookieStore cart, ICatalogClient client) : PageModel
+public sealed class CartModel(ICartCookieStore cart, ICatalogClient client, ICartMutationService cartMutations) : PageModel
 {
     public CartState State { get; private set; } = new(DateTimeOffset.UtcNow, []);
     public CatalogQuoteResult Quote { get; private set; } = CatalogQuoteResult.Unavailable();
@@ -20,10 +20,11 @@ public sealed class CartModel(ICartCookieStore cart, ICatalogClient client) : Pa
             Quote = await client.QuoteAsync(new CatalogQuoteRequest(State.Lines.Select(x => new CatalogQuoteItem(x.PublicOfferId, x.Quantity)).ToList()), cancellationToken);
     }
 
-    public IActionResult OnPostUpdate(Guid publicOfferId, int quantity)
+    public async Task<IActionResult> OnPostUpdateAsync(Guid publicOfferId, int quantity, CancellationToken cancellationToken)
     {
-        if (!cart.Update(publicOfferId, quantity))
-            TempData["CartMessage"] = "Não foi possível atualizar este item. Use uma quantidade entre 1 e 10 unidades.";
+        var result = await cartMutations.UpdateAsync(publicOfferId, quantity, cancellationToken);
+        if (!result.Succeeded)
+            TempData["CartMessage"] = GetMutationMessage(result.Status);
         return RedirectToPage();
     }
 
@@ -35,4 +36,14 @@ public sealed class CartModel(ICartCookieStore cart, ICatalogClient client) : Pa
     }
 
     public IActionResult OnPostClear() { cart.Clear(); return RedirectToPage(); }
+
+    private static string GetMutationMessage(CartMutationStatus status) => status switch
+    {
+        CartMutationStatus.Insufficient => "A quantidade solicitada não está disponível. Reduza a quantidade e tente novamente.",
+        CartMutationStatus.Inactive => "Esta oferta está inativa e não pode ser atualizada.",
+        CartMutationStatus.Removed => "Esta oferta foi removida e não pode ser atualizada.",
+        CartMutationStatus.Unavailable => "Não foi possível confirmar a disponibilidade agora. Seus itens foram preservados; tente novamente.",
+        CartMutationStatus.PersistenceFailed => "Não foi possível atualizar este item. Seus itens foram preservados; tente novamente.",
+        _ => "Não foi possível atualizar este item. Use uma quantidade entre 1 e 10 unidades."
+    };
 }
