@@ -43,6 +43,15 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public void Shipping_address_complement_is_optional()
+    {
+        var property = typeof(CheckoutModel.ShippingAddressInput).GetProperty(nameof(CheckoutModel.ShippingAddressInput.Complement))!;
+        var nullability = new NullabilityInfoContext().Create(property);
+
+        Assert.Equal(NullabilityState.Nullable, nullability.WriteState);
+    }
+
+    [Fact]
     public async Task Shipping_checkout_explains_that_a_quote_is_required_before_submission()
     {
         var offer = Guid.NewGuid();
@@ -81,6 +90,87 @@ public sealed class CheckoutPageTests
 
         Assert.IsType<PageResult>(result);
         Assert.Equal("shipping", page.FulfillmentMethod);
+    }
+
+    [Fact]
+    public async Task Pickup_only_checkout_skips_address_loading()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var account = new RecordingAccount { AddressesResult = AccountResult<IReadOnlyList<CustomerAccountAddress>>.Failure(AccountLoadState.Unavailable, "address book unavailable") };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), ShippingEnabled = false, Currency = "BRL" });
+
+        var result = await page.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("pickup", page.FulfillmentMethod);
+        Assert.True(page.CanSubmit);
+        Assert.Equal(0, account.AddressReads);
+    }
+
+    [Fact]
+    public async Task Shipping_quote_is_rejected_without_loading_addresses_when_shipping_turns_off()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var account = new RecordingAccount();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), ShippingEnabled = false, Currency = "BRL" });
+        page.SelectedAddressId = account.SavedAddressId;
+
+        var result = await page.OnPostQuoteShippingAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("A entrega está temporariamente indisponível.", page.ErrorMessage);
+        Assert.Null(api.LastShippingQuoteRequest);
+        Assert.Equal(0, account.AddressReads);
+    }
+
+    [Fact]
+    public async Task Stale_shipping_checkout_is_rejected_without_creating_a_reservation()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var account = new RecordingAccount();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), ShippingEnabled = false, Currency = "BRL" });
+        page.FulfillmentMethod = "shipping";
+        page.SelectedAddressId = account.SavedAddressId;
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("A entrega está temporariamente indisponível. Escolha retirada na loja.", page.ErrorMessage);
+        Assert.Empty(api.Requests);
+        Assert.Equal(0, account.AddressReads);
+    }
+
+    [Fact]
+    public async Task Checkout_without_any_fulfillment_method_is_unavailable()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer);
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = false, Currency = "BRL" });
+
+        var result = await page.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.False(page.HasAvailableFulfillment);
+        Assert.Equal("Nenhuma forma de entrega está disponível no momento.", page.ErrorMessage);
     }
 
     [Fact]
@@ -609,12 +699,14 @@ public sealed class CheckoutPageTests
         private readonly CustomerAccountAddress address = new() { PublicAddressId = Guid.NewGuid(), Recipient = "Customer", Street = "Saved street", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000000", IsDefault = true };
         public Guid SavedAddressId => address.PublicAddressId;
         public int ProfileReads { get; private set; }
+        public int AddressReads { get; private set; }
         public AccountResult<CustomerAccountProfile>? ProfileResult { get; set; }
+        public AccountResult<IReadOnlyList<CustomerAccountAddress>>? AddressesResult { get; set; }
         public AccountResult<CustomerAccountAddress> CreateAddressResult { get; set; } = AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable, "address unavailable");
         public AccountResult<bool> SetDefaultAddressResult { get; set; } = AccountResult<bool>.Failure(AccountLoadState.Unavailable, "default unavailable");
         public int CreateAddressCalls { get; private set; }
         public override Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(ProfileResult ?? new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999" })); }
-        public override Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<IReadOnlyList<CustomerAccountAddress>>(AccountLoadState.Success, [address]));
+        public override Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) { AddressReads++; return Task.FromResult(AddressesResult ?? new AccountResult<IReadOnlyList<CustomerAccountAddress>>(AccountLoadState.Success, [address])); }
         public override Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress savedAddress, CancellationToken cancellationToken = default) { CreateAddressCalls++; return Task.FromResult(CreateAddressResult); }
         public override Task<AccountResult<bool>> SetDefaultAddressAsync(string token, Guid id, CancellationToken cancellationToken = default) => Task.FromResult(SetDefaultAddressResult);
     }
