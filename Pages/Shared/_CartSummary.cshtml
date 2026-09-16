@@ -2,7 +2,7 @@
 <h2>Resumo</h2>
 @if (Model.State == CatalogLoadState.Success)
 {
-    <p data-cart="total">Total estimado: <strong>@Model.Currency @Model.Total?.ToString("0.00")</strong></p>
+    <p data-cart="total">Total estimado: <strong>@CurrencyPresentation.Symbol(Model.Currency) @Model.Total?.ToString("0.00")</strong></p>
     <p class="cart-estimate-note">O frete é calculado pelo CEP no checkout. Preço e estoque serão reconfirmados.</p>
 }
 else

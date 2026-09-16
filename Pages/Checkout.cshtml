@@ -106,12 +106,12 @@
           @foreach (var line in Model.Quote.Lines)
           {
             var available = string.Equals(line.Availability, "available", StringComparison.OrdinalIgnoreCase);
-            <li class="@(available ? "" : "checkout-line-unavailable")">@if (!string.IsNullOrWhiteSpace(line.ImageUrl)) { <img src="@line.ImageUrl" alt=""> }<span><strong>@line.Presentation</strong><small>Quantidade: @line.Quantity</small></span><em>@(available ? $"{line.Currency} {line.LinePrice?.ToString("0.00")}" : "Indisponível")</em></li>
+            <li class="@(available ? "" : "checkout-line-unavailable")">@if (!string.IsNullOrWhiteSpace(line.ImageUrl)) { <img src="@line.ImageUrl" alt=""> }<span><strong>@line.Presentation</strong><small>Quantidade: @line.Quantity</small></span><em>@(available ? $"{CurrencyPresentation.Symbol(line.Currency)} {line.LinePrice?.ToString("0.00")}" : "Indisponível")</em></li>
           }
         </ul>
         @if (Model.Quote.Total is not null)
         {
-          <dl><div><dt>Produtos</dt><dd>@Model.Quote.Currency @Model.Quote.Total.Value.ToString("0.00")</dd></div><div><dt>Frete</dt><dd>Calculado pelo CEP</dd></div><div class="summary-total"><dt>Total</dt><dd>Confirmado na próxima etapa</dd></div></dl>
+          <dl><div><dt>Produtos</dt><dd>@CurrencyPresentation.Symbol(Model.Quote.Currency) @Model.Quote.Total.Value.ToString("0.00")</dd></div><div><dt>Frete</dt><dd>Calculado pelo CEP</dd></div><div class="summary-total"><dt>Total</dt><dd>Confirmado na próxima etapa</dd></div></dl>
         }
       </aside>
     </form>

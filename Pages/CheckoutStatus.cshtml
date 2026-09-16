@@ -3,43 +3,193 @@
 @{
     ViewData["Title"] = "Seu checkout | Morita Fight";
     ViewData["Robots"] = "noindex,nofollow";
+    var statusLabel = Model.Checkout?.Status switch
+    {
+        "active" => "Aguardando pagamento",
+        "cancelled" => "Cancelada",
+        "expired" => "Expirada",
+        "paymentpending" => "Pagamento pendente",
+        "conversionpending" => "Conversão do pagamento em andamento",
+        "refundpending" => "Estorno em andamento",
+        "completed" => "Pedido concluído",
+        "refunded" => "Pagamento estornado",
+        _ => "Atualização da reserva"
+    };
 }
-<main class="checkout-shell" data-checkout="status">
-        @if (Model.AccountMessage is not null) { <p class="account-status" role="status">@Model.AccountMessage</p> }
+<main class="checkout-shell checkout-status-page" data-checkout="status">
+    @if (Model.AccountMessage is not null)
+    {
+        <p class="account-status" role="status">@Model.AccountMessage</p>
+    }
+
     @if (Model.Checkout is null)
     {
-        <div class="catalog-state catalog-unavailable" data-checkout="inaccessible" role="alert"><h1>Reserva indisponível</h1><p>@Model.Message</p><a class="button" href="/products">Voltar aos produtos</a></div>
+        <div class="catalog-state catalog-unavailable" data-checkout="inaccessible" role="alert">
+            <p class="checkout-kicker">Morita // Checkout</p>
+            <h1>Reserva indisponível</h1>
+            <p>@Model.Message</p>
+            <a class="commerce-button commerce-button-secondary" href="/products">Voltar aos produtos</a>
+        </div>
     }
     else
     {
-        <h1>Seu checkout</h1>
-        <p data-checkout="status">Status: <strong>@(Model.Checkout.Status switch { "active" => "Aguardando pagamento", "cancelled" => "Cancelada", "expired" => "Expirada", "paymentpending" => "Pagamento pendente", "conversionpending" => "Conversão do pagamento em andamento", "refundpending" => "Estorno em andamento", "completed" => "Pedido concluído", "refunded" => "Pagamento estornado", _ => "Atualização da reserva" })</strong></p>
-        @if (Model.Message is not null) { <p class="@(Model.Payment?.Status == "cancellationpending" ? "payment-lifecycle-message" : "validation-error")" role="@(Model.Payment?.Status == "cancellationpending" ? "status" : "alert")">@Model.Message</p> }
-        <section aria-labelledby="reservation-summary"><h2 id="reservation-summary">Resumo confirmado</h2><p>Produtos: <strong>@Model.Checkout.Currency @Model.Checkout.MerchandiseTotal.ToString("0.00")</strong></p>@if(Model.Checkout.FreightTotal > 0){<p>Frete: <strong>@Model.Checkout.Currency @Model.Checkout.FreightTotal.ToString("0.00")</strong></p>}<p>Total: <strong>@Model.Checkout.Currency @Model.Checkout.Total.ToString("0.00")</strong></p><p>Validade da reserva: <time datetime="@Model.Checkout.ExpiresAt.ToString("O")">@Model.Checkout.ExpiresAt.ToLocalTime().ToString("g")</time></p><ul>@foreach (var line in Model.Checkout.Lines) { <li>@line.Presentation — @line.Quantity × @Model.Checkout.Currency @line.UnitPrice.ToString("0.00")</li> }</ul></section>
-        @if (Model.Checkout.FulfillmentMethod == "pickup" && Model.Checkout.Pickup is { } pickup)
-        { <section aria-labelledby="pickup-summary"><h2 id="pickup-summary">Retirada</h2><p><strong>@pickup.DisplayName</strong></p><p>@pickup.Address.Street, @pickup.Address.Number - @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</p><p>@pickup.Hours</p>@if (!string.IsNullOrWhiteSpace(pickup.Instructions)) { <p>@pickup.Instructions</p> }</section> }
-        else if (Model.Checkout.Shipping is { } shipping)
-        { <section aria-labelledby="shipping-summary"><h2 id="shipping-summary">Entrega</h2><p><strong>@shipping.ServiceName · @shipping.CarrierName</strong></p><p>Prazo estimado: @shipping.MinimumDeliveryDays a @shipping.MaximumDeliveryDays dias úteis.</p><p>@shipping.Address.Recipient<br>@shipping.Address.Street, @shipping.Address.Number @shipping.Address.Complement<br>@shipping.Address.Neighborhood · @shipping.Address.City/@shipping.Address.State · CEP @shipping.Address.PostalCode</p></section> }
-        @if (Model.Checkout.Status == "active" && Model.Payment is null)
-        {
-            @if (Model.PaymentState is PaymentLoadState.NotFound or PaymentLoadState.Success)
-            { <form method="post" asp-page-handler="PayPix"><button class="button primary-cta" type="submit">Pagar com PIX</button></form> }
-        }
-        @if (Model.Payment is { } payment)
-        {
-                var terminal = payment.Status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
-                var canCancelPayment = (Model.Checkout.Status is "active" or "paymentpending" or "conversionpending") && (payment.Status is "pending" or "processing" or "approved" or "conversionpending");
-                <section class="pix-corner-card" aria-labelledby="pix-heading" data-payment-status="@payment.Status"><h2 id="pix-heading">PIX <span class="payment-state">@(payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" })</span></h2>
-                    @if (!terminal && (payment.Status is "pending" or "processing" or "approved" or "conversionpending") && !string.IsNullOrWhiteSpace(payment.QrCodePngDataUri) && !string.IsNullOrWhiteSpace(payment.PixCopyPaste)) { <ol><li>Abra o app do seu banco.</li><li>Escaneie o QR Code ou copie o código PIX.</li><li>Confirme o valor e aguarde a aprovação.</li></ol><img class="pix-qr" src="@payment.QrCodePngDataUri" alt="QR Code para pagar @payment.Currency @payment.Amount.ToString("0.00")" /><label for="pix-copy">Código PIX</label><textarea id="pix-copy" readonly rows="4">@payment.PixCopyPaste</textarea><button class="button" type="button" data-copy-pix>Copiar código PIX</button><p>Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@payment.ExpiresAt.ToLocalTime().ToString("g")</time>.</p> }
-                    @if (canCancelPayment) { <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar pagamento</button></form> }
+        <header class="checkout-status-header">
+            <p class="checkout-kicker">Morita // Checkout</p>
+            <div class="checkout-status-heading">
+                <h1>Seu checkout</h1>
+                <div class="checkout-status-badge" data-checkout-status="@Model.Checkout.Status">
+                    <span class="checkout-status-dot" aria-hidden="true"></span>
+                    <span>@statusLabel</span>
+                </div>
+            </div>
+            @if (Model.Message is not null)
+            {
+                <p class="@(Model.Payment?.Status == "cancellationpending" ? "payment-lifecycle-message" : "validation-error")" role="@(Model.Payment?.Status == "cancellationpending" ? "status" : "alert")">@Model.Message</p>
+            }
+        </header>
+
+        <div class="checkout-status-grid">
+            <section class="checkout-status-card checkout-summary-card" aria-labelledby="reservation-summary">
+                <div class="checkout-card-heading">
+                    <div>
+                        <p class="checkout-card-kicker">01 // Pedido</p>
+                        <h2 id="reservation-summary">Resumo do pedido</h2>
+                    </div>
+                    <span class="checkout-card-index" aria-hidden="true">01</span>
+                </div>
+
+                <ul class="checkout-line-items">
+                    @foreach (var line in Model.Checkout.Lines)
+                    {
+                        <li>
+                            <div>
+                                <strong>@line.Presentation</strong>
+                                <span>@line.Quantity × @CurrencyPresentation.Symbol(Model.Checkout.Currency) @line.UnitPrice.ToString("0.00")</span>
+                            </div>
+                            <strong>@CurrencyPresentation.Symbol(Model.Checkout.Currency) @line.LineTotal.ToString("0.00")</strong>
+                        </li>
+                    }
+                </ul>
+
+                <dl class="checkout-totals">
+                    <div>
+                        <dt>Produtos</dt>
+                        <dd>@CurrencyPresentation.Symbol(Model.Checkout.Currency) @Model.Checkout.MerchandiseTotal.ToString("0.00")</dd>
+                    </div>
+                    @if (Model.Checkout.FreightTotal > 0)
+                    {
+                        <div>
+                            <dt>Frete</dt>
+                            <dd>@CurrencyPresentation.Symbol(Model.Checkout.Currency) @Model.Checkout.FreightTotal.ToString("0.00")</dd>
+                        </div>
+                    }
+                    <div class="checkout-total-row">
+                        <dt>Total</dt>
+                        <dd>@CurrencyPresentation.Symbol(Model.Checkout.Currency) @Model.Checkout.Total.ToString("0.00")</dd>
+                    </div>
+                </dl>
+
+                <div class="checkout-expiry">
+                    <span>Validade da reserva</span>
+                    <time datetime="@Model.Checkout.ExpiresAt.ToString("O")">@Model.Checkout.ExpiresAt.ToLocalTime().ToString("g")</time>
+                </div>
+            </section>
+
+            @if (Model.Checkout.FulfillmentMethod == "pickup" && Model.Checkout.Pickup is { } pickup)
+            {
+                <section class="checkout-status-card checkout-fulfillment-card" aria-labelledby="fulfillment-summary">
+                    <div class="checkout-card-heading">
+                        <div>
+                            <p class="checkout-card-kicker">02 // Retirada</p>
+                            <h2 id="fulfillment-summary">Retirada</h2>
+                        </div>
+                        <span class="checkout-card-index" aria-hidden="true">02</span>
+                    </div>
+                    <p class="checkout-fulfillment-primary">@pickup.DisplayName</p>
+                    <address class="checkout-address">@pickup.Address.Street, @pickup.Address.Number<br>@pickup.Address.Neighborhood<br>@pickup.Address.City/@pickup.Address.State</address>
+                    <p class="checkout-fulfillment-note">@pickup.Hours</p>
+                    @if (!string.IsNullOrWhiteSpace(pickup.Instructions))
+                    {
+                        <p class="checkout-fulfillment-note">@pickup.Instructions</p>
+                    }
                 </section>
-        }
+            }
+            else if (Model.Checkout.Shipping is { } shipping)
+            {
+                <section class="checkout-status-card checkout-fulfillment-card" aria-labelledby="fulfillment-summary">
+                    <div class="checkout-card-heading">
+                        <div>
+                            <p class="checkout-card-kicker">02 // Entrega</p>
+                            <h2 id="fulfillment-summary">Entrega</h2>
+                        </div>
+                        <span class="checkout-card-index" aria-hidden="true">02</span>
+                    </div>
+                    <p class="checkout-fulfillment-primary">@shipping.ServiceName</p>
+                    <p class="checkout-fulfillment-carrier">@shipping.CarrierName</p>
+                    <p class="checkout-delivery-window"><span>Prazo estimado</span>@shipping.MinimumDeliveryDays a @shipping.MaximumDeliveryDays dias úteis</p>
+                    <address class="checkout-address">@shipping.Address.Recipient<br>@shipping.Address.Street, @shipping.Address.Number @shipping.Address.Complement<br>@shipping.Address.Neighborhood<br>@shipping.Address.City/@shipping.Address.State · CEP @shipping.Address.PostalCode</address>
+                </section>
+            }
+        </div>
+
         @if (Model.Checkout.Status == "active" && Model.Payment is null)
         {
             @if (Model.PaymentState is PaymentLoadState.NotFound or PaymentLoadState.Success)
             {
-                <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar reserva</button></form>
+                <section class="checkout-next-step" aria-labelledby="next-step-heading">
+                    <div>
+                        <p class="checkout-card-kicker">03 // Próximo passo</p>
+                        <h2 id="next-step-heading">Finalize sua reserva</h2>
+                        <p>Faça o pagamento com PIX para concluir o pedido.</p>
+                    </div>
+                    <div class="checkout-status-actions">
+                        <form method="post" asp-page-handler="PayPix"><button class="commerce-button commerce-button-primary" type="submit">Pagar com PIX</button></form>
+                        <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar reserva</button></form>
+                    </div>
+                </section>
             }
+        }
+
+        @if (Model.Payment is { } payment)
+        {
+            var terminal = payment.Status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
+            var canCancelPayment = (Model.Checkout.Status is "active" or "paymentpending" or "conversionpending") && (payment.Status is "pending" or "processing" or "approved" or "conversionpending");
+            <section class="pix-corner-card checkout-payment-card" aria-labelledby="pix-heading" data-payment-status="@payment.Status">
+                <div class="checkout-payment-heading">
+                    <div>
+                        <p class="checkout-card-kicker">03 // Pagamento</p>
+                        <h2 id="pix-heading">PIX</h2>
+                    </div>
+                    <span class="checkout-payment-state">@(payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" })</span>
+                </div>
+
+                @if (!terminal && (payment.Status is "pending" or "processing" or "approved" or "conversionpending") && !string.IsNullOrWhiteSpace(payment.QrCodePngDataUri) && !string.IsNullOrWhiteSpace(payment.PixCopyPaste))
+                {
+                    <div class="pix-payment-layout">
+                        <div class="pix-instructions">
+                            <p class="pix-instructions-title">Pague pelo app do seu banco</p>
+                            <ol>
+                                <li>Abra o app do seu banco.</li>
+                                <li>Escaneie o QR Code ou copie o código PIX.</li>
+                                <li>Confirme o valor e aguarde a aprovação.</li>
+                            </ol>
+                        </div>
+                        <div class="pix-payment-data">
+                            <img class="pix-qr" src="@payment.QrCodePngDataUri" alt="QR Code para pagar @CurrencyPresentation.Symbol(payment.Currency) @payment.Amount.ToString("0.00")" />
+                            <label for="pix-copy">Código PIX</label>
+                            <textarea id="pix-copy" readonly rows="4">@payment.PixCopyPaste</textarea>
+                            <button class="commerce-button commerce-button-secondary" type="button" data-copy-pix>Copiar código PIX</button>
+                            <p class="pix-expiry">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@payment.ExpiresAt.ToLocalTime().ToString("g")</time>.</p>
+                        </div>
+                    </div>
+                }
+                @if (canCancelPayment)
+                {
+                    <div class="checkout-status-actions">
+                        <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar pagamento</button></form>
+                    </div>
+                }
+            </section>
         }
     }
 </main>

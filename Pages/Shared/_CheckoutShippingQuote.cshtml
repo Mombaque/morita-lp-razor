@@ -10,7 +10,7 @@
     <fieldset class="shipping-options"><legend>Escolha a entrega</legend>
       @foreach (var option in shippingQuote.Options)
       {
-        <label><input asp-for="PublicShippingQuoteId" type="radio" value="@option.PublicShippingQuoteId"><span><strong>@option.ServiceName</strong><small>@option.CarrierName · @option.MinimumDeliveryDays a @option.MaximumDeliveryDays dias úteis</small></span><em>@shippingQuote.Currency @option.Price.ToString("0.00")</em></label>
+        <label><input asp-for="PublicShippingQuoteId" type="radio" value="@option.PublicShippingQuoteId"><span><strong>@option.ServiceName</strong><small>@option.CarrierName · @option.MinimumDeliveryDays a @option.MaximumDeliveryDays dias úteis</small></span><em>@CurrencyPresentation.Symbol(shippingQuote.Currency) @option.Price.ToString("0.00")</em></label>
       }
     </fieldset>
     <p class="cart-estimate-note">Cotação válida até <time datetime="@shippingQuote.ExpiresAt.ToString("O")">@shippingQuote.ExpiresAt.ToLocalTime().ToString("t")</time>. Se expirar, calcule novamente.</p>

@@ -217,7 +217,7 @@
                                     <span>@(pending.RepresentativeProductPresentation ?? "Checkout Morita")</span>
                                     <span>@AccountPresentation.FulfillmentMethod(pending.FulfillmentMethod) · Retome o pagamento</span>
                                 </span>
-                                <em>@AccountPresentation.PaymentStatus(pending.Status)<br>@pending.Currency @pending.Amount.ToString("N2")<br><time datetime="@pending.CreatedAt.ToString("O")">@pending.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</time></em>
+                                <em>@AccountPresentation.PaymentStatus(pending.Status)<br>@CurrencyPresentation.Symbol(pending.Currency) @pending.Amount.ToString("N2")<br><time datetime="@pending.CreatedAt.ToString("O")">@pending.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</time></em>
                             </a>
                         </li>
                     }
@@ -247,7 +247,7 @@
                                     <span>@(order.RepresentativeProductPresentation ?? "Pedido Morita")</span>
                                     <span>@AccountPresentation.FulfillmentMethod(order.FulfillmentMethod) · @AccountPresentation.FulfillmentStatus(order.FulfillmentStatus)</span>
                                 </span>
-                                <em>@AccountPresentation.PaymentStatus(order.PaymentStatus)<br>@order.Currency @order.Amount.ToString("N2")<br><time datetime="@order.CreatedAt.ToString("O")">@order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</time></em>
+                                <em>@AccountPresentation.PaymentStatus(order.PaymentStatus)<br>@CurrencyPresentation.Symbol(order.Currency) @order.Amount.ToString("N2")<br><time datetime="@order.CreatedAt.ToString("O")">@order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</time></em>
                             </a>
                         </li>
                     }

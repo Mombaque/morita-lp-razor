@@ -6,12 +6,12 @@
     <ul>
         @foreach (var line in Model.Lines)
         {
-            <li><strong>@line.Presentation</strong> — @line.Quantity × @Model.Currency @line.UnitPrice.ToString("N2") = @Model.Currency @line.Total.ToString("N2")</li>
+            <li><strong>@line.Presentation</strong> — @line.Quantity × @CurrencyPresentation.Symbol(Model.Currency) @line.UnitPrice.ToString("N2") = @CurrencyPresentation.Symbol(Model.Currency) @line.Total.ToString("N2")</li>
         }
     </ul>
     @if (Model.Shipping is { } shipping)
     {
-        <p>Frete: <strong>@Model.Currency @shipping.Price.ToString("N2")</strong></p>
+        <p>Frete: <strong>@CurrencyPresentation.Symbol(Model.Currency) @shipping.Price.ToString("N2")</strong></p>
         <h3>Endereço de entrega</h3>
         <p>@shipping.Address.Recipient<br>@shipping.Address.Street, @shipping.Address.Number @shipping.Address.Complement<br>@shipping.Address.Neighborhood · @shipping.Address.City/@shipping.Address.State · CEP @shipping.Address.PostalCode</p>
     }
@@ -48,5 +48,5 @@
     {
         <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@updatedAt.ToLocalTime().ToString("g")</time>.</p>
     }
-    <p><strong>Total: @Model.Currency @Model.Amount.ToString("N2")</strong></p>
+    <p><strong>Total: @CurrencyPresentation.Symbol(Model.Currency) @Model.Amount.ToString("N2")</strong></p>
 </section>
