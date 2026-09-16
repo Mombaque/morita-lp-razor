@@ -11,7 +11,7 @@
   {
     <div class="catalog-state" data-checkout="empty"><p>Seu carrinho está vazio.</p><a class="commerce-button commerce-button-primary" href="/products">Ver produtos</a></div>
   }
-   else if ((Model.AccountMessage is not null && !Model.AccountPrefilled) || (Model.ErrorState is CheckoutLoadState.Unavailable or CheckoutLoadState.Malformed && Model.Configuration.State != CheckoutLoadState.Success))
+   else if ((Model.AccountMessage is not null && !Model.AccountPrefilled) || !Model.HasAvailableFulfillment || (Model.ErrorState is CheckoutLoadState.Unavailable or CheckoutLoadState.Malformed && Model.Configuration.State != CheckoutLoadState.Success))
   {
     <div class="catalog-state catalog-unavailable" data-checkout="unavailable" role="alert"><h2>Não foi possível preparar o checkout</h2><p>@Model.ErrorMessage</p><a class="commerce-button commerce-button-secondary" href="/checkout">Tentar novamente</a></div>
   }
@@ -35,6 +35,10 @@
                 <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" id="pickup-method" type="radio" value="pickup"><span><strong>Retirar na Morita</strong><small>Rua Coronel Nogueira Padilha, 429 · Sorocaba</small><em>Grátis</em></span></label>
               }
             </div>
+            @if (Model.Configuration.Configuration?.ShippingEnabled != true && Model.Configuration.Configuration?.PickupEnabled == true)
+            {
+              <p class="cart-estimate-note" data-checkout="shipping-unavailable">A entrega está temporariamente indisponível. Você ainda pode retirar seu pedido na Morita.</p>
+            }
             <span asp-validation-for="FulfillmentMethod" class="validation-error"></span>
              @if (Model.Configuration.Configuration?.ShippingEnabled == true)
              {

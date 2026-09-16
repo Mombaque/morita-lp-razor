@@ -42,6 +42,8 @@ public sealed class CheckoutModel(
     [BindProperty] public bool SetSavedAddressDefault { get; set; }
     [BindProperty] public bool SaveShippingAddress { get; set; }
     public bool Empty => Cart.Lines.Count == 0;
+    public bool HasAvailableFulfillment => Configuration.State == CheckoutLoadState.Success &&
+        (Configuration.Configuration?.PickupEnabled == true || Configuration.Configuration?.ShippingEnabled == true);
     private bool IsQuoteFragmentRequest => string.Equals(Request.Headers["X-Requested-With"].ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
     public bool CanSubmit => !Empty && Quote.State == CatalogLoadState.Success && Configuration.State == CheckoutLoadState.Success &&
         (FulfillmentMethod == "pickup" && Configuration.Configuration?.PickupEnabled == true ||
@@ -82,6 +84,12 @@ public sealed class CheckoutModel(
             if (ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, "Complete seu nome e telefone em Minha conta antes de continuar.", StringComparison.Ordinal)) return RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" });
             return Page();
         }
+        if (!HasAvailableFulfillment)
+        {
+            ErrorState = CheckoutLoadState.Unavailable;
+            ErrorMessage = "Nenhuma forma de entrega está disponível no momento.";
+            return Page();
+        }
         FulfillmentMethod = Configuration.Configuration?.ShippingEnabled == true ? "shipping" : "pickup";
         draft.Ensure(); return Page();
     }
@@ -96,11 +104,11 @@ public sealed class CheckoutModel(
         if (!CustomerAccountsEnabled) { accountCookies.Clear(); ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "O checkout exige uma conta de cliente."; return Page(); }
         await LoadConfigurationAsync(cancellationToken);
         if (!await LoadAccountAsync(cancellationToken)) return AccountFailureResult();
+        if (Configuration.Configuration?.ShippingEnabled != true) { ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "A entrega está temporariamente indisponível."; return QuoteShippingResult(); }
         ApplySelectedAddress();
         if (!ModelState.IsValid) return QuoteShippingResult();
         await LoadQuoteAsync(cancellationToken);
         if (Empty) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Seu carrinho está vazio."; return QuoteShippingResult(); }
-        if (Configuration.Configuration?.ShippingEnabled != true) { ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "A entrega está temporariamente indisponível."; return QuoteShippingResult(); }
         if (!ValidPostalCode(ShippingAddress.PostalCode)) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Informe um CEP brasileiro válido para calcular o frete."; return QuoteShippingResult(); }
         if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "checkout-shipping-quote")) { ErrorState = CheckoutLoadState.RateLimited; ErrorMessage = "Muitas consultas de frete. Aguarde um pouco."; return QuoteShippingResult(); }
         await LoadShippingQuotesAsync(cancellationToken);
@@ -115,6 +123,12 @@ public sealed class CheckoutModel(
         if (accountCookies.Read() is null) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         await LoadConfigurationAsync(cancellationToken);
         if (!await LoadAccountAsync(cancellationToken)) return AccountFailureResult();
+        if (FulfillmentMethod == "shipping" && Configuration.Configuration?.ShippingEnabled != true)
+        {
+            ErrorState = CheckoutLoadState.Unavailable;
+            ErrorMessage = "A entrega está temporariamente indisponível. Escolha retirada na loja.";
+            return Page();
+        }
         ApplySelectedAddress();
         if (Empty) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Seu carrinho está vazio."; return Page(); }
         if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "checkout-create")) { ErrorState = CheckoutLoadState.RateLimited; ErrorMessage = "Muitas tentativas. Aguarde um pouco."; await LoadQuoteAsync(cancellationToken); return Page(); }
@@ -207,6 +221,7 @@ public sealed class CheckoutModel(
             }
         }
         else { ErrorState = ToCheckoutState(result.State); if (result.State == AccountLoadState.Unauthorized) accountCookies.Clear(); AccountMessage = result.Message ?? "Não foi possível validar sua conta. Tente novamente."; ErrorMessage = AccountMessage; return false; }
+        if (Configuration.Configuration?.ShippingEnabled != true) return true;
         var addresses = await account.GetAddressesAsync(session.Token, cancellationToken);
         if (addresses.State != AccountLoadState.Success || addresses.Value is null) { ErrorState = ToCheckoutState(addresses.State); if (addresses.State == AccountLoadState.Unauthorized) accountCookies.Clear(); AccountMessage = addresses.Message ?? "Não foi possível carregar seus endereços. Tente novamente."; ErrorMessage = AccountMessage; return false; }
         SavedAddresses = addresses.Value;
