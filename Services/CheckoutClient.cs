@@ -74,7 +74,12 @@ public sealed class CheckoutClient(
     public async Task<PaymentResult> InitiatePixAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, CancellationToken cancellationToken = default)
     {
         var result = await SendAsync<PaymentDto>(HttpMethod.Post, $"v1/storefront/checkouts/{publicCheckoutId:D}/payments/pix", new { method = "pix" }, ("Idempotency-Key", idempotencyKey), cancellationToken, accessToken);
-        return MapPayment(result);
+        return result.State switch
+        {
+            CheckoutLoadState.Validation => PaymentResult.Failure(PaymentLoadState.Validation, "Não foi possível iniciar o pagamento PIX com os dados atuais."),
+            CheckoutLoadState.Conflict => PaymentResult.Failure(PaymentLoadState.Conflict, "A tentativa de pagamento PIX mudou. Atualize a página e tente novamente."),
+            _ => MapPayment(result)
+        };
     }
 
     public async Task<PaymentResult> GetPaymentAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default)
@@ -100,7 +105,7 @@ public sealed class CheckoutClient(
 
     private static PaymentResult MapPayment(ReadResult<PaymentDto> result)
     {
-        if (result.State != CheckoutLoadState.Success) return PaymentResult.Failure(result.State switch { CheckoutLoadState.NotFound => PaymentLoadState.NotFound, CheckoutLoadState.Timeout => PaymentLoadState.Timeout, CheckoutLoadState.Malformed => PaymentLoadState.Malformed, CheckoutLoadState.RateLimited => PaymentLoadState.RateLimited, CheckoutLoadState.Validation => PaymentLoadState.Validation, _ => PaymentLoadState.Unavailable }, result.Message);
+        if (result.State != CheckoutLoadState.Success) return PaymentResult.Failure(result.State switch { CheckoutLoadState.NotFound => PaymentLoadState.NotFound, CheckoutLoadState.Timeout => PaymentLoadState.Timeout, CheckoutLoadState.Malformed => PaymentLoadState.Malformed, CheckoutLoadState.RateLimited => PaymentLoadState.RateLimited, CheckoutLoadState.Validation => PaymentLoadState.Validation, CheckoutLoadState.Conflict => PaymentLoadState.Conflict, _ => PaymentLoadState.Unavailable }, result.Message);
         if (result.Value is not { } x || !TryMapPayment(x, out var payment)) return PaymentResult.Failure(PaymentLoadState.Malformed);
         return new(PaymentLoadState.Success, payment);
     }
