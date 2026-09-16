@@ -24,7 +24,7 @@
         }
         @if (available || status == "insufficient")
         {
-            <p class="cart-line-price">Preço atual estimado: <strong>@Model.Currency @Model.UnitPrice?.ToString("0.00")</strong> / unidade</p>
+            <p class="cart-line-price">Preço atual estimado: <strong>@CurrencyPresentation.Symbol(Model.Currency) @Model.UnitPrice?.ToString("0.00")</strong> / unidade</p>
         }
         @if (!available)
         {

@@ -141,7 +141,7 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
     private Product Map(ProductResponse p)
     {
         var variants = (p.Variants ?? []).Select(v => { foreach (var offer in v.Offers) { offer.ColorId = v.ColorId; offer.ColorLabel = v.ColorLabel; } v.Images = v.Images.Select(NormalizeImage).OfType<string>().ToList(); return v; }).ToList();
-        return new() { Slug = p.Slug?.Trim(), Nome = p.Name?.Trim() ?? "", Alt = p.Name?.Trim() ?? "", Descricao = p.Description?.Trim() ?? "", Details = p.Details ?? [], FabricType = p.FabricType, WeightGsm = p.WeightGsm, Price = p.Price, Currency = p.Currency, Availability = p.Availability ?? "unavailable", Category = p.Category, Modality = p.Modality, Brand = p.Brand, Audience = ParseAudience(p.Audience), FormattedPrice = p.Price is null ? null : $"{p.Currency ?? "R$"} {p.Price:0.00}", Variants = variants, Imagens = variants.SelectMany(v => v.Images).Distinct().ToList() };
+        return new() { Slug = p.Slug?.Trim(), Nome = p.Name?.Trim() ?? "", Alt = p.Name?.Trim() ?? "", Descricao = p.Description?.Trim() ?? "", Details = p.Details ?? [], FabricType = p.FabricType, WeightGsm = p.WeightGsm, Price = p.Price, Currency = p.Currency, Availability = p.Availability ?? "unavailable", Category = p.Category, Modality = p.Modality, Brand = p.Brand, Audience = ParseAudience(p.Audience), FormattedPrice = p.Price is null ? null : $"{CurrencyPresentation.Symbol(p.Currency)} {p.Price:0.00}", Variants = variants, Imagens = variants.SelectMany(v => v.Images).Distinct().ToList() };
     }
     private static PublicCatalogAudience ParseAudience(string? value) => value?.Trim().ToLowerInvariant() switch { "kids" => PublicCatalogAudience.Kids, "all" => PublicCatalogAudience.All, _ => PublicCatalogAudience.Adult };
     private Product MapLegacy(PublicCatalogProductResponse p) => new()
@@ -149,7 +149,7 @@ public sealed class CatalogClient(HttpClient httpClient, IOptions<CatalogApiOpti
         Nome = p.Name?.Trim() ?? "",
         Alt = p.Name?.Trim() ?? "",
         Descricao = p.Description?.Trim() ?? "",
-        FormattedPrice = p.FormattedPrice?.Trim(),
+        FormattedPrice = CurrencyPresentation.NormalizeFormattedPrice(p.FormattedPrice),
         Imagens = (p.ColorVariants ?? []).Where(v => v is not null).SelectMany(v => v!.Images ?? []).Select(NormalizeLegacyImage).OfType<string>().ToList()
     };
     private string? NormalizeLegacyImage(string? image)
