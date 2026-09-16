@@ -43,6 +43,15 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public void Shipping_address_complement_is_optional()
+    {
+        var property = typeof(CheckoutModel.ShippingAddressInput).GetProperty(nameof(CheckoutModel.ShippingAddressInput.Complement))!;
+        var nullability = new NullabilityInfoContext().Create(property);
+
+        Assert.Equal(NullabilityState.Nullable, nullability.WriteState);
+    }
+
+    [Fact]
     public async Task Shipping_checkout_explains_that_a_quote_is_required_before_submission()
     {
         var offer = Guid.NewGuid();

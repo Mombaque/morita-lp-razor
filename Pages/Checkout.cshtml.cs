@@ -324,7 +324,7 @@ public sealed class CheckoutModel(
         [StringLength(120)] public string Recipient { get; set; } = "";
         [StringLength(160)] public string Street { get; set; } = "";
         [StringLength(30)] public string Number { get; set; } = "";
-        [StringLength(120)] public string Complement { get; set; } = "";
+        [StringLength(120)] public string? Complement { get; set; } = "";
         [StringLength(120)] public string Neighborhood { get; set; } = "";
         [StringLength(120)] public string City { get; set; } = "";
         [StringLength(2)] public string State { get; set; } = "";
