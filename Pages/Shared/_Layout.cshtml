@@ -1,11 +1,8 @@
 @inject Microsoft.Extensions.Configuration.IConfiguration Configuration
-@inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.CatalogApiOptions> CatalogApiOptions
 @inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.StorefrontOptions> StorefrontOptions
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @inject Morita.LP.Razor.Services.ICustomerAccountCookieStore CustomerAccountCookies
-@using System.Text.Json
 @{
-    var apiBaseUrl = CatalogApiOptions.Value.BaseUrl;
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
     var title = ViewData["Title"] ?? "Morita - Equipamentos para Artes Marciais em Sorocaba";
     var description = ViewData["Description"] ?? "Equipamentos para Jiu-Jitsu e Muay Thai com retirada em Sorocaba e entrega para todo o Brasil.";
@@ -68,14 +65,6 @@
       height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- End Google Tag Manager (noscript) -->
 
-    @{
-        var currentPath = Context.Request.Path.Value?.TrimEnd('/');
-        var isHome = string.IsNullOrEmpty(currentPath);
-        var isJiuJitsu = currentPath == "/jiu-jitsu";
-        var isMuayThai = currentPath == "/muay-thai";
-        var isKids = currentPath == "/kids";
-        var isProducts = currentPath == "/products" || currentPath?.StartsWith("/products/") == true;
-    }
     <header class="commerce-site-header">
         <div class="commerce-nav-row">
             <a class="commerce-logo" href="/" aria-label="Morita Fight - início"><img src="~/images/logo.png" alt="Morita Fight"></a>
@@ -87,11 +76,7 @@
             <div class="commerce-cart">@await Component.InvokeAsync("CartIndicator")</div>
         </div>
         <nav class="main-nav" aria-label="Navegação principal">
-            <a href="/" class="nav-link @(isHome ? "active" : "")" aria-current="@(isHome ? "page" : null)">Início</a>
-            <a href="/products" class="nav-link @(isProducts ? "active" : "")" aria-current="@(isProducts ? "page" : null)">Todos os produtos</a>
-            <a href="/jiu-jitsu" class="nav-link @(isJiuJitsu ? "active" : "")" aria-current="@(isJiuJitsu ? "page" : null)">Jiu-Jitsu</a>
-            <a href="/muay-thai" class="nav-link @(isMuayThai ? "active" : "")" aria-current="@(isMuayThai ? "page" : null)">Muay Thai</a>
-            <a href="/kids" class="nav-link @(isKids ? "active" : "")" aria-current="@(isKids ? "page" : null)">Kids</a>
+            @await Component.InvokeAsync("CatalogNavigation")
             @if (customerAccountsEnabled) { if (customerSignedIn) { <a href="/conta" class="nav-link nav-account">Minha conta</a> } else { <a href="/conta?mode=signin" class="nav-link nav-account">Entrar</a><a href="/conta?mode=create" class="nav-link nav-account">Criar conta</a> } }
         </nav>
     </header>
@@ -102,16 +87,13 @@
 
     <footer class="commerce-footer">
         <div><img src="~/images/logo.png" alt="Morita Fight"><p>Equipamento para quem leva o treino a sério.</p></div>
-        <div><strong>Loja</strong><a href="/products">Catálogo</a><a href="/jiu-jitsu">Jiu-Jitsu</a><a href="/muay-thai">Muay Thai</a><a href="/kids">Kids</a></div>
+        <div><strong>Loja</strong><a href="/products">Catálogo</a><a href="/jiu-jitsu">Jiu-Jitsu</a><a href="/muay-thai">Muay Thai</a><a href="/kids">Infantil</a></div>
         <div><strong>Visite</strong><a href="https://maps.app.goo.gl/pNYYiMimWGa4actz7">Rua Coronel Nogueira Padilha, 429<br>Sorocaba, SP</a><a href="https://wa.me/5515981079332">WhatsApp (15) 98107-9332</a>@if(customerAccountsEnabled && !customerSignedIn){<a href="/conta?mode=signin">Entrar</a><a href="/conta?mode=create">Criar conta</a>}</div>
     </footer>
 
-    <script>
-        window.API_BASE_URL = @Html.Raw(JsonSerializer.Serialize(apiBaseUrl));
-        window.CUSTOMER_REQUEST_RELAY = @Html.Raw(JsonSerializer.Serialize(Configuration.GetValue<bool>("Storefront:UseRelayForCustomerRequests")));
-        window.CUSTOMER_REQUEST_RELAY_URL = "/customer-product-request";
-    </script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
     <script src="~/js/carousel.js" asp-append-version="true"></script>
+    <script src="~/js/product-card.js" asp-append-version="true"></script>
     <script type="module" src="~/js/customer-product-request.js" asp-append-version="true"></script>
     @if (publicAssistantEnabled) { <script type="module" src="~/js/public-assistant.js" asp-append-version="true"></script> }
     <script type="module" src="~/js/tracking.js" asp-append-version="true"></script>

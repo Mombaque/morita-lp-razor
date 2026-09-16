@@ -1,0 +1,26 @@
+@using System.Text.Json
+@model IReadOnlyList<HeroMediaImage>
+
+@{
+    var images = Model
+        .Where(image => !string.IsNullOrWhiteSpace(image.Src) && !string.IsNullOrWhiteSpace(image.Alt))
+        .ToArray();
+}
+
+@if (images.Length > 0)
+{
+    var serializedImages = JsonSerializer.Serialize(images, new JsonSerializerOptions
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+    });
+    var firstImage = images[0];
+
+    <div class="hero-media-rotator" data-hero-media="@serializedImages">
+        <img class="commerce-hero-image hero-media-image is-active"
+             src="@firstImage.Src"
+             alt="@firstImage.Alt"
+             width="@firstImage.Width"
+             height="@firstImage.Height"
+             fetchpriority="high">
+    </div>
+}

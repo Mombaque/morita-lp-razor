@@ -8,6 +8,13 @@
     ViewData["OgTitle"] = "Morita Fight | Vista seu próximo round";
     ViewData["OgDescription"] = "Equipamentos selecionados para Jiu-Jitsu, Muay Thai e jovens atletas.";
     ViewData["BodyClass"] = "home-page commerce-page";
+    var heroImages = new[]
+    {
+        new HeroMediaImage("/images/kimono/adulto/itg-azul.jpg", "Kimono de Jiu-Jitsu azul", 896, 1217),
+        new HeroMediaImage("/images/rashguard/masculino/itg2.jpg", "Rashguard masculino para Jiu-Jitsu", 892, 976),
+        new HeroMediaImage("/images/muay-thai/luva-st.jpg", "Luvas de Muay Thai", 1200, 1600),
+        new HeroMediaImage("/images/muay-thai/shorts-varios.jpg", "Shorts de Muay Thai", 1600, 761)
+    };
 }
 
 @section Header {
@@ -39,12 +46,15 @@
       <div class="hero-actions">
         <a class="commerce-button commerce-button-primary" href="/products">Explorar catálogo <span aria-hidden="true">→</span></a>
       </div>
-      <dl class="commerce-promises" aria-label="Benefícios da loja">
-        <div><dt>Estoque real</dt><dd>Veja o que está disponível antes de comprar.</dd></div>
-        <div><dt>Retire ou receba</dt><dd>Retirada em Sorocaba ou envio para todo o Brasil.</dd></div>
-        <div><dt>Ajuda para escolher</dt><dd>Fale com quem conhece os produtos e o treino.</dd></div>
-      </dl>
     </div>
+    <div class="commerce-hero-media">
+      <partial name="_HeroMedia" model="heroImages" />
+    </div>
+    <dl class="commerce-promises" aria-label="Benefícios da loja">
+      <div><dt>Estoque real</dt><dd>Veja o que está disponível antes de comprar.</dd></div>
+      <div><dt>Retire ou receba</dt><dd>Retirada em Sorocaba ou envio para todo o Brasil.</dd></div>
+      <div><dt>Ajuda para escolher</dt><dd>Fale com quem conhece os produtos e o treino.</dd></div>
+    </dl>
   </section>
 
   <section class="discipline-strip" aria-labelledby="shop-by-discipline">
@@ -66,7 +76,7 @@
       </a>
       <a href="/kids">
         <span class="discipline-card-content">
-          <strong>Kids</strong>
+          <strong>Infantil</strong>
           <span class="discipline-card-description">Equipamentos de artes marciais para crianças</span>
           <span class="discipline-card-action">Ver produtos <span aria-hidden="true">→</span></span>
         </span>
@@ -113,3 +123,7 @@
     </div>
   </section>
 </main>
+
+@section Scripts {
+    <script src="~/js/hero-media.js" asp-append-version="true"></script>
+}

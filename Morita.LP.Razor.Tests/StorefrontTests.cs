@@ -53,6 +53,25 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Theory]
+    [InlineData("/jiu-jitsu")]
+    [InlineData("/muay-thai")]
+    [InlineData("/kids")]
+    public async Task Category_pages_render_compact_catalog_controls(string path)
+    {
+        var body = await (await _client.GetAsync(path)).Content.ReadAsStringAsync();
+
+        Assert.Contains("class=\"catalog-header\"", body);
+        Assert.Contains("class=\"catalog-filter-area\"", body);
+        Assert.Contains("Categorias", body);
+        Assert.Contains("Marcas", body);
+        Assert.Contains("data-catalog-sort", body);
+        Assert.Contains("class=\"collection-catalog\"", body);
+        Assert.DoesNotContain("class=\"collection-hero", body);
+        Assert.DoesNotContain("class=\"collection-filters\"", body);
+        Assert.DoesNotContain("href=\"#catalog\"", body);
+    }
+
+    [Theory]
     [InlineData("/JiuJitsu", "/jiu-jitsu?campaign=test")]
     [InlineData("/MuayThai", "/muay-thai?utm_source=test")]
     public async Task Legacy_case_routes_permanently_redirect_with_query(string path, string expected)
@@ -80,6 +99,34 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
+    public async Task Navigation_renders_category_menus_for_storefront_sections()
+    {
+        using var factory = CreateFactory(
+            CatalogResult.Empty(),
+            CatalogResult.Empty(),
+            filters: new CatalogFilters
+            {
+                Categories =
+                [
+                    new CatalogFilter { Id = 7, Slug = "kimonos", Label = "Kimonos" },
+                    new CatalogFilter { Id = 8, Slug = "luvas", Label = "Luvas" }
+                ]
+            });
+        using var client = factory.CreateClient();
+
+        var body = await (await client.GetAsync("/")).Content.ReadAsStringAsync();
+
+        Assert.Contains("aria-label=\"Categorias de todos os produtos\"", body);
+        Assert.Contains("href=\"/products?categoryId=7\"", body);
+        Assert.Contains("aria-label=\"Categorias de Jiu-Jitsu\"", body);
+        Assert.Contains("href=\"/jiu-jitsu?category=kimonos\"", body);
+        Assert.Contains("aria-label=\"Categorias de Muay Thai\"", body);
+        Assert.Contains("href=\"/muay-thai?category=luvas\"", body);
+        Assert.Contains("aria-label=\"Categorias infantis\"", body);
+        Assert.Contains("href=\"/kids?category=kimonos\"", body);
+    }
+
+    [Fact]
     public async Task Api_mode_renders_absolute_image_price_and_preserves_metadata()
     {
         using var factory = CreateFactory(CatalogResult.Success([new Product
@@ -98,6 +145,34 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
     }
 
     [Fact]
+    public async Task Api_mode_renders_the_entire_product_card_as_a_detail_link()
+    {
+        using var factory = CreateFactory(CatalogResult.Success([new Product
+        {
+            Slug = "api-kimono", Nome = "API Kimono", Descricao = "Descrição API", FormattedPrice = "R$ 99,90"
+        }]), CatalogResult.Empty());
+        using var client = factory.CreateClient();
+
+        var body = await (await client.GetAsync("/jiu-jitsu")).Content.ReadAsStringAsync();
+
+        Assert.Contains("class=\"product product-clickable\"", body);
+        Assert.Contains("class=\"product-card-hit-area\" href=\"/products/api-kimono\" aria-label=\"Ver produto: API Kimono\"", body);
+        Assert.Contains("<span class=\"product-cta\">Ver produto</span>", body);
+        Assert.DoesNotContain("class=\"product-card-link\"", body);
+    }
+
+    [Fact]
+    public async Task Browser_does_not_expose_internal_api_base_url()
+    {
+        using var factory = CreateFactory(CatalogResult.Empty(), CatalogResult.Empty(),
+            catalogApiBaseUrl: "http://api:5001", publicApiBaseUrl: "http://localhost:5001");
+        var body = await (await factory.CreateClient().GetAsync("/")).Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain("window.API_BASE_URL", body);
+        Assert.DoesNotContain("http://api:5001", body);
+    }
+
+    [Fact]
     public async Task Api_mode_renders_home_empty_state_without_carousel_controls()
     {
         using var factory = CreateFactory(CatalogResult.Empty(), CatalogResult.Empty());
@@ -105,6 +180,18 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         var body = await (await client.GetAsync("/")).Content.ReadAsStringAsync();
         Assert.Contains("Novos produtos entrando no corner", body);
         Assert.Contains("Estoque real", body);
+        Assert.Contains("class=\"commerce-hero-media\"", body);
+        Assert.Contains("class=\"hero-media-rotator\"", body);
+        Assert.Contains("data-hero-media=", body);
+        Assert.Contains("src=\"/images/kimono/adulto/itg-azul.jpg\"", body);
+        Assert.Contains("alt=\"Kimono de Jiu-Jitsu azul\"", body);
+        Assert.Contains("/images/rashguard/masculino/itg2.jpg", body);
+        Assert.Contains("Rashguard masculino para Jiu-Jitsu", body);
+        Assert.Contains("/images/muay-thai/luva-st.jpg", body);
+        Assert.Contains("/images/muay-thai/shorts-varios.jpg", body);
+        Assert.Contains("hero-media.js", body);
+        Assert.Contains("Retire ou receba", body);
+        Assert.Contains("Ajuda para escolher", body);
         Assert.Contains("Explore nossos produtos", body);
         Assert.Contains("Kimonos, rashguards, faixas e acessórios", body);
         Assert.Contains("Luvas, shorts e proteções", body);
@@ -143,20 +230,31 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains("API Kimono", body);
     }
 
-    private static WebApplicationFactory<Program> CreateFactory(CatalogResult jiuJitsu, CatalogResult muayThai) =>
+    private static WebApplicationFactory<Program> CreateFactory(
+        CatalogResult jiuJitsu,
+        CatalogResult muayThai,
+        string? catalogApiBaseUrl = null,
+        string? publicApiBaseUrl = null,
+        CatalogFilters? filters = null) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("E2E");
+            if (catalogApiBaseUrl is not null)
+                builder.UseSetting("CatalogApi:BaseUrl", catalogApiBaseUrl);
+            if (publicApiBaseUrl is not null)
+                builder.UseSetting("ApiBaseUrl", publicApiBaseUrl);
             builder.ConfigureTestServices(services =>
             {
                 services.RemoveAll<ICatalogClient>();
-                services.AddScoped<ICatalogClient>(_ => new StubCatalogClient(jiuJitsu, muayThai));
+                services.AddScoped<ICatalogClient>(_ => new StubCatalogClient(jiuJitsu, muayThai, filters));
             });
             builder.UseSetting("Storefront:ProductSource", "Api");
         });
 
-    private sealed class StubCatalogClient(CatalogResult jiuJitsu, CatalogResult muayThai) : ICatalogClient
+    private sealed class StubCatalogClient(CatalogResult jiuJitsu, CatalogResult muayThai, CatalogFilters? filters = null) : ICatalogClient
     {
+        private readonly CatalogFilters _filters = filters ?? new();
+
         public Task<CatalogResult> GetProductsAsync(string modality, CancellationToken cancellationToken = default) =>
             Task.FromResult(modality == "jiu-jitsu" ? jiuJitsu : muayThai);
         public Task<CatalogPage> GetCatalogAsync(CatalogQuery query, CancellationToken cancellationToken = default)
@@ -166,7 +264,7 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
             var state = products.Count > 0 ? source.State : source.State == CatalogLoadState.Unavailable ? CatalogLoadState.Unavailable : CatalogLoadState.Empty;
             return Task.FromResult(new CatalogPage(products, 1, CatalogQuery.PageSize, products.Count, products.Count > 0 ? 1 : 0, state));
         }
-        public Task<CatalogFilters?> GetFiltersAsync(CancellationToken cancellationToken = default) => Task.FromResult<CatalogFilters?>(new());
+        public Task<CatalogFilters?> GetFiltersAsync(CancellationToken cancellationToken = default) => Task.FromResult<CatalogFilters?>(_filters);
         private CatalogResult Combine()
         {
             var products = jiuJitsu.Products.Concat(muayThai.Products).ToList();

@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Morita.LP.Razor.Configuration;
@@ -40,7 +42,7 @@ public sealed class CatalogClientTests
     private static ICatalogClient Create(HttpStatusCode status, string content, bool delay = false)
     {
         var client = new HttpClient(new ControlledHandler(status, content, delay)) { BaseAddress = new Uri("https://catalog.test/") };
-        return new CatalogClient(client, Options.Create(new CatalogApiOptions { TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance);
+        return new CatalogClient(client, Options.Create(new CatalogApiOptions { TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance, new HttpContextAccessor(), new TestHostEnvironment());
     }
 
     private sealed class ControlledHandler(HttpStatusCode status, string content, bool delay) : HttpMessageHandler
@@ -50,5 +52,13 @@ public sealed class CatalogClientTests
             if (delay) await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
             return new HttpResponseMessage(status) { Content = new StringContent(content) };
         }
+    }
+
+    private sealed class TestHostEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = Environments.Development;
+        public string ApplicationName { get; set; } = "Morita.LP.Razor.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 }

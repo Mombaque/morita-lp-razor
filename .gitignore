@@ -25,3 +25,7 @@ appsettings.local.Development.json
 # Operating System files
 .DS_Store
 Thumbs.db
+
+# Local worktrees and ai-memory backups
+worktrees/
+AGENTS.md.bak-*

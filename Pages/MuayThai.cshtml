@@ -6,35 +6,14 @@
     ViewData["Title"] = "Luvas, shorts e equipamentos de Muay Thai | Morita Fight";
     ViewData["Description"] = "Luvas, shorts, caneleiras e acessórios de Muay Thai e Boxe com estoque confirmado na Morita Fight.";
     ViewData["Canonical"] = $"{canonicalBase.TrimEnd('/')}/muay-thai";
-    ViewData["Robots"] = string.IsNullOrWhiteSpace(Model.Category) ? "index,follow" : "noindex,follow";
+    ViewData["Robots"] = string.IsNullOrWhiteSpace(Model.Category) && !Model.BrandId.HasValue && Model.Sort == "featured" ? "index,follow" : "noindex,follow";
     ViewData["BodyClass"] = "collection-page commerce-page";
 }
 
 <main class="commerce-shell collection-shell">
-  <section class="collection-hero striking-hero" aria-labelledby="collection-title">
-    <div>
-      <p class="fight-label">Striking / Oito armas</p>
-      <h1 id="collection-title">Muay<br><span>Thai</span></h1>
-      <p>Luvas, shorts e proteção para rounds mais seguros e intensos, do primeiro treino à preparação para lutar.</p>
-      <a class="commerce-button commerce-button-primary" href="#catalog">Ver produtos ↓</a>
-    </div>
-  </section>
-
-  <nav class="collection-filters" aria-label="Categorias de Muay Thai">
-    <a class="@(Model.Category is null ? "active" : "")" href="/muay-thai">Todos</a>
-    @foreach (var category in Model.Filters.Categories)
-    {
-      <a class="@(Model.Category == category.Slug ? "active" : "")" href="/muay-thai?category=@Uri.EscapeDataString(category.Slug ?? "")">@category.Label</a>
-    }
-  </nav>
-
-  <section id="catalog" class="collection-catalog" aria-labelledby="catalog-title">
-    <div class="section-heading section-heading-row"><div><p class="fight-label">Estoque online</p><h2 id="catalog-title">@(Model.Category is null ? "Todo o Muay Thai" : Model.Filters.Categories.FirstOrDefault(x => x.Slug == Model.Category)?.Label ?? "Produtos")</h2></div><span>@Model.Catalog.TotalCount produto(s)</span></div>
-    @if (Model.Catalog.State == CatalogLoadState.Unavailable)
-    { <div class="catalog-state catalog-unavailable" role="status"><h3>Catálogo temporariamente indisponível</h3><p>Tente novamente em instantes.</p></div> }
-    else if (Model.Catalog.State == CatalogLoadState.Empty)
-    { <div class="catalog-state catalog-empty" role="status"><h3>Nenhum produto encontrado</h3><p>Esta seleção ainda não tem itens publicados. Veja todo o Muay Thai ou fale com a equipe.</p></div> }
-    else
-    { <div class="products storefront-products">@for (var index = 0; index < Model.Catalog.Items.Count; index++) { <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Catalog.Items[index], "muay-thai", index))" /> }</div> }
-  </section>
+  <partial name="_CatalogSection" model="Model.Section" />
 </main>
+
+@section Scripts {
+  <script type="module" src="~/js/catalog-filters.js" asp-append-version="true"></script>
+}

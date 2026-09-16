@@ -1,7 +1,14 @@
 @model CatalogQuoteResult
 <h2>Resumo</h2>
-<p data-cart="total">Total estimado: <strong>@CurrencyPresentation.Symbol(Model.Currency) @Model.Total?.ToString("0.00")</strong></p>
-<p class="cart-estimate-note">O frete é calculado pelo CEP no checkout. Preço e estoque serão reconfirmados.</p>
+@if (Model.State == CatalogLoadState.Success)
+{
+    <p data-cart="total">Total estimado: <strong>@CurrencyPresentation.Symbol(Model.Currency) @Model.Total?.ToString("0.00")</strong></p>
+    <p class="cart-estimate-note">O frete é calculado pelo CEP no checkout. Preço e estoque serão reconfirmados.</p>
+}
+else
+{
+    <p class="cart-estimate-note" data-cart="correction">Revise os itens marcados como indisponíveis e reduza a quantidade ou remova-os para continuar. O total será recalculado após a correção.</p>
+}
 @if (Model.State == CatalogLoadState.Success)
 {
     <a class="button cart-button-primary" href="/checkout" data-cart="checkout">Ir para o checkout</a>

@@ -9,7 +9,7 @@ public sealed record CheckoutResult(CheckoutLoadState State, CheckoutResponse? C
     public static CheckoutResult Failure(CheckoutLoadState state, string? message = null) => new(state, null, message);
 }
 
-public enum PaymentLoadState { Success, Validation, NotFound, RateLimited, Unavailable, Timeout, Malformed }
+public enum PaymentLoadState { Success, Validation, Conflict, NotFound, RateLimited, Unavailable, Timeout, Malformed }
 public sealed record PaymentResult(PaymentLoadState State, PixPayment? Payment, string? Message = null)
 {
     public static PaymentResult Failure(PaymentLoadState state, string? message = null) => new(state, null, message);

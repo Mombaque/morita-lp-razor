@@ -16,6 +16,7 @@ public sealed class ProductVariant
 {
     public int? ColorId { get; set; }
     public string? ColorLabel { get; set; }
+    public string? ColorHex { get; set; }
     public List<string> Images { get; set; } = [];
     public List<ProductOffer> Offers { get; set; } = [];
 }
@@ -44,9 +45,12 @@ public sealed class CatalogFilters
     public List<CatalogFilter> Categories { get; set; } = [];
     public List<CatalogFilter> Modalities { get; set; } = [];
     public List<CatalogFilter> Brands { get; set; } = [];
+    public List<CatalogFilter> Suppliers { get; set; } = [];
     public List<CatalogFilter> Audiences { get; set; } = [];
     public List<CatalogFilter> Sizes { get; set; } = [];
     public List<CatalogFilter> Colors { get; set; } = [];
+
+    public IReadOnlyList<CatalogFilter> PublicBrands => Brands.Count > 0 ? Brands : Suppliers;
 }
 
 public sealed record CatalogQuery(

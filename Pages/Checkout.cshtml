@@ -11,7 +11,7 @@
   {
     <div class="catalog-state" data-checkout="empty"><p>Seu carrinho está vazio.</p><a class="commerce-button commerce-button-primary" href="/products">Ver produtos</a></div>
   }
-   else if ((Model.AccountMessage is not null && !Model.AccountPrefilled) || (Model.ErrorState is CheckoutLoadState.Unavailable or CheckoutLoadState.Malformed && Model.Configuration.State != CheckoutLoadState.Success))
+   else if ((Model.AccountMessage is not null && !Model.AccountPrefilled) || !Model.HasAvailableFulfillment || (Model.ErrorState is CheckoutLoadState.Unavailable or CheckoutLoadState.Malformed && Model.Configuration.State != CheckoutLoadState.Success))
   {
     <div class="catalog-state catalog-unavailable" data-checkout="unavailable" role="alert"><h2>Não foi possível preparar o checkout</h2><p>@Model.ErrorMessage</p><a class="commerce-button commerce-button-secondary" href="/checkout">Tentar novamente</a></div>
   }
@@ -26,33 +26,27 @@
           <div class="checkout-step-content">
             <h2 id="fulfillment-heading">Forma de entrega</h2>
             <div class="fulfillment-choices">
-              @if (Model.Configuration.Configuration?.PickupEnabled == true)
-              {
-                <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" id="pickup-method" type="radio" value="pickup"><span><strong>Retirar na Morita</strong><small>Rua Coronel Nogueira Padilha, 429 · Sorocaba</small><em>Grátis</em></span></label>
-              }
               @if (Model.Configuration.Configuration?.ShippingEnabled == true)
               {
                 <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" type="radio" value="shipping"><span><strong>Receber no meu endereço</strong><small>Entrega com prazo e valor calculados pelo CEP</small><em>Todo o Brasil</em></span></label>
               }
+              @if (Model.Configuration.Configuration?.PickupEnabled == true)
+              {
+                <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" id="pickup-method" type="radio" value="pickup"><span><strong>Retirar na Morita</strong><small>Rua Coronel Nogueira Padilha, 429 · Sorocaba</small><em>Grátis</em></span></label>
+              }
             </div>
+            @if (Model.Configuration.Configuration?.ShippingEnabled != true && Model.Configuration.Configuration?.PickupEnabled == true)
+            {
+              <p class="cart-estimate-note" data-checkout="shipping-unavailable">A entrega está temporariamente indisponível. Você ainda pode retirar seu pedido na Morita.</p>
+            }
             <span asp-validation-for="FulfillmentMethod" class="validation-error"></span>
              @if (Model.Configuration.Configuration?.ShippingEnabled == true)
              {
                <div class="fulfillment-panel shipping-panel" data-fulfillment-panel="shipping">
                  @if (Model.SavedAddresses.Count > 0) { <fieldset class="saved-addresses"><legend>Endereço salvo</legend><label><input asp-for="SelectedAddressId" type="radio" value="" data-new-address="true"> Usar outro endereço</label>@foreach (var address in Model.SavedAddresses) { <label><input asp-for="SelectedAddressId" type="radio" value="@address.PublicAddressId" data-saved-address="true" data-recipient="@address.Recipient" data-street="@address.Street" data-number="@address.Number" data-complement="@address.Complement" data-neighborhood="@address.Neighborhood" data-city="@address.City" data-state="@address.State" data-postal-code="@address.PostalCode"> @address.Label — @address.Street, @address.Number, @address.City/@address.State@(address.IsDefault ? " · Padrão" : "")</label> }</fieldset> }
-                <div class="shipping-postal"><label class="checkout-field" asp-for="ShippingAddress.PostalCode">CEP de entrega</label><input class="checkout-control" asp-for="ShippingAddress.PostalCode" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000"><button class="commerce-button commerce-button-secondary" type="submit" asp-page-handler="QuoteShipping" formnovalidate>Calcular frete</button></div>
+                <div class="shipping-postal"><label class="checkout-field" asp-for="ShippingAddress.PostalCode">CEP de entrega</label><input class="checkout-control" asp-for="ShippingAddress.PostalCode" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000"><button class="commerce-button commerce-button-secondary" type="submit" asp-page-handler="QuoteShipping" formnovalidate data-quote-shipping>Calcular frete</button></div>
                 <span asp-validation-for="ShippingAddress.PostalCode" class="validation-error"></span>
-                @if (Model.ShippingQuotes.Quote is { } shippingQuote)
-                {
-                  <fieldset class="shipping-options"><legend>Escolha a entrega</legend>
-                    @foreach (var option in shippingQuote.Options)
-                    {
-                      <label><input asp-for="PublicShippingQuoteId" type="radio" value="@option.PublicShippingQuoteId"><span><strong>@option.ServiceName</strong><small>@option.CarrierName · @option.MinimumDeliveryDays a @option.MaximumDeliveryDays dias úteis</small></span><em>@CurrencyPresentation.Symbol(shippingQuote.Currency) @option.Price.ToString("0.00")</em></label>
-                    }
-                  </fieldset>
-                  <p class="cart-estimate-note">Cotação válida até <time datetime="@shippingQuote.ExpiresAt.ToString("O")">@shippingQuote.ExpiresAt.ToLocalTime().ToString("t")</time>. Se expirar, calcule novamente.</p>
-                }
-                <span asp-validation-for="PublicShippingQuoteId" class="validation-error"></span>
+                @await Html.PartialAsync("_CheckoutShippingQuote", Model)
                  <div class="address-grid">
                   <label class="checkout-field full">Destinatário<input class="checkout-control" asp-for="ShippingAddress.Recipient" autocomplete="name"></label><span asp-validation-for="ShippingAddress.Recipient" class="validation-error"></span>
                   <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="ShippingAddress.Street" autocomplete="address-line1"></label>
@@ -70,7 +64,7 @@
                              <input class="checkout-check-input" asp-for="SaveShippingAddress">
                              <span>Guardar este endereço na minha conta</span>
                          </label>
-                         <label class="checkout-field" asp-for="SavedAddressLabel">Rótulo do endereço<input class="checkout-control" asp-for="SavedAddressLabel" placeholder="Casa" autocomplete="off"></label>
+                         <label class="checkout-field" asp-for="SavedAddressLabel">Rótulo do endereço<input class="checkout-control" asp-for="SavedAddressLabel" placeholder="Casa" maxlength="80" autocomplete="off"></label>
                          <label class="checkout-check" asp-for="SetSavedAddressDefault">
                              <input class="checkout-check-input" asp-for="SetSavedAddressDefault">
                              <span>Usar como endereço padrão</span>
@@ -90,22 +84,17 @@
           <div class="checkout-step-number">02</div>
           <div class="checkout-step-content checkout-contact">
             <h2 id="contact-heading">Seus dados</h2>
-            <label class="checkout-field">Nome<input class="checkout-control" asp-for="Contact.Name" autocomplete="name"></label><span asp-validation-for="Contact.Name" class="validation-error"></span>
-            <label class="checkout-field">E-mail<input class="checkout-control" asp-for="Contact.Email" autocomplete="email" type="email" readonly="@(Model.AccountPrefilled ? "readonly" : null)"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
-            <label class="checkout-field">Telefone<input class="checkout-control" asp-for="Contact.Phone" autocomplete="tel" inputmode="tel"></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
-            @if (Model.AccountPrefilled)
-            {
-                <label class="checkout-check" asp-for="SaveAccountDetails">
-                    <input class="checkout-check-input" asp-for="SaveAccountDetails">
-                    <span>Salvar nome e telefone na minha conta</span>
-                </label>
-            }
+            <label class="checkout-field">Nome<input class="checkout-control" asp-for="Contact.Name" autocomplete="name" readonly="readonly"></label><span asp-validation-for="Contact.Name" class="validation-error"></span>
+            <label class="checkout-field">E-mail<input class="checkout-control" asp-for="Contact.Email" autocomplete="email" type="email" readonly="readonly"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
+            <label class="checkout-field">Telefone<input class="checkout-control" asp-for="Contact.Phone" autocomplete="tel" inputmode="tel" readonly="readonly"></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
+            <p class="cart-estimate-note">Esses dados vêm da sua conta. Para alterá-los, acesse o seu perfil.</p>
           </div>
         </section>
 
         <div class="checkout-actions">
           <div class="checkout-actions-content">
             <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")">Continuar para o PIX <span aria-hidden="true">→</span></button>
+            <p class="checkout-submit-feedback" data-checkout-feedback role="status" aria-live="polite" hidden="@(Model.CanSubmit ? "hidden" : null)">@Model.SubmitFeedback</p>
             <p class="checkout-security"><i class="fas fa-lock" aria-hidden="true"></i> Preço, estoque e frete são reconfirmados pelo servidor antes da reserva.</p>
           </div>
         </div>

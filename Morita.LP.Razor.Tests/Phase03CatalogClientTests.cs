@@ -5,6 +5,8 @@ using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Morita.LP.Razor.Configuration;
@@ -20,12 +22,13 @@ public sealed class Phase03CatalogClientTests
     public async Task Maps_realistic_numeric_lookup_guid_offer_and_details()
     {
         const string offer = "a3b7d8aa-1f05-4b7c-8f33-7fc9c0a9ef11";
-        var json = $$"""{"items":[{"slug":"kimono-a1","name":"Kimono A1","description":"Leve","details":["Algodão","Gramatura 400"],"category":{"id":7,"slug":"kimonos","label":"Kimonos"},"modality":{"id":2,"slug":"jiu-jitsu","label":"Jiu-Jitsu"},"brand":{"id":4,"slug":"itg","label":"In The Guard"},"audience":"kids","price":249.9,"currency":"BRL","availability":"available","variants":[{"colorId":3,"colorLabel":"Azul","images":["/v1/storefront/catalog/images/3a82ed3f-a5f8-4088-9874-9e511c41f14b","/catalog/a.jpg","//bad.test/a.jpg","javascript:bad"],"offers":[{"publicOfferId":"{{offer}}","sizeId":11,"sizeLabel":"A1","unitPrice":249.9,"currency":"BRL","availability":"available"}]}]}],"page":1,"pageSize":24,"totalCount":1,"totalPages":1}""";
+        var json = $$"""{"items":[{"slug":"kimono-a1","name":"Kimono A1","description":"Leve","details":["Algodão","Gramatura 400"],"category":{"id":7,"slug":"kimonos","label":"Kimonos"},"modality":{"id":2,"slug":"jiu-jitsu","label":"Jiu-Jitsu"},"brand":{"id":4,"slug":"itg","label":"In The Guard"},"audience":"kids","price":249.9,"currency":"BRL","availability":"available","variants":[{"colorId":3,"colorLabel":"Azul","colorHex":"#1255CC","images":["/v1/storefront/catalog/images/3a82ed3f-a5f8-4088-9874-9e511c41f14b","/catalog/a.jpg","//bad.test/a.jpg","javascript:bad"],"offers":[{"publicOfferId":"{{offer}}","sizeId":11,"sizeLabel":"A1","unitPrice":249.9,"currency":"BRL","availability":"available"}]}]}],"page":1,"pageSize":24,"totalCount":1,"totalPages":1}""";
         var client = Create(HttpStatusCode.OK, json);
         var result = await client.GetCatalogAsync(new CatalogQuery("kimono azul", 7, 2, 4, 11, 3, true, 1));
         var product = Assert.Single(result.Items);
         Assert.Equal(7, product.Category!.Id);
         Assert.Equal(Guid.Parse(offer), Assert.Single(product.Variants[0].Offers).PublicOfferId);
+        Assert.Equal("#1255CC", product.Variants[0].ColorHex);
         Assert.Equal(["Algodão", "Gramatura 400"], product.Details);
         Assert.Equal(PublicCatalogAudience.Kids, product.Audience);
         Assert.Equal(2, product.Imagens.Count);
@@ -129,6 +132,21 @@ public sealed class Phase03CatalogClientTests
     }
 
     [Fact]
+    public async Task Quote_accepts_insufficient_lines_without_line_price()
+    {
+        var id = Guid.NewGuid();
+        var body = $$"""{"lines":[{"publicOfferId":"{{id}}","quantity":1,"unitPrice":350,"currency":"BRL","availability":"insufficient"}],"total":0,"currency":"BRL"}""";
+
+        var result = await Create(body).QuoteAsync(new CatalogQuoteRequest([new CatalogQuoteItem(id, 1)]));
+
+        Assert.Equal(CatalogLoadState.Partial, result.State);
+        Assert.Equal(0m, result.Total);
+        Assert.Equal("insufficient", result.Lines[0].Availability);
+        Assert.Equal(350m, result.Lines[0].UnitPrice);
+        Assert.Null(result.Lines[0].LinePrice);
+    }
+
+    [Fact]
     public async Task Keeps_catalog_image_paths_relative_for_same_origin_proxying()
     {
         var id = Guid.NewGuid();
@@ -163,7 +181,7 @@ public sealed class Phase03CatalogClientTests
 
     private static ICatalogClient Create(string body) => Create(new RecordingHandler(body, HttpStatusCode.OK));
     private static ICatalogClient Create(HttpStatusCode status, string body) => Create(new RecordingHandler(body, status));
-    private static ICatalogClient Create(HttpMessageHandler handler) => new CatalogClient(new HttpClient(handler) { BaseAddress = new Uri("https://catalog.example/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.example", TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance);
+    private static ICatalogClient Create(HttpMessageHandler handler) => new CatalogClient(new HttpClient(handler) { BaseAddress = new Uri("https://catalog.example/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.example", TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance, new HttpContextAccessor(), new TestHostEnvironment());
 
     private sealed class RecordingHandler(string body, HttpStatusCode status = HttpStatusCode.OK) : HttpMessageHandler
     {
@@ -195,5 +213,13 @@ public sealed class Phase03CatalogClientTests
         public override int Read(byte[] buffer, int offset, int count) => 0;
         public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default) => new(Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ContinueWith(_ => 0, cancellationToken));
         public override void Flush() { } public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException(); public override void SetLength(long value) => throw new NotSupportedException(); public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private sealed class TestHostEnvironment : IHostEnvironment
+    {
+        public string EnvironmentName { get; set; } = Environments.Development;
+        public string ApplicationName { get; set; } = "Morita.LP.Razor.Tests";
+        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
+        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 }

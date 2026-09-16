@@ -1,0 +1,30 @@
+@model Morita.LP.Razor.ViewComponents.CatalogNavigationModel
+
+<a href="/" class="nav-link @(Model.IsHome ? "active" : "")" aria-current="@(Model.IsHome ? "page" : null)">Início</a>
+@foreach (var navigationSection in Model.Sections)
+{
+    <div class="nav-menu-item">
+        <a href="@navigationSection.Href" class="nav-link @(navigationSection.IsActive ? "active" : "")" aria-current="@(navigationSection.IsActive ? "page" : null)">
+            @navigationSection.Label
+        </a>
+        @if (Model.HasCategories)
+        {
+            var menuId = $"catalog-menu-{navigationSection.Key}";
+            <button class="nav-menu-toggle" type="button" aria-expanded="false" aria-controls="@menuId" aria-label="Mostrar categorias de @navigationSection.Label">
+                <span class="nav-menu-caret" aria-hidden="true">⌄</span>
+            </button>
+            <div id="@menuId" class="nav-category-menu" aria-label="@navigationSection.MenuLabel">
+                <a class="nav-category-link nav-category-link-all" href="@navigationSection.Href">Ver todos</a>
+                @foreach (var category in Model.Categories)
+                {
+                    var categoryHref = navigationSection.Key == "products"
+                        ? $"/products?categoryId={category.Id}"
+                        : string.IsNullOrWhiteSpace(category.Slug)
+                            ? $"/products?categoryId={category.Id}"
+                            : $"{navigationSection.Href}?category={Uri.EscapeDataString(category.Slug)}";
+                    <a class="nav-category-link" href="@categoryHref">@category.Label</a>
+                }
+            </div>
+        }
+    </div>
+}

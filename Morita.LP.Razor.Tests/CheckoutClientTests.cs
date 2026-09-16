@@ -33,13 +33,18 @@ public sealed class CheckoutClientTests
     }
 
     [Fact]
-    public async Task Validation_conflict_not_found_and_rate_limit_are_mapped()
+    public async Task Checkout_creation_keeps_reservation_error_mapping()
     {
-        foreach (var pair in new[] { (HttpStatusCode.UnprocessableEntity, CheckoutLoadState.Validation), (HttpStatusCode.Conflict, CheckoutLoadState.Conflict), (HttpStatusCode.NotFound, CheckoutLoadState.NotFound), ((HttpStatusCode)429, CheckoutLoadState.RateLimited) })
+        foreach (var pair in new[] { (HttpStatusCode.UnprocessableEntity, CheckoutLoadState.Validation), (HttpStatusCode.Conflict, CheckoutLoadState.Conflict) })
         {
             using var handler = new RecordingHandler(pair.Item1);
-            var result = await Create(handler).GetAsync(Guid.NewGuid(), new string('a', 32));
+            var result = await Create(handler).CreateAsync(
+                new([], new CheckoutContact(), new CheckoutFulfillment("pickup", Guid.NewGuid())),
+                new string('i', 32),
+                new string('a', 32));
             Assert.Equal(pair.Item2, result.State);
+            if (pair.Item1 == HttpStatusCode.UnprocessableEntity) Assert.Equal("Não foi possível reservar os itens com os dados atuais.", result.Message);
+            if (pair.Item1 == HttpStatusCode.Conflict) Assert.Equal("A tentativa de checkout mudou. Tente novamente.", result.Message);
         }
     }
 
@@ -144,6 +149,18 @@ public sealed class CheckoutClientTests
         Assert.Equal(new string('a', 32), handler.Request.Headers.GetValues("X-Checkout-Access-Token").Single());
         Assert.Equal(new string('i', 32), handler.Request.Headers.GetValues("Idempotency-Key").Single());
         Assert.Contains("\"method\":\"pix\"", handler.Body);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.UnprocessableEntity, PaymentLoadState.Validation, "Não foi possível iniciar o pagamento PIX com os dados atuais.")]
+    [InlineData(HttpStatusCode.Conflict, PaymentLoadState.Conflict, "A tentativa de pagamento PIX mudou. Atualize a página e tente novamente.")]
+    public async Task Pix_initiation_uses_payment_specific_error_mapping(HttpStatusCode status, PaymentLoadState state, string message)
+    {
+        var result = await Create(new RecordingHandler(status))
+            .InitiatePixAsync(Guid.NewGuid(), new string('a', 32), new string('i', 32));
+
+        Assert.Equal(state, result.State);
+        Assert.Equal(message, result.Message);
     }
 
     [Fact]

@@ -4,6 +4,9 @@ const backdrop = document.querySelector('[data-filter-backdrop]');
 const openButton = document.querySelector('[data-filter-open]');
 const closeButton = document.querySelector('[data-filter-close]');
 const sortControl = document.querySelector('[data-catalog-sort]');
+const sortForm = sortControl?.form;
+
+sortControl?.addEventListener('change', () => sortForm?.requestSubmit());
 
 if (form && drawer && backdrop && openButton && closeButton) {
   let lastFocusedElement = null;
@@ -79,5 +82,4 @@ if (form && drawer && backdrop && openButton && closeButton) {
     }
   });
 
-  sortControl?.addEventListener('change', () => form.requestSubmit());
 }
