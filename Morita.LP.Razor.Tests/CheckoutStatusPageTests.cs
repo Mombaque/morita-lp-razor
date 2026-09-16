@@ -73,6 +73,27 @@ public sealed class CheckoutStatusPageTests
         Assert.Equal(paymentStatus, page.Payment!.Status);
     }
 
+    [Theory]
+    [InlineData(PaymentLoadState.Validation, "dados atuais")]
+    [InlineData(PaymentLoadState.Conflict, "tentativa de pagamento PIX mudou")]
+    public async Task Pix_initiation_errors_use_payment_specific_messages(PaymentLoadState state, string expectedMessage)
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "active"),
+            Initiation = PaymentResult.Failure(state)
+        };
+        var page = Create(id, api, new FakeOrderAccess());
+
+        await page.OnPostPayPixAsync(CancellationToken.None);
+
+        Assert.Equal(state, page.PaymentState);
+        Assert.Contains(expectedMessage, page.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(0, api.CheckoutCancelCount);
+        Assert.Equal(0, api.PaymentCancelCount);
+    }
+
     private static CheckoutStatusModel Create(Guid id, FakeCheckout api, FakeOrderAccess order)
     {
         var context = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton<IHostEnvironment>(new TestEnvironment()).BuildServiceProvider() };
@@ -81,7 +102,7 @@ public sealed class CheckoutStatusPageTests
         return page;
     }
     private static CheckoutResponse Checkout(Guid id, string status) => new() { PublicCheckoutId = id, Status = status, ExpiresAt = DateTimeOffset.UtcNow.AddHours(1), AccessExpiresAt = DateTimeOffset.UtcNow.AddDays(30), Currency = "BRL", Total = 10, MerchandiseTotal = 10, Pickup = new PickupSnapshot { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new CheckoutAddress { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } }, Contact = new CheckoutContact { Name = "Ana", Email = "a@a.com", Phone = "1" }, Lines = [new CheckoutLine { PublicOfferId = Guid.NewGuid(), Quantity = 1, Presentation = "Item", UnitPrice = 10, LineTotal = 10 }] };
-    private sealed class FakeCheckout : ICheckoutClient { public CheckoutResponse? Checkout; public PaymentResult Payment = PaymentResult.Failure(PaymentLoadState.NotFound); public int CheckoutCancelCount; public int PaymentCancelCount; public Task<CheckoutConfigurationResult> GetConfigurationAsync(CancellationToken c = default) => Task.FromResult(CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable)); public Task<CheckoutResult> CreateAsync(CheckoutCreateRequest r, string i, string a, CancellationToken c = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.Unavailable)); public Task<CheckoutResult> GetAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, Checkout)); public Task<CheckoutResult> CancelAsync(Guid i, string a, CancellationToken c = default) { CheckoutCancelCount++; return Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, null)); } public Task<PaymentResult> GetPaymentAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(Payment); public Task<PaymentResult> CancelPaymentAsync(Guid i, string a, CancellationToken c = default) { PaymentCancelCount++; return Task.FromResult(PaymentResult.Failure(PaymentLoadState.Success)); } }
+    private sealed class FakeCheckout : ICheckoutClient { public CheckoutResponse? Checkout; public PaymentResult Payment = PaymentResult.Failure(PaymentLoadState.NotFound); public PaymentResult Initiation = PaymentResult.Failure(PaymentLoadState.Unavailable); public int CheckoutCancelCount; public int PaymentCancelCount; public Task<CheckoutConfigurationResult> GetConfigurationAsync(CancellationToken c = default) => Task.FromResult(CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable)); public Task<CheckoutResult> CreateAsync(CheckoutCreateRequest r, string i, string a, CancellationToken c = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.Unavailable)); public Task<CheckoutResult> GetAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, Checkout)); public Task<CheckoutResult> CancelAsync(Guid i, string a, CancellationToken c = default) { CheckoutCancelCount++; return Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, null)); } public Task<PaymentResult> InitiatePixAsync(Guid i, string a, string k, CancellationToken c = default) => Task.FromResult(Initiation); public Task<PaymentResult> GetPaymentAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(Payment); public Task<PaymentResult> CancelPaymentAsync(Guid i, string a, CancellationToken c = default) { PaymentCancelCount++; return Task.FromResult(PaymentResult.Failure(PaymentLoadState.Success)); } }
     private sealed class FakeAccess(Guid id) : ICheckoutAccessCookieStore { public CheckoutAccess? Read(Guid value) => value == id ? new(value, new string('t', 32), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(30)) : null; public bool Write(CheckoutResponse c, string t) => true; public void Clear() { } }
     private sealed class FakeAttempt : IPaymentAttemptCookieStore { public PaymentAttempt? Read(Guid id) => null; public PaymentAttempt Ensure(Guid id) => new(id, new string('i', 32), DateTimeOffset.UtcNow); public void Clear(Guid id) { } }
     private sealed class FakeOrderAccess : IOrderAccessCookieStore { public string? Number; public OrderAccess? Read(string n) => null; public bool Write(string n, string t) { Number = n; return true; } public void Clear() { } }
