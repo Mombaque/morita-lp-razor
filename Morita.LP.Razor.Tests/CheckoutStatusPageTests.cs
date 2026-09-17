@@ -61,6 +61,32 @@ public sealed class CheckoutStatusPageTests
         Assert.DoesNotContain("provider", page.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Successful_pix_initiation_does_not_show_a_failure_message()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "active"),
+            Initiation = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "pending",
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+                PixCopyPaste = "000201010212FAKE",
+                QrCodePngDataUri = "data:image/png;base64,valid"
+            })
+        };
+        var page = Create(id, api, new FakeOrderAccess());
+
+        await page.OnPostPayPixAsync(CancellationToken.None);
+
+        Assert.Equal(PaymentLoadState.Success, page.PaymentState);
+        Assert.Equal("pending", page.Payment!.Status);
+        Assert.Null(page.Message);
+    }
+
     [Theory]
     [InlineData("paymentpending", "pending")]
     [InlineData("cancelled", "cancelled")]
