@@ -4,6 +4,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Morita.LP.Razor.Tests/**/*.cs" />
@@ -13,6 +14,9 @@
     <Content Remove="worktrees/**/*" />
     <None Remove="worktrees/**/*" />
     <PackageReference Include="Microsoft.AspNetCore.DataProtection.Extensions" Version="8.0.19" />
+    <Compile Remove="tests/**/*.cs" />
+    <None Remove="tests/**/*.cs" />
+    <Content Remove="tests/**/*.cs" />
   </ItemGroup>
 
 </Project>

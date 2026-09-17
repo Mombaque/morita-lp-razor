@@ -12,11 +12,12 @@ services:
       - Storefront__DataProtectionKeyDirectory=/var/morita/data-protection-keys
       - CatalogApi__BaseUrl=http://api:5001
       - CatalogApi__ProxySecret=morita-local-relay-secret
+      - DeliveryTracking__ApiBaseUrl=http://api:5001
     volumes:
       - ..:/src
+      - ../appsettings.Development.json:/app/appsettings.Development.json:ro
       - razor-data-protection:/var/morita/data-protection-keys
     networks:
-      - default
       - backend-dev-network
     develop:
       watch:

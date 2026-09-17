@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Morita.LP.Razor.Configuration;
 using Morita.LP.Razor.Models;
+using System.Net.Http.Headers;
 using Morita.LP.Razor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -159,6 +160,27 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 });
+builder.Services.AddOptions<DeliveryTrackingOptions>()
+    .Bind(builder.Configuration.GetSection(DeliveryTrackingOptions.Section))
+    .PostConfigure(options =>
+    {
+        if (string.IsNullOrWhiteSpace(options.ApiBaseUrl))
+            options.ApiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(options.TimeZoneId))
+            options.TimeZoneId = DeliveryTrackingOptions.DefaultTimeZoneId;
+    })
+    .Validate(options => DeliveryTrackingOptions.IsValidApiBaseUrl(options.ApiBaseUrl), "DeliveryTracking:ApiBaseUrl must be an absolute HTTP(S) URL.")
+    .Validate(options => DeliveryTrackingOptions.IsValidPublicDeliveryPath(options.PublicDeliveryPath), "DeliveryTracking:PublicDeliveryPath must be a relative path containing exactly {publicToken}.")
+    .Validate(options => DeliveryTrackingOptions.IsValidTimeZoneId(options.TimeZoneId), "DeliveryTracking:TimeZoneId must identify an installed time zone.")
+    .ValidateOnStart();
+builder.Services.AddHttpClient("public-delivery", (serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<DeliveryTrackingOptions>>().Value;
+    client.BaseAddress = new Uri(options.ApiBaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = TimeSpan.FromSeconds(8);
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+});
+builder.Services.AddScoped<IPublicDeliveryClient, PublicDeliveryClient>();
 
 var app = builder.Build();
 
