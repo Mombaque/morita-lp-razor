@@ -35,7 +35,9 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             return Inaccessible();
         }
         await LoadOwnedAsync(cancellationToken);
-        PaymentState = result.State; Payment = result.Payment; Message = result.Message ?? PaymentMessage(result.State);
+        PaymentState = result.State;
+        Payment = result.Payment;
+        Message = result.Message ?? (result.State == PaymentLoadState.Success ? null : PaymentMessage(result.State));
         return Page();
     }
 
