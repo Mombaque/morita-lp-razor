@@ -6,7 +6,7 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessCookieStore access, IPaymentAttemptCookieStore paymentAttempt, IOrderAccessCookieStore orderAccess, CheckoutRateLimiter rateLimiter) : PageModel
+public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessCookieStore access, IPaymentAttemptCookieStore paymentAttempt, IOrderAccessCookieStore orderAccess, ICartCookieStore cart, CheckoutRateLimiter rateLimiter) : PageModel
 {
     public CheckoutResponse? Checkout { get; private set; }
     public CheckoutLoadState State { get; private set; } = CheckoutLoadState.NotFound;
@@ -14,6 +14,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public string? AccountMessage { get; private set; }
     public PixPayment? Payment { get; private set; }
     public PaymentLoadState PaymentState { get; private set; } = PaymentLoadState.NotFound;
+    public bool HasCurrentCart { get; private set; }
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -28,10 +29,67 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     {
         var credential = access.Read(PublicCheckoutId);
         if (credential is null) return Inaccessible();
-        var result = await client.InitiatePixAsync(PublicCheckoutId, credential.Token, paymentAttempt.Ensure(PublicCheckoutId).IdempotencyKey, cancellationToken);
+        return await InitiatePixAsync(credential.Token, paymentAttempt.Ensure(PublicCheckoutId).IdempotencyKey, cancellationToken);
+    }
+
+    public async Task<IActionResult> OnPostRetryPixAsync(CancellationToken cancellationToken)
+    {
+        var credential = access.Read(PublicCheckoutId);
+        if (credential is null) return Inaccessible();
+
+        var checkoutResult = await client.GetAsync(PublicCheckoutId, credential.Token, cancellationToken);
+        var paymentResult = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
+        if (checkoutResult.State != CheckoutLoadState.Success || checkoutResult.Checkout is null ||
+            paymentResult.State != PaymentLoadState.Success || paymentResult.Payment is not { } payment ||
+            checkoutResult.Checkout.Status is not ("active" or "paymentpending") ||
+            payment.Status is not ("expired" or "failed" or "cancelled"))
+        {
+            await LoadOwnedAsync(cancellationToken);
+            Message = "O pagamento PIX não pode ser gerado novamente neste momento.";
+            return Page();
+        }
+
+        return await InitiatePixAsync(credential.Token, paymentAttempt.Rotate(PublicCheckoutId).IdempotencyKey, cancellationToken);
+    }
+
+    public async Task<IActionResult> OnPostRestoreCheckoutAsync(CancellationToken cancellationToken)
+    {
+        var credential = access.Read(PublicCheckoutId);
+        if (credential is null) return Inaccessible();
+
+        var checkoutResult = await client.GetAsync(PublicCheckoutId, credential.Token, cancellationToken);
+        if (checkoutResult.State != CheckoutLoadState.Success || checkoutResult.Checkout is not { Status: "expired" } checkout)
+        {
+            await LoadOwnedAsync(cancellationToken);
+            Message = "Este checkout não pode ser refeito neste momento.";
+            return Page();
+        }
+
+        var paymentResult = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
+        if (paymentResult.State != PaymentLoadState.NotFound &&
+            (paymentResult.State != PaymentLoadState.Success || paymentResult.Payment is { Status: not ("expired" or "failed" or "cancelled") }))
+        {
+            await LoadOwnedAsync(cancellationToken);
+            Message = "Este checkout não pode ser refeito porque o pagamento ainda pode ser processado.";
+            return Page();
+        }
+
+        if (!cart.Replace(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity)).ToList()))
+        {
+            await LoadOwnedAsync(cancellationToken);
+            Message = "Não foi possível restaurar os itens deste checkout. Volte aos produtos e monte o carrinho novamente.";
+            return Page();
+        }
+
+        return RedirectToPage("/Checkout");
+    }
+
+    private async Task<IActionResult> InitiatePixAsync(string accessToken, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        var result = await client.InitiatePixAsync(PublicCheckoutId, accessToken, idempotencyKey, cancellationToken);
         if (result.State == PaymentLoadState.Success && result.Payment is { PublicOrderNumber: { } number } && result.Payment.Status == "converted")
         {
-            if (orderAccess.Write(number, credential.Token)) return RedirectToPage("/Order", new { publicOrderNumber = number });
+            if (orderAccess.Write(number, accessToken)) return RedirectToPage("/Order", new { publicOrderNumber = number });
             return Inaccessible();
         }
         await LoadOwnedAsync(cancellationToken);
@@ -115,6 +173,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         }
         if (Checkout is not null)
         {
+            HasCurrentCart = cart.Read().Lines.Count > 0;
             var payment = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
             PaymentState = payment.State; Payment = payment.Payment;
             Message = PaymentLifecycleMessage(Payment);

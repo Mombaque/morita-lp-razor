@@ -82,8 +82,25 @@ public sealed class CheckoutCookieStoreTests
         var cookie = CookieValue(context, PaymentAttemptCookieStore.CookieName);
         context.Request.Headers.Cookie = $"{PaymentAttemptCookieStore.CookieName}={cookie}";
         Assert.Equal(first, store.Ensure(id));
+        Assert.NotEqual(first.IdempotencyKey, store.Rotate(id).IdempotencyKey);
         Assert.Null(store.Read(Guid.NewGuid()));
         Assert.Contains("path=/checkout", context.Response.Headers.SetCookie.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Cart_replace_round_trips_valid_lines_and_rejects_invalid_lines()
+    {
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var context = new DefaultHttpContext();
+        var store = new CartCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment("Production"), new FixedTimeProvider(Now));
+        var offerId = Guid.NewGuid();
+
+        Assert.True(store.Replace([new CartLine(offerId, 2)]));
+        var cookie = CookieValue(context, CartCookieStore.CookieName);
+        context.Request.Headers.Cookie = $"{CartCookieStore.CookieName}={cookie}";
+        Assert.Equal([new CartLine(offerId, 2)], store.Read().Lines);
+        Assert.False(store.Replace([new CartLine(Guid.Empty, 1)]));
+        Assert.Equal([new CartLine(offerId, 2)], store.Read().Lines);
     }
 
     [Fact]

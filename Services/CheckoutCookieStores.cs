@@ -29,6 +29,7 @@ public interface IPaymentAttemptCookieStore
 {
     PaymentAttempt? Read(Guid publicCheckoutId);
     PaymentAttempt Ensure(Guid publicCheckoutId);
+    PaymentAttempt Rotate(Guid publicCheckoutId);
     void Clear(Guid publicCheckoutId);
 }
 
@@ -136,6 +137,7 @@ public sealed class PaymentAttemptCookieStore(IHttpContextAccessor accessor, IDa
         { context.Response.Cookies.Delete(CookieName, Options()); return null; }
     }
     public PaymentAttempt Ensure(Guid checkoutId) => Read(checkoutId) ?? Create(checkoutId);
+    public PaymentAttempt Rotate(Guid checkoutId) => Create(checkoutId);
     public void Clear(Guid checkoutId) => accessor.HttpContext?.Response.Cookies.Delete(CookieName, Options());
     private PaymentAttempt Create(Guid checkoutId)
     {
