@@ -1,4 +1,3 @@
-const productOffers = [...document.querySelectorAll('[data-product-offer]')];
 const productColors = [...document.querySelectorAll('[data-product-color]')];
 
 const formatPrice = (value, currency) => {
@@ -44,20 +43,14 @@ const updateProductLink = (card, offerId) => {
   productLink.href = `${href.pathname}${href.search}${href.hash}`;
 };
 
-const selectCardOffer = (card, offer) => {
-  selectCardVariant(card, offer.dataset.variantKey);
+const selectCardColor = (card, color) => {
+  selectCardVariant(card, color.dataset.variantKey);
 
-  card.querySelectorAll('[data-product-offer]').forEach((candidate) => {
-    const selected = candidate === offer;
-    candidate.classList.toggle('selected', selected);
-    candidate.setAttribute('aria-pressed', String(selected));
-  });
-
-  const price = formatPrice(offer.dataset.price, offer.dataset.currency);
+  const price = formatPrice(color.dataset.price, color.dataset.currency);
   const priceElement = card.querySelector('.product-price');
   if (priceElement && price) priceElement.textContent = price;
-  selectCardImage(card, offer.dataset.image);
-  updateProductLink(card, offer.dataset.offerId);
+  selectCardImage(card, color.dataset.image);
+  updateProductLink(card, color.dataset.offerId);
 };
 
 productColors.forEach((color) => {
@@ -66,17 +59,6 @@ productColors.forEach((color) => {
     const card = color.closest('.product');
     if (!card) return;
 
-    const firstOffer = [...card.querySelectorAll('[data-product-offer]')].find((offer) => offer.dataset.variantKey === color.dataset.variantKey);
-    if (firstOffer) selectCardOffer(card, firstOffer);
-  });
-});
-
-productOffers.forEach((offer) => {
-  offer.addEventListener('click', (event) => {
-    event.preventDefault();
-    const card = offer.closest('.product');
-    if (!card) return;
-
-    selectCardOffer(card, offer);
+    selectCardColor(card, color);
   });
 });

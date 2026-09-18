@@ -42,7 +42,7 @@
             var firstAvailableOffer = variant.Offers.First(offer => string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase));
             var colorLabel = string.IsNullOrWhiteSpace(variant.ColorLabel) ? "Cor única" : variant.ColorLabel;
             var firstImage = variant.Images.FirstOrDefault();
-            <a class="product-variant-color-choice@(variantIndex == 0 ? " selected" : "")" href="@(productUrl is null ? "#" : $"{productUrl}?publicOfferId={firstAvailableOffer.PublicOfferId}")" data-product-color data-variant-key="@key" data-offer-id="@firstAvailableOffer.PublicOfferId" data-image="@firstImage" aria-label="Selecionar @colorLabel" aria-pressed="@(variantIndex == 0 ? "true" : "false")">
+            <a class="product-variant-color-choice@(variantIndex == 0 ? " selected" : "")" href="@(productUrl is null ? "#" : $"{productUrl}?publicOfferId={firstAvailableOffer.PublicOfferId}")" data-product-color data-variant-key="@key" data-offer-id="@firstAvailableOffer.PublicOfferId" data-price="@(firstAvailableOffer.UnitPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture))" data-currency="@firstAvailableOffer.Currency" data-image="@firstImage" aria-label="Selecionar @colorLabel" aria-pressed="@(variantIndex == 0 ? "true" : "false")">
               <span class="product-variant-swatch" style="background-color: @ColorValue(variant.ColorHex)" aria-hidden="true"></span>
               <span class="visually-hidden">@colorLabel</span>
             </a>
@@ -58,13 +58,12 @@
             var shownOffers = availableOffers.Take(4).ToList();
             var hiddenOfferCount = Math.Max(0, availableOffers.Count - shownOffers.Count);
             var colorLabel = string.IsNullOrWhiteSpace(variant.ColorLabel) ? "Cor única" : variant.ColorLabel;
-            var firstImage = variant.Images.FirstOrDefault();
             <div class="product-variant-row" data-variant-row="@key" hidden="@(variantIndex == 0 ? null : "hidden")">
               <div class="product-variant-sizes" aria-label="Tamanhos @colorLabel">
                 @foreach (var offer in shownOffers)
                 {
                   var sizeLabel = string.IsNullOrWhiteSpace(offer.SizeLabel) ? "Tamanho único" : offer.SizeLabel;
-                  <a class="product-variant-size" href="@(productUrl is null ? "#" : $"{productUrl}?publicOfferId={offer.PublicOfferId}")" data-product-offer data-offer-id="@offer.PublicOfferId" data-variant-key="@key" data-price="@(offer.UnitPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture))" data-currency="@offer.Currency" data-image="@firstImage" aria-label="Selecionar @colorLabel / @sizeLabel" aria-pressed="false">@sizeLabel</a>
+                  <span class="product-variant-size">@sizeLabel</span>
                 }
                 @if (hiddenOfferCount > 0) { <span class="product-variant-more">+@hiddenOfferCount tamanhos</span> }
               </div>

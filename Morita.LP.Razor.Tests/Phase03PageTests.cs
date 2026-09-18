@@ -145,7 +145,7 @@ public sealed class Phase03PageTests
         Assert.Contains("+1 cores", html);
         Assert.Equal(3, html.Split("+3 tamanhos", StringSplitOptions.None).Length - 1);
         Assert.DoesNotContain(">A7<", html);
-        Assert.Contains("data-product-offer", html);
+        Assert.DoesNotContain("data-product-offer", html);
         Assert.Contains("data-product-color", html);
         Assert.Contains("aria-label=\"Selecionar Cor 1\"", html);
         Assert.Contains("class=\"product-card-options\"", html);
@@ -234,8 +234,8 @@ public sealed class Phase03PageTests
 
         var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products")).Content.ReadAsStringAsync());
 
-        Assert.Contains($"href=\"/products/kimono?publicOfferId={offer}\"", html);
-        Assert.Contains("class=\"product-variant-size\"", html);
+        Assert.Contains($"class=\"product-variant-color-choice selected\" href=\"/products/kimono?publicOfferId={offer}\"", html);
+        Assert.Contains("class=\"product-variant-size\">M</span>", html);
     }
 
     [Fact]

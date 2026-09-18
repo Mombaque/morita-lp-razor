@@ -2203,8 +2203,8 @@ body {
 /* Card variants use a compact, fixed-height selector rail. The detail page
    keeps the complete matrix; cards expose a bounded preview and exact links. */
 .product-card-options {
-  block-size: 7.25rem;
-  flex: 0 0 7.25rem;
+  block-size: 4.75rem;
+  flex: 0 0 4.75rem;
   margin-top: .65rem;
   overflow: hidden;
   position: relative;
@@ -2268,6 +2268,7 @@ body {
 .product-variant-color-choice {
   align-items: center;
   border: 1px solid transparent;
+  border-radius: 50%;
   color: inherit;
   display: inline-flex;
   flex: 0 0 auto;
@@ -2292,6 +2293,8 @@ body {
 }
 
 .product-variant-color-choice .product-variant-swatch {
+  aspect-ratio: 1;
+  flex-basis: .9rem;
   height: .9rem;
   width: .9rem;
 }
@@ -2315,38 +2318,15 @@ body {
 
 .product-variant-size {
   align-items: center;
-  background: transparent;
-  border: 1px solid var(--fight-line);
-  border-radius: 0;
-  color: var(--fight-paper);
-  cursor: pointer;
-  display: inline-flex;
+  color: var(--fight-muted);
+  display: inline-block;
   font-family: "Barlow Condensed", sans-serif;
   flex: 0 0 auto;
   font-size: .78rem;
-  justify-content: center;
   letter-spacing: .04em;
-  min-height: 2.1rem;
-  min-width: 2.15rem;
-  padding: .2rem .45rem;
-  position: relative;
-  z-index: 4;
-  text-decoration: none;
+  line-height: 1.25;
+  padding: .15rem .1rem;
   white-space: nowrap;
-}
-
-.product-variant-size:hover,
-.product-variant-size.selected,
-.product-variant-size:focus-visible {
-  background: var(--fight-green);
-  border-color: var(--fight-green);
-  color: #06100c;
-}
-
-.product-variant-size:focus-visible,
-.offer-size-choice:has(input:focus-visible) {
-  outline: 2px solid var(--fight-green);
-  outline-offset: 3px;
 }
 
 .product-variant-more {
@@ -2422,8 +2402,8 @@ body {
 
 @media (max-width: 520px) {
   .product-card-options {
-    block-size: 7.75rem;
-    flex-basis: 7.75rem;
+    block-size: 5.25rem;
+    flex-basis: 5.25rem;
   }
 
   .product-variant-row,
@@ -2440,10 +2420,6 @@ body {
   .product-variant-color-choice {
     height: 2.75rem;
     width: 2.75rem;
-  }
-
-  .product-variant-size {
-    min-height: 2.75rem;
   }
 }
 
