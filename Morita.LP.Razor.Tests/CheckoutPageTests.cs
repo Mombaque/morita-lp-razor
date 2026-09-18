@@ -668,6 +668,7 @@ public sealed class CheckoutPageTests
         public bool Add(Guid offerId, int quantity) => true;
         public bool Update(Guid offerId, int quantity) => true;
         public bool Remove(Guid offerId) => true;
+        public bool Replace(IReadOnlyList<CartLine> lines) => true;
         public void Clear() => ClearCalls++;
     }
 

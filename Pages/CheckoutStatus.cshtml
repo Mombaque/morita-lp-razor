@@ -150,10 +150,38 @@
             }
         }
 
+        @if (Model.Checkout.Status == "expired")
+        {
+            <section class="checkout-next-step" aria-labelledby="restart-checkout-heading">
+                <div>
+                    <p class="checkout-card-kicker">03 // Próximo passo</p>
+                    <h2 id="restart-checkout-heading">Refazer checkout</h2>
+                    @if (Model.HasCurrentCart)
+                    {
+                        <p>Seu carrinho atual será substituído somente se você confirmar. Caso contrário, continue com o carrinho atual.</p>
+                    }
+                    else
+                    {
+                        <p>Restaure os itens, confira a disponibilidade e gere um novo PIX.</p>
+                    }
+                </div>
+                <div class="checkout-status-actions">
+                    <form method="post" asp-page-handler="RestoreCheckout">
+                        <button class="commerce-button commerce-button-primary" type="submit">Refazer com estes itens</button>
+                    </form>
+                    @if (Model.HasCurrentCart)
+                    {
+                        <a class="commerce-button commerce-button-secondary" href="/checkout">Continuar com carrinho atual</a>
+                    }
+                </div>
+            </section>
+        }
+
         @if (Model.Payment is { } payment)
         {
             var terminal = payment.Status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
             var canCancelPayment = (Model.Checkout.Status is "active" or "paymentpending" or "conversionpending") && (payment.Status is "pending" or "processing" or "approved" or "conversionpending");
+            var canRetryPayment = (Model.Checkout.Status is "active" or "paymentpending") && payment.Status is ("expired" or "failed" or "cancelled");
             <section class="pix-corner-card checkout-payment-card" aria-labelledby="pix-heading" data-payment-status="@payment.Status">
                 <div class="checkout-payment-heading">
                     <div>
@@ -187,6 +215,12 @@
                 {
                     <div class="checkout-status-actions">
                         <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar pagamento</button></form>
+                    </div>
+                }
+                @if (canRetryPayment)
+                {
+                    <div class="checkout-status-actions">
+                        <form method="post" asp-page-handler="RetryPix"><button class="commerce-button commerce-button-primary" type="submit">Gerar novo PIX</button></form>
                     </div>
                 }
             </section>

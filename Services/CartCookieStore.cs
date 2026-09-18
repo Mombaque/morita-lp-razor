@@ -13,6 +13,7 @@ public interface ICartCookieStore
     bool Add(Guid offerId, int quantity);
     bool Update(Guid offerId, int quantity);
     bool Remove(Guid offerId);
+    bool Replace(IReadOnlyList<CartLine> lines);
     void Clear();
 }
 
@@ -85,6 +86,17 @@ public sealed class CartCookieStore(
         var state = Read();
         var lines = state.Lines.Where(x => x.PublicOfferId != offerId).ToList();
         return lines.Count != state.Lines.Count && Write(new(_timeProvider.GetUtcNow(), lines));
+    }
+
+    public bool Replace(IReadOnlyList<CartLine> lines)
+    {
+        if (lines is null || lines.Count is < 1 or > MaxLines ||
+            lines.Any(line => line.PublicOfferId == Guid.Empty || line.Quantity is < 1 or > MaxUnitsPerLine) ||
+            lines.GroupBy(line => line.PublicOfferId).Any(group => group.Count() != 1) ||
+            lines.Sum(line => (long)line.Quantity) > MaxTotalUnits)
+            return false;
+
+        return Write(new(_timeProvider.GetUtcNow(), lines.ToList()));
     }
 
     public void Clear() => accessor.HttpContext?.Response.Cookies.Delete(CookieName, CookieOptions());
