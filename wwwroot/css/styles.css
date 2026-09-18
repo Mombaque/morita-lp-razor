@@ -2094,6 +2094,8 @@ body {
   border: 1px solid rgba(243, 240, 232, .1);
   border-radius: 0;
   box-shadow: none;
+  display: flex;
+  flex-direction: column;
   padding: 0;
   position: relative;
 }
@@ -2130,6 +2132,9 @@ body {
 }
 
 .product-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
   padding: .9rem .9rem 1rem;
 }
 
@@ -2137,8 +2142,13 @@ body {
   font-family: "Barlow Condensed", sans-serif;
   font-size: 1.55rem;
   letter-spacing: -.02em;
+  display: -webkit-box;
   margin: .4rem 0;
+  min-height: 2em;
+  overflow: hidden;
   text-transform: uppercase;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .commerce-page .product p {
@@ -2168,7 +2178,8 @@ body {
   border-top: 1px solid var(--fight-line);
   display: flex;
   justify-content: space-between;
-  margin-top: .9rem;
+  margin-top: auto;
+  min-height: 2.35rem;
   padding-top: .8rem;
 }
 
@@ -2189,15 +2200,35 @@ body {
   margin: 0;
 }
 
-/* Variant matrix: compact industrial rows keep the exact offer visible without
-   competing with the product image, while the full hit area remains usable. */
-.product-card-variants,
+/* Card variants use a compact, fixed-height selector rail. The detail page
+   keeps the complete matrix; cards expose a bounded preview and exact links. */
+.product-card-options {
+  block-size: 7.25rem;
+  flex: 0 0 7.25rem;
+  margin-top: .65rem;
+  overflow: hidden;
+  position: relative;
+  z-index: 3;
+}
+
+.product-card-variant-picker,
+.product-card-variant-rows,
 .detail-variant-matrix {
   display: grid;
   gap: .45rem;
-  margin-top: .9rem;
   position: relative;
-  z-index: 3;
+}
+
+.product-card-variant-picker {
+  align-items: center;
+  display: flex;
+  gap: .15rem;
+  min-height: 2.35rem;
+}
+
+.product-card-variant-rows {
+  gap: .35rem;
+  margin-top: .25rem;
 }
 
 .product-variant-row,
@@ -2206,6 +2237,10 @@ body {
   display: grid;
   gap: .55rem;
   grid-template-columns: minmax(5.8rem, auto) minmax(0, 1fr);
+}
+
+.product-variant-row {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .product-variant-color,
@@ -2230,7 +2265,46 @@ body {
   width: 1.15rem;
 }
 
-.product-variant-sizes,
+.product-variant-color-choice {
+  align-items: center;
+  border: 1px solid transparent;
+  color: inherit;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 2.25rem;
+  justify-content: center;
+  position: relative;
+  text-decoration: none;
+  width: 2.25rem;
+  z-index: 4;
+}
+
+.product-variant-color-choice:hover,
+.product-variant-color-choice.selected,
+.product-variant-color-choice:focus-visible {
+  background: rgba(60, 249, 174, .12);
+  border-color: var(--fight-green);
+}
+
+.product-variant-color-choice:focus-visible {
+  outline: 2px solid var(--fight-green);
+  outline-offset: 3px;
+}
+
+.product-variant-color-choice .product-variant-swatch {
+  height: .9rem;
+  width: .9rem;
+}
+
+.product-variant-sizes {
+  align-items: center;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: .35rem;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .detail-variant-sizes {
   align-items: center;
   display: flex;
@@ -2248,15 +2322,17 @@ body {
   cursor: pointer;
   display: inline-flex;
   font-family: "Barlow Condensed", sans-serif;
-  font-size: .85rem;
+  flex: 0 0 auto;
+  font-size: .78rem;
   justify-content: center;
   letter-spacing: .04em;
-  min-height: 2.75rem;
-  min-width: 2.75rem;
-  padding: .25rem .55rem;
+  min-height: 2.1rem;
+  min-width: 2.15rem;
+  padding: .2rem .45rem;
   position: relative;
   z-index: 4;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .product-variant-size:hover,
@@ -2275,20 +2351,21 @@ body {
 
 .product-variant-more {
   color: var(--fight-muted);
+  flex: 0 0 auto;
   font-family: "Barlow Condensed", sans-serif;
   font-size: .72rem;
   letter-spacing: .04em;
-  padding: .4rem .2rem;
+  padding: .25rem .15rem;
   white-space: nowrap;
 }
 
 .product-variant-more-colors {
-  border-top: 1px solid var(--fight-line);
-  padding-top: .55rem;
+  padding-inline: .35rem;
 }
 
 .detail-variant-matrix {
   border-top: 1px solid var(--fight-line);
+  margin-top: .9rem;
   padding-top: .8rem;
 }
 
@@ -2344,6 +2421,11 @@ body {
 }
 
 @media (max-width: 520px) {
+  .product-card-options {
+    block-size: 7.75rem;
+    flex-basis: 7.75rem;
+  }
+
   .product-variant-row,
   .detail-variant-row {
     grid-template-columns: 1fr;
@@ -2351,6 +2433,17 @@ body {
 
   .detail-variant-heading {
     padding-top: 0;
+  }
+}
+
+@media (pointer: coarse) {
+  .product-variant-color-choice {
+    height: 2.75rem;
+    width: 2.75rem;
+  }
+
+  .product-variant-size {
+    min-height: 2.75rem;
   }
 }
 
