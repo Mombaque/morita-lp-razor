@@ -31,33 +31,48 @@
     <p class="product-description">@p.Descricao</p>
     @if (!string.IsNullOrWhiteSpace(p.FormattedPrice))
     { <partial name="_ProductPrice" model="p.FormattedPrice" /> }
-    @if (visibleVariantRows.Count > 0)
-    {
-      <div class="product-card-variants" aria-label="Variantes disponíveis">
-        @for (var variantIndex = 0; variantIndex < visibleVariantRows.Count; variantIndex++)
-        {
-          var variant = visibleVariantRows[variantIndex];
-          var key = VariantKey(variant, variantIndex);
-          var availableOffers = variant.Offers.Where(offer => string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase)).ToList();
-          var shownOffers = availableOffers.Take(6).ToList();
-          var hiddenOfferCount = Math.Max(0, availableOffers.Count - shownOffers.Count);
-          var colorLabel = string.IsNullOrWhiteSpace(variant.ColorLabel) ? "Cor única" : variant.ColorLabel;
-          var firstImage = variant.Images.FirstOrDefault();
-          <div class="product-variant-row" data-variant-row="@key">
-            <span class="product-variant-color" title="@colorLabel"><span class="product-variant-swatch" style="background-color: @ColorValue(variant.ColorHex)" aria-hidden="true"></span><span>@colorLabel</span></span>
-            <div class="product-variant-sizes" aria-label="Tamanhos @colorLabel">
-              @foreach (var offer in shownOffers)
-              {
-                var sizeLabel = string.IsNullOrWhiteSpace(offer.SizeLabel) ? "Tamanho único" : offer.SizeLabel;
-                <a class="product-variant-size" href="@(productUrl is null ? "#" : $"{productUrl}?publicOfferId={offer.PublicOfferId}")" data-product-offer data-offer-id="@offer.PublicOfferId" data-variant-key="@key" data-price="@(offer.UnitPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture))" data-currency="@offer.Currency" data-image="@firstImage" aria-label="Selecionar @colorLabel / @sizeLabel" aria-pressed="false">@sizeLabel</a>
-              }
-              @if (hiddenOfferCount > 0) { <span class="product-variant-more">+@hiddenOfferCount tamanhos</span> }
+    <div class="product-card-options">
+      @if (visibleVariantRows.Count > 0)
+      {
+        <div class="product-card-variant-picker" aria-label="Cores disponíveis">
+          @for (var variantIndex = 0; variantIndex < visibleVariantRows.Count; variantIndex++)
+          {
+            var variant = visibleVariantRows[variantIndex];
+            var key = VariantKey(variant, variantIndex);
+            var firstAvailableOffer = variant.Offers.First(offer => string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase));
+            var colorLabel = string.IsNullOrWhiteSpace(variant.ColorLabel) ? "Cor única" : variant.ColorLabel;
+            var firstImage = variant.Images.FirstOrDefault();
+            <a class="product-variant-color-choice@(variantIndex == 0 ? " selected" : "")" href="@(productUrl is null ? "#" : $"{productUrl}?publicOfferId={firstAvailableOffer.PublicOfferId}")" data-product-color data-variant-key="@key" data-offer-id="@firstAvailableOffer.PublicOfferId" data-image="@firstImage" aria-label="Selecionar @colorLabel" aria-pressed="@(variantIndex == 0 ? "true" : "false")">
+              <span class="product-variant-swatch" style="background-color: @ColorValue(variant.ColorHex)" aria-hidden="true"></span>
+              <span class="visually-hidden">@colorLabel</span>
+            </a>
+          }
+          @if (hiddenVariantCount > 0) { <span class="product-variant-more product-variant-more-colors">+@hiddenVariantCount cores</span> }
+        </div>
+        <div class="product-card-variant-rows" aria-label="Tamanhos disponíveis">
+          @for (var variantIndex = 0; variantIndex < visibleVariantRows.Count; variantIndex++)
+          {
+            var variant = visibleVariantRows[variantIndex];
+            var key = VariantKey(variant, variantIndex);
+            var availableOffers = variant.Offers.Where(offer => string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase)).ToList();
+            var shownOffers = availableOffers.Take(4).ToList();
+            var hiddenOfferCount = Math.Max(0, availableOffers.Count - shownOffers.Count);
+            var colorLabel = string.IsNullOrWhiteSpace(variant.ColorLabel) ? "Cor única" : variant.ColorLabel;
+            var firstImage = variant.Images.FirstOrDefault();
+            <div class="product-variant-row" data-variant-row="@key" hidden="@(variantIndex == 0 ? null : "hidden")">
+              <div class="product-variant-sizes" aria-label="Tamanhos @colorLabel">
+                @foreach (var offer in shownOffers)
+                {
+                  var sizeLabel = string.IsNullOrWhiteSpace(offer.SizeLabel) ? "Tamanho único" : offer.SizeLabel;
+                  <a class="product-variant-size" href="@(productUrl is null ? "#" : $"{productUrl}?publicOfferId={offer.PublicOfferId}")" data-product-offer data-offer-id="@offer.PublicOfferId" data-variant-key="@key" data-price="@(offer.UnitPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture))" data-currency="@offer.Currency" data-image="@firstImage" aria-label="Selecionar @colorLabel / @sizeLabel" aria-pressed="false">@sizeLabel</a>
+                }
+                @if (hiddenOfferCount > 0) { <span class="product-variant-more">+@hiddenOfferCount tamanhos</span> }
+              </div>
             </div>
-          </div>
-        }
-        @if (hiddenVariantCount > 0) { <span class="product-variant-more product-variant-more-colors">+@hiddenVariantCount cores</span> }
-      </div>
-    }
+          }
+        </div>
+      }
+    </div>
     @if (productUrl is null)
     { <button class="product-cta" type="button" aria-label="Consultar disponibilidade de @p.Nome" data-request-open data-track-event="customer_product_request_open" data-track-category="@Model.Category" data-track-selected-category="@p.Nome"><i class="fas fa-magnifying-glass"></i> Consultar disponibilidade</button> }
     else

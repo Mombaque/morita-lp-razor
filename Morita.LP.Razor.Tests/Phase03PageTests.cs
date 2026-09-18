@@ -143,9 +143,12 @@ public sealed class Phase03PageTests
         var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products")).Content.ReadAsStringAsync());
         Assert.Equal(3, html.Split("class=\"product-variant-row\"", StringSplitOptions.None).Length - 1);
         Assert.Contains("+1 cores", html);
-        Assert.Equal(3, html.Split("+1 tamanhos", StringSplitOptions.None).Length - 1);
+        Assert.Equal(3, html.Split("+3 tamanhos", StringSplitOptions.None).Length - 1);
         Assert.DoesNotContain(">A7<", html);
         Assert.Contains("data-product-offer", html);
+        Assert.Contains("data-product-color", html);
+        Assert.Contains("aria-label=\"Selecionar Cor 1\"", html);
+        Assert.Contains("class=\"product-card-options\"", html);
         Assert.Contains("data-offer-id=\"", html);
         Assert.Contains("#1255CC", html);
     }
