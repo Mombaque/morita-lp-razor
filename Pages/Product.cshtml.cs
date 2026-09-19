@@ -64,11 +64,33 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
         {
             var result = await cartMutations.AddAsync(publicOfferId, quantity, cancellationToken);
             if (result.Succeeded)
+            {
+                if (WantsJsonResponse)
+                    return new JsonResult(new { ok = true, redirectUrl = Url.Page("/Cart") });
                 return RedirectToPage("/Cart");
+            }
+
             ModelState.AddModelError("quantity", MutationMessage(result.Status));
         }
+
+        if (WantsJsonResponse)
+            return AddErrorResponse();
+
         Related = await client.GetRelatedAsync(slug, 4, cancellationToken);
         return Page();
+    }
+
+    private bool WantsJsonResponse =>
+        string.Equals(Request.Headers["X-Requested-With"].ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
+    private IActionResult AddErrorResponse()
+    {
+        var error = ModelState.Values
+            .SelectMany(value => value.Errors)
+            .Select(item => item.ErrorMessage)
+            .FirstOrDefault(message => !string.IsNullOrWhiteSpace(message))
+            ?? "Não foi possível adicionar este item. Tente novamente.";
+        return new JsonResult(new { ok = false, error });
     }
 
     private static string MutationMessage(CartMutationStatus status) => status switch
