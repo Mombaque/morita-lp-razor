@@ -132,7 +132,7 @@ public sealed class CheckoutStatusPageTests
             CardInitiation = new(PaymentLoadState.Success, new PixPayment
             {
                 Status = "pending",
-                Method = "card",
+                Method = OnlinePaymentMethod.Card,
                 Amount = 10,
                 Currency = "BRL",
                 ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
@@ -146,6 +146,8 @@ public sealed class CheckoutStatusPageTests
 
         Assert.Equal(PaymentLoadState.Success, page.PaymentState);
         Assert.Equal("pending", page.Payment!.Status);
+        Assert.Equal(OnlinePaymentMethod.Card, page.Payment.Method);
+        Assert.Equal(OnlinePaymentMethod.Card, page.PaymentMethod);
         Assert.Equal("4242", page.Payment.CardLast4);
         Assert.Equal("tok_pending", api.LastPaymentToken);
         Assert.Null(page.Message);
@@ -175,7 +177,7 @@ public sealed class CheckoutStatusPageTests
             CardInitiation = new(PaymentLoadState.Success, new PixPayment
             {
                 Status = "converted",
-                Method = "card",
+                Method = OnlinePaymentMethod.Card,
                 Amount = 10,
                 Currency = "BRL",
                 ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
