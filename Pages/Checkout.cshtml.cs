@@ -33,6 +33,7 @@ public sealed class CheckoutModel(
     public ShippingQuoteResult ShippingQuotes { get; private set; } = ShippingQuoteResult.Failure(CheckoutLoadState.Validation);
     [BindProperty] public ContactInput Contact { get; set; } = new();
     [BindProperty] public string FulfillmentMethod { get; set; } = "pickup";
+    [BindProperty] public string PaymentMethod { get; set; } = StorefrontOnlinePayments.Pix;
     [BindProperty] public Guid? PublicShippingQuoteId { get; set; }
     [BindProperty] public ShippingAddressInput ShippingAddress { get; set; } = new();
     [BindProperty] public Guid? SelectedAddressId { get; set; }
@@ -41,6 +42,12 @@ public sealed class CheckoutModel(
     public string? SavedAddressLabel { get; set; } = "Meu endereço";
     [BindProperty] public bool SetSavedAddressDefault { get; set; }
     [BindProperty] public bool SaveShippingAddress { get; set; }
+    public IReadOnlyList<string> AvailablePaymentMethods =>
+        StorefrontOnlinePayments.Normalize(Configuration.Configuration?.OnlinePaymentMethods);
+    public bool PixAvailable => AvailablePaymentMethods.Contains(StorefrontOnlinePayments.Pix, StringComparer.Ordinal);
+    public bool CardAvailable => AvailablePaymentMethods.Contains(StorefrontOnlinePayments.Card, StringComparer.Ordinal);
+    public bool HasOnlinePaymentMethods => AvailablePaymentMethods.Count > 0;
+    public string ContinueLabel => StorefrontOnlinePayments.ContinueLabel(PaymentMethod);
     public bool Empty => Cart.Lines.Count == 0;
     public bool HasAvailableFulfillment => Configuration.State == CheckoutLoadState.Success &&
         (Configuration.Configuration?.PickupEnabled == true || Configuration.Configuration?.ShippingEnabled == true);
@@ -91,6 +98,7 @@ public sealed class CheckoutModel(
             return Page();
         }
         FulfillmentMethod = Configuration.Configuration?.ShippingEnabled == true ? "shipping" : "pickup";
+        PaymentMethod = StorefrontOnlinePayments.DefaultMethod(AvailablePaymentMethods);
         draft.Ensure(); return Page();
     }
 
@@ -181,7 +189,11 @@ public sealed class CheckoutModel(
                     }
                 }
             }
-            return RedirectToPage("/CheckoutStatus", new { publicCheckoutId = result.Checkout.PublicCheckoutId });
+            return RedirectToPage("/CheckoutStatus", new
+            {
+                publicCheckoutId = result.Checkout.PublicCheckoutId,
+                paymentMethod = SelectedPaymentMethod()
+            });
         }
         ErrorState = result.State; ErrorMessage = result.Message ?? Message(result.State);
         if (result.State is CheckoutLoadState.Validation or CheckoutLoadState.Conflict)
@@ -276,6 +288,16 @@ public sealed class CheckoutModel(
             ErrorState = ShippingQuotes.State;
             ErrorMessage = ShippingQuotes.Message ?? "Não foi possível calcular o frete para este CEP.";
         }
+    }
+    private string SelectedPaymentMethod()
+    {
+        var available = AvailablePaymentMethods;
+        if (available.Contains(PaymentMethod, StringComparer.OrdinalIgnoreCase))
+        {
+            return StorefrontOnlinePayments.IsCard(PaymentMethod) ? StorefrontOnlinePayments.Card : StorefrontOnlinePayments.Pix;
+        }
+
+        return StorefrontOnlinePayments.DefaultMethod(available);
     }
     private void ValidateFulfillment()
     {
