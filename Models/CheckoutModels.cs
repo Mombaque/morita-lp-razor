@@ -18,7 +18,7 @@ public sealed record PaymentResult(PaymentLoadState State, PixPayment? Payment, 
 public sealed class PixPayment
 {
     public string Status { get; init; } = "";
-    public string Method { get; init; } = StorefrontOnlinePayments.Pix;
+    public OnlinePaymentMethod Method { get; init; } = OnlinePaymentMethod.Pix;
     public decimal Amount { get; init; }
     public string Currency { get; init; } = "";
     public DateTimeOffset ExpiresAt { get; init; }
@@ -27,8 +27,8 @@ public sealed class PixPayment
     public string? CardLast4 { get; init; }
     public string? PublicOrderNumber { get; init; }
 
-    public bool IsPix => StorefrontOnlinePayments.IsPix(Method);
-    public bool IsCard => StorefrontOnlinePayments.IsCard(Method);
+    public bool IsPix => Method == OnlinePaymentMethod.Pix;
+    public bool IsCard => Method == OnlinePaymentMethod.Card;
 }
 
 public enum OrderLoadState { Success, NotFound, Unauthorized, Unavailable, Timeout, Malformed }
@@ -77,7 +77,7 @@ public sealed class CheckoutConfiguration
     public Guid? PublicPickupId { get; init; }
     public string Currency { get; init; } = "BRL";
     public PickupSnapshot? Pickup { get; init; }
-    public IReadOnlyList<string> OnlinePaymentMethods { get; init; } = [];
+    public IReadOnlyList<OnlinePaymentMethod> OnlinePaymentMethods { get; init; } = [];
 }
 
 public sealed class CheckoutResponse
