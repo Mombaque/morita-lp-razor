@@ -101,7 +101,7 @@
                 @if (Model.PixAvailable)
                 {
                   <label class="fulfillment-choice">
-                    <input asp-for="PaymentMethod" type="radio" value="pix" data-payment-method="pix">
+                    <input asp-for="PaymentMethod" type="radio" value="@OnlinePaymentMethod.Pix.ToWireValue()" data-payment-method="@OnlinePaymentMethod.Pix.ToWireValue()">
                     <span>
                       <strong>PIX</strong>
                       <small>QR Code ou código copia e cola no app do banco</small>
@@ -112,7 +112,7 @@
                 @if (Model.CardAvailable)
                 {
                   <label class="fulfillment-choice">
-                    <input asp-for="PaymentMethod" type="radio" value="card" data-payment-method="card">
+                    <input asp-for="PaymentMethod" type="radio" value="@OnlinePaymentMethod.Card.ToWireValue()" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
                     <span>
                       <strong>Cartão</strong>
                       <small>Token de pagamento. O número do cartão não é enviado à Morita.</small>
