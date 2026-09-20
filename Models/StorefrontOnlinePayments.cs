@@ -2,48 +2,72 @@ namespace Morita.LP.Razor.Models;
 
 public static class StorefrontOnlinePayments
 {
-    public const string Pix = "pix";
-    public const string Card = "card";
+    public static bool TryParse(string? value, out OnlinePaymentMethod method)
+    {
+        foreach (var defined in Enum.GetValues<OnlinePaymentMethod>())
+        {
+            if (string.Equals(value, defined.ToString(), StringComparison.OrdinalIgnoreCase))
+            {
+                method = defined;
+                return true;
+            }
+        }
 
-    public static IReadOnlyList<string> Normalize(IEnumerable<string>? methods)
+        method = default;
+        return false;
+    }
+
+    public static IReadOnlyList<OnlinePaymentMethod> Normalize(IEnumerable<string>? methods)
     {
         if (methods is null)
         {
             return [];
         }
 
-        var normalized = new List<string>(2);
+        var normalized = new List<OnlinePaymentMethod>(2);
         foreach (var method in methods)
         {
-            if (IsPix(method) && !normalized.Contains(Pix, StringComparer.Ordinal))
+            if (TryParse(method, out var parsed) && !normalized.Contains(parsed))
             {
-                normalized.Add(Pix);
-            }
-            else if (IsCard(method) && !normalized.Contains(Card, StringComparer.Ordinal))
-            {
-                normalized.Add(Card);
+                normalized.Add(parsed);
             }
         }
 
         return normalized;
     }
 
-    public static string DefaultMethod(IReadOnlyList<string> methods)
+    public static IReadOnlyList<OnlinePaymentMethod> Normalize(IEnumerable<OnlinePaymentMethod>? methods)
     {
-        if (methods.Contains(Pix, StringComparer.Ordinal))
+        if (methods is null)
         {
-            return Pix;
+            return [];
         }
 
-        return methods.Contains(Card, StringComparer.Ordinal) ? Card : "";
+        var normalized = new List<OnlinePaymentMethod>(2);
+        foreach (var method in methods)
+        {
+            if (!normalized.Contains(method))
+            {
+                normalized.Add(method);
+            }
+        }
+
+        return normalized;
     }
 
-    public static bool IsPix(string? value) =>
-        string.Equals(value, Pix, StringComparison.OrdinalIgnoreCase);
+    public static OnlinePaymentMethod? DefaultMethod(IReadOnlyList<OnlinePaymentMethod> methods)
+    {
+        if (methods.Contains(OnlinePaymentMethod.Pix))
+        {
+            return OnlinePaymentMethod.Pix;
+        }
 
-    public static bool IsCard(string? value) =>
-        string.Equals(value, Card, StringComparison.OrdinalIgnoreCase);
+        return methods.Contains(OnlinePaymentMethod.Card) ? OnlinePaymentMethod.Card : null;
+    }
 
-    public static string ContinueLabel(string? method) =>
-        IsCard(method) ? "Continuar para o cartão" : "Continuar para o PIX";
+    public static string ContinueLabel(OnlinePaymentMethod? method) =>
+        method == OnlinePaymentMethod.Card ? "Continuar para o cartão" : "Continuar para o PIX";
+
+    public static string ToWireValue(this OnlinePaymentMethod method) =>
+        method.ToString().ToLowerInvariant();
 }
