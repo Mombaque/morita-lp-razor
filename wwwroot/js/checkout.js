@@ -8,6 +8,7 @@ if (form) {
   const addressControls = form.querySelector('[data-new-address-controls]');
   const quoteShipping = form.querySelector('[data-quote-shipping]');
   let shippingQuoteContent = form.querySelector('[data-shipping-quote]');
+  const paymentMethods = { pix: 'pix', card: 'card' };
   const paymentInputs = [...form.querySelectorAll('input[name="PaymentMethod"]')];
   const submit = form.querySelector('[data-checkout-submit]');
   const submitLabel = submit?.querySelector('[data-checkout-submit-label]');
@@ -59,7 +60,7 @@ if (form) {
     });
     const payment = paymentInputs.find((input) => input.checked)?.value;
     if (submitLabel) {
-      submitLabel.textContent = payment === 'card' ? 'Continuar para o cartão' : 'Continuar para o PIX';
+      submitLabel.textContent = payment === paymentMethods.card ? 'Continuar para o cartão' : 'Continuar para o PIX';
     }
     const disabled = !checkoutReady || !method || (method === 'shipping' && !hasShippingQuote);
     if (submit) {
