@@ -136,14 +136,60 @@
         {
             @if (Model.PaymentState is PaymentLoadState.NotFound or PaymentLoadState.Success)
             {
-                <section class="checkout-next-step" aria-labelledby="next-step-heading">
+                <section class="checkout-next-step" aria-labelledby="next-step-heading" data-checkout="payment-choice">
                     <div>
                         <p class="checkout-card-kicker">03 // Próximo passo</p>
                         <h2 id="next-step-heading">Finalize sua reserva</h2>
-                        <p>Faça o pagamento com PIX para concluir o pedido.</p>
+                        @if (!Model.HasOnlinePaymentMethods)
+                        {
+                            <p>Pagamentos online estão indisponíveis no momento.</p>
+                        }
+                        else if (Model.PixAvailable && Model.CardAvailable)
+                        {
+                            <p>Escolha PIX ou cartão para concluir o pedido.</p>
+                        }
+                        else if (Model.CardAvailable)
+                        {
+                            <p>Faça o pagamento com cartão para concluir o pedido. O número do cartão não é enviado à Morita.</p>
+                        }
+                        else
+                        {
+                            <p>Faça o pagamento com PIX para concluir o pedido.</p>
+                        }
                     </div>
                     <div class="checkout-status-actions">
-                        <form method="post" asp-page-handler="PayPix"><button class="commerce-button commerce-button-primary" type="submit">Pagar com PIX</button></form>
+                        @if (Model.PixAvailable && Model.CardAvailable)
+                        {
+                            <form method="get" class="payment-method-switch" data-payment-methods>
+                                <fieldset>
+                                    <legend class="visually-hidden">Forma de pagamento</legend>
+                                    <label class="fulfillment-choice">
+                                        <input type="radio" name="paymentMethod" value="pix" checked="@(Model.PaymentMethod != "card" ? "checked" : null)" data-payment-method="pix">
+                                        <span><strong>PIX</strong><small>QR Code ou copia e cola</small></span>
+                                    </label>
+                                    <label class="fulfillment-choice">
+                                        <input type="radio" name="paymentMethod" value="card" checked="@(Model.PaymentMethod == "card" ? "checked" : null)" data-payment-method="card">
+                                        <span><strong>Cartão</strong><small>Token de teste, sem o número do cartão</small></span>
+                                    </label>
+                                </fieldset>
+                                <button class="commerce-button commerce-button-secondary" type="submit">Usar esta forma</button>
+                            </form>
+                        }
+                        @if (Model.PixAvailable && Model.PaymentMethod != "card")
+                        {
+                            <form method="post" asp-page-handler="PayPix"><button class="commerce-button commerce-button-primary" type="submit">Pagar com PIX</button></form>
+                        }
+                        @if (Model.CardAvailable && (Model.PaymentMethod == "card" || !Model.PixAvailable))
+                        {
+                            <form method="post" asp-page-handler="PayCard" class="card-token-form" data-card-payment>
+                                <p class="cart-estimate-note">Ambiente de teste: use um token. Nunca informe o número, a validade ou o CVV.</p>
+                                <div class="card-token-scenarios">
+                                    <button class="commerce-button commerce-button-primary" type="submit" name="PaymentToken" value="tok_pending" data-card-scenario="tok_pending">Simular pagamento pendente (final 4242)</button>
+                                    <button class="commerce-button commerce-button-secondary" type="submit" name="PaymentToken" value="tok_approve" data-card-scenario="tok_approve">Aprovar imediatamente (final 0002)</button>
+                                    <button class="commerce-button commerce-button-secondary" type="submit" name="PaymentToken" value="tok_fail" data-card-scenario="tok_fail">Simular recusa (final 0003)</button>
+                                </div>
+                            </form>
+                        }
                         <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar reserva</button></form>
                     </div>
                 </section>
@@ -162,7 +208,7 @@
                     }
                     else
                     {
-                        <p>Restaure os itens, confira a disponibilidade e gere um novo PIX.</p>
+                        <p>Restaure os itens, confira a disponibilidade e gere um novo pagamento.</p>
                     }
                 </div>
                 <div class="checkout-status-actions">
@@ -182,16 +228,21 @@
             var terminal = payment.Status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
             var canCancelPayment = (Model.Checkout.Status is "active" or "paymentpending" or "conversionpending") && (payment.Status is "pending" or "processing" or "approved" or "conversionpending");
             var canRetryPayment = (Model.Checkout.Status is "active" or "paymentpending") && payment.Status is ("expired" or "failed" or "cancelled");
-            <section class="pix-corner-card checkout-payment-card" aria-labelledby="pix-heading" data-payment-status="@payment.Status">
+            <section class="pix-corner-card checkout-payment-card" aria-labelledby="payment-heading" data-payment-status="@payment.Status" data-payment-method="@payment.Method">
                 <div class="checkout-payment-heading">
                     <div>
                         <p class="checkout-card-kicker">03 // Pagamento</p>
-                        <h2 id="pix-heading">PIX</h2>
+                        <h2 id="payment-heading">@(payment.IsCard ? "Cartão" : "PIX")</h2>
                     </div>
-                    <span class="checkout-payment-state">@(payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" })</span>
+                    <span class="checkout-payment-state">@(payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" })</span>
                 </div>
 
-                @if (!terminal && (payment.Status is "pending" or "processing" or "approved" or "conversionpending") && !string.IsNullOrWhiteSpace(payment.QrCodePngDataUri) && !string.IsNullOrWhiteSpace(payment.PixCopyPaste))
+                @if (payment.IsCard && !string.IsNullOrWhiteSpace(payment.CardLast4))
+                {
+                    <p class="card-last4" data-card-last4="@payment.CardLast4">Cartão final @payment.CardLast4</p>
+                }
+
+                @if (!terminal && payment.IsPix && (payment.Status is "pending" or "processing" or "approved" or "conversionpending") && !string.IsNullOrWhiteSpace(payment.QrCodePngDataUri) && !string.IsNullOrWhiteSpace(payment.PixCopyPaste))
                 {
                     <div class="pix-payment-layout">
                         <div class="pix-instructions">
@@ -211,16 +262,37 @@
                         </div>
                     </div>
                 }
+                @if (!terminal && payment.IsCard && payment.Status is "pending" or "processing" or "approved" or "conversionpending")
+                {
+                    <div class="card-payment-pending">
+                        <p class="pix-instructions-title">Aguardando a operadora</p>
+                        <p>Não saia desta página. O pedido será confirmado automaticamente quando o pagamento for aprovado.</p>
+                        <p class="pix-expiry">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@payment.ExpiresAt.ToLocalTime().ToString("g")</time>.</p>
+                    </div>
+                }
                 @if (canCancelPayment)
                 {
                     <div class="checkout-status-actions">
                         <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar pagamento</button></form>
                     </div>
                 }
-                @if (canRetryPayment)
+                @if (canRetryPayment && payment.IsPix)
                 {
                     <div class="checkout-status-actions">
                         <form method="post" asp-page-handler="RetryPix"><button class="commerce-button commerce-button-primary" type="submit">Gerar novo PIX</button></form>
+                    </div>
+                }
+                @if (canRetryPayment && payment.IsCard)
+                {
+                    <div class="checkout-status-actions">
+                        <form method="post" asp-page-handler="RetryCard" class="card-token-form" data-card-payment>
+                            <p class="cart-estimate-note">Escolha um novo token de teste. O número do cartão continua fora desta tela.</p>
+                            <div class="card-token-scenarios">
+                                <button class="commerce-button commerce-button-primary" type="submit" name="PaymentToken" value="tok_pending" data-card-scenario="tok_pending">Tentar cartão pendente (final 4242)</button>
+                                <button class="commerce-button commerce-button-secondary" type="submit" name="PaymentToken" value="tok_approve" data-card-scenario="tok_approve">Aprovar imediatamente (final 0002)</button>
+                                <button class="commerce-button commerce-button-secondary" type="submit" name="PaymentToken" value="tok_fail" data-card-scenario="tok_fail">Simular recusa (final 0003)</button>
+                            </div>
+                        </form>
                     </div>
                 }
             </section>
