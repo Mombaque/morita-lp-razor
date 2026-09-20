@@ -137,7 +137,7 @@ public sealed class CheckoutClientTests
             .GetConfigurationAsync();
 
         Assert.Equal(CheckoutLoadState.Success, result.State);
-        Assert.Equal(new[] { "pix", "card" }, result.Configuration!.OnlinePaymentMethods);
+        Assert.Equal(new[] { OnlinePaymentMethod.Pix, OnlinePaymentMethod.Card }, result.Configuration!.OnlinePaymentMethods);
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public sealed class CheckoutClientTests
         var handler = new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "card", last4: "4242", includePix: false));
         var result = await Create(handler).InitiateCardAsync(id, new string('a', 32), new string('i', 32), "tok_pending");
         Assert.Equal(PaymentLoadState.Success, result.State);
-        Assert.Equal("card", result.Payment!.Method);
+        Assert.Equal(OnlinePaymentMethod.Card, result.Payment!.Method);
         Assert.Equal("4242", result.Payment.CardLast4);
         Assert.Equal("", result.Payment.PixCopyPaste);
         Assert.Equal($"https://api.test/v1/storefront/checkouts/{id:D}/payments/card", handler.Request!.RequestUri!.ToString());
@@ -242,7 +242,7 @@ public sealed class CheckoutClientTests
         Assert.Equal("cancellationpending", cancellationPending.Payment!.Status);
         var pendingCard = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "card", last4: "0002", includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Success, pendingCard.State);
-        Assert.Equal("card", pendingCard.Payment!.Method);
+        Assert.Equal(OnlinePaymentMethod.Card, pendingCard.Payment!.Method);
         Assert.Equal("0002", pendingCard.Payment.CardLast4);
         var pendingCardWithoutLast4 = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "card", includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Malformed, pendingCardWithoutLast4.State);
@@ -251,6 +251,10 @@ public sealed class CheckoutClientTests
         Assert.Equal("MF-0123456789ABCDEF", convertedCard.Payment!.PublicOrderNumber);
         var badStatus = await Create(new RecordingHandler(PaymentJson("unknown", DateTimeOffset.UtcNow.AddMinutes(10)))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Malformed, badStatus.State);
+        var unknownMethod = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "wire"))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        Assert.Equal(PaymentLoadState.Malformed, unknownMethod.State);
+        var numericMethod = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "0"))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        Assert.Equal(PaymentLoadState.Malformed, numericMethod.State);
     }
 
     [Fact]
