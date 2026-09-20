@@ -8,7 +8,9 @@ if (form) {
   const addressControls = form.querySelector('[data-new-address-controls]');
   const quoteShipping = form.querySelector('[data-quote-shipping]');
   let shippingQuoteContent = form.querySelector('[data-shipping-quote]');
+  const paymentInputs = [...form.querySelectorAll('input[name="PaymentMethod"]')];
   const submit = form.querySelector('[data-checkout-submit]');
+  const submitLabel = submit?.querySelector('[data-checkout-submit-label]');
   const feedback = form.querySelector('[data-checkout-feedback]');
   const checkoutReady = submit?.dataset.checkoutReady === 'true';
   const initialFeedback = feedback?.textContent?.trim() ?? '';
@@ -55,6 +57,10 @@ if (form) {
     shippingFields.forEach((field) => {
       field.required = method === 'shipping' && field.name !== 'PublicShippingQuoteId';
     });
+    const payment = paymentInputs.find((input) => input.checked)?.value;
+    if (submitLabel) {
+      submitLabel.textContent = payment === 'card' ? 'Continuar para o cartão' : 'Continuar para o PIX';
+    }
     const disabled = !checkoutReady || !method || (method === 'shipping' && !hasShippingQuote);
     if (submit) {
       submit.disabled = disabled;
@@ -116,6 +122,7 @@ if (form) {
   };
 
   methodInputs.forEach((input) => input.addEventListener('change', update));
+  paymentInputs.forEach((input) => input.addEventListener('change', update));
   bindShippingQuoteChoices();
   form.addEventListener('submit', (event) => {
     if (event.submitter !== quoteShipping) return;
