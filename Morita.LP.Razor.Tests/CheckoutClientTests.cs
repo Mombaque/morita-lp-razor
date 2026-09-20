@@ -127,6 +127,17 @@ public sealed class CheckoutClientTests
         Assert.Equal(CheckoutLoadState.Success, result.State);
         Assert.True(result.Configuration!.ShippingEnabled);
         Assert.Null(result.Configuration.Pickup);
+        Assert.Empty(result.Configuration.OnlinePaymentMethods);
+    }
+
+    [Fact]
+    public async Task Configuration_maps_online_payment_methods_and_ignores_unknown_values()
+    {
+        var result = await Create(new RecordingHandler("{\"pickupEnabled\":false,\"shippingEnabled\":true,\"currency\":\"BRL\",\"onlinePaymentMethods\":[\"PIX\",\"card\",\"wire\"]}"))
+            .GetConfigurationAsync();
+
+        Assert.Equal(CheckoutLoadState.Success, result.State);
+        Assert.Equal(new[] { "pix", "card" }, result.Configuration!.OnlinePaymentMethods);
     }
 
     [Fact]
@@ -149,6 +160,36 @@ public sealed class CheckoutClientTests
         Assert.Equal(new string('a', 32), handler.Request.Headers.GetValues("X-Checkout-Access-Token").Single());
         Assert.Equal(new string('i', 32), handler.Request.Headers.GetValues("Idempotency-Key").Single());
         Assert.Contains("\"method\":\"pix\"", handler.Body);
+    }
+
+    [Fact]
+    public async Task Card_initiation_sends_token_without_a_primary_account_number()
+    {
+        var id = Guid.NewGuid();
+        var handler = new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "card", last4: "4242", includePix: false));
+        var result = await Create(handler).InitiateCardAsync(id, new string('a', 32), new string('i', 32), "tok_pending");
+        Assert.Equal(PaymentLoadState.Success, result.State);
+        Assert.Equal("card", result.Payment!.Method);
+        Assert.Equal("4242", result.Payment.CardLast4);
+        Assert.Equal("", result.Payment.PixCopyPaste);
+        Assert.Equal($"https://api.test/v1/storefront/checkouts/{id:D}/payments/card", handler.Request!.RequestUri!.ToString());
+        Assert.Equal(new string('a', 32), handler.Request.Headers.GetValues("X-Checkout-Access-Token").Single());
+        Assert.Equal(new string('i', 32), handler.Request.Headers.GetValues("Idempotency-Key").Single());
+        Assert.Contains("\"method\":\"card\"", handler.Body);
+        Assert.Contains("\"paymentToken\":\"tok_pending\"", handler.Body);
+        Assert.DoesNotContain("4242424242424242", handler.Body);
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.UnprocessableEntity, PaymentLoadState.Validation, "Não foi possível iniciar o pagamento com cartão com os dados atuais.")]
+    [InlineData(HttpStatusCode.Conflict, PaymentLoadState.Conflict, "A tentativa de pagamento com cartão mudou. Atualize a página e tente novamente.")]
+    public async Task Card_initiation_uses_payment_specific_error_mapping(HttpStatusCode status, PaymentLoadState state, string message)
+    {
+        var result = await Create(new RecordingHandler(status))
+            .InitiateCardAsync(Guid.NewGuid(), new string('a', 32), new string('i', 32), "tok_pending");
+
+        Assert.Equal(state, result.State);
+        Assert.Equal(message, result.Message);
     }
 
     [Theory]
@@ -199,6 +240,15 @@ public sealed class CheckoutClientTests
         var cancellationPending = await Create(new RecordingHandler(PaymentJson("CancellationPending", DateTimeOffset.UtcNow.AddMinutes(10), includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Success, cancellationPending.State);
         Assert.Equal("cancellationpending", cancellationPending.Payment!.Status);
+        var pendingCard = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "card", last4: "0002", includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        Assert.Equal(PaymentLoadState.Success, pendingCard.State);
+        Assert.Equal("card", pendingCard.Payment!.Method);
+        Assert.Equal("0002", pendingCard.Payment.CardLast4);
+        var pendingCardWithoutLast4 = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "card", includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        Assert.Equal(PaymentLoadState.Malformed, pendingCardWithoutLast4.State);
+        var convertedCard = await Create(new RecordingHandler(PaymentJson("converted", DateTimeOffset.UtcNow.AddDays(-1), "MF-0123456789ABCDEF", method: "card", last4: "4242", includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        Assert.Equal(PaymentLoadState.Success, convertedCard.State);
+        Assert.Equal("MF-0123456789ABCDEF", convertedCard.Payment!.PublicOrderNumber);
         var badStatus = await Create(new RecordingHandler(PaymentJson("unknown", DateTimeOffset.UtcNow.AddMinutes(10)))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Malformed, badStatus.State);
     }
@@ -215,7 +265,7 @@ public sealed class CheckoutClientTests
         Assert.Equal(CheckoutLoadState.Malformed, (await Create(new RecordingHandler(CheckoutJson("Unknown"))).GetAsync(Guid.NewGuid(), new string('a', 32))).State);
     }
 
-    private static string PaymentJson(string status, DateTimeOffset expires, string? order = null, string? qr = null, bool includePix = true) => JsonSerializer.Serialize(new { status, amount = 10.00m, currency = "BRL", expiresAt = expires, pixCopyPaste = includePix ? "000201010212" : null, qrCodePngBase64 = includePix ? qr ?? PngBase64 : null, publicOrderNumber = order });
+    private static string PaymentJson(string status, DateTimeOffset expires, string? order = null, string? qr = null, bool includePix = true, string? method = null, string? last4 = null) => JsonSerializer.Serialize(new { status, method, amount = 10.00m, currency = "BRL", expiresAt = expires, pixCopyPaste = includePix ? "000201010212" : null, qrCodePngBase64 = includePix ? qr ?? PngBase64 : null, cardLast4 = last4, publicOrderNumber = order });
     private static string CheckoutJson(string status) => JsonSerializer.Serialize(new { publicCheckoutId = Guid.Parse("11111111-1111-1111-1111-111111111111"), status, expiresAt = DateTimeOffset.UtcNow.AddHours(1), accessExpiresAt = DateTimeOffset.UtcNow.AddDays(30), lines = new[] { new { publicOfferId = Guid.Parse("22222222-2222-2222-2222-222222222222"), quantity = 1, presentation = "Item", unitPrice = 10m, lineTotal = 10m } }, merchandiseTotal = 10m, discountTotal = 0m, freightTotal = 0m, total = 10m, currency = "BRL", fulfillmentMethod = "pickup", pickup = new { publicPickupId = Guid.Parse("33333333-3333-3333-3333-333333333333"), displayName = "Loja", address = new { street = "Rua", number = "1", neighborhood = "Centro", city = "Sorocaba", state = "SP", postalCode = "18000-000" }, hours = "09:00", instructions = "" }, contact = new { name = "Ana", email = "ana@example.com", phone = "1" } });
     private const string PngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAElEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
 
