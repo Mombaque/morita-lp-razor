@@ -15,12 +15,12 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public PixPayment? Payment { get; private set; }
     public PaymentLoadState PaymentState { get; private set; } = PaymentLoadState.NotFound;
     public bool HasCurrentCart { get; private set; }
-    public IReadOnlyList<string> OnlinePaymentMethods { get; private set; } = [];
-    public bool PixAvailable => OnlinePaymentMethods.Contains(StorefrontOnlinePayments.Pix, StringComparer.Ordinal);
-    public bool CardAvailable => OnlinePaymentMethods.Contains(StorefrontOnlinePayments.Card, StringComparer.Ordinal);
+    public IReadOnlyList<OnlinePaymentMethod> OnlinePaymentMethods { get; private set; } = [];
+    public bool PixAvailable => OnlinePaymentMethods.Contains(OnlinePaymentMethod.Pix);
+    public bool CardAvailable => OnlinePaymentMethods.Contains(OnlinePaymentMethod.Card);
     public bool HasOnlinePaymentMethods => OnlinePaymentMethods.Count > 0;
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
-    [BindProperty(SupportsGet = true)] public string PaymentMethod { get; set; } = StorefrontOnlinePayments.Pix;
+    [BindProperty(SupportsGet = true)] public OnlinePaymentMethod PaymentMethod { get; set; } = OnlinePaymentMethod.Pix;
     [BindProperty] public string? PaymentToken { get; set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
@@ -48,7 +48,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             Message = StorefrontCardPaymentToken.LooksLikePrimaryAccountNumber(PaymentToken ?? "")
                 ? "Não envie o número do cartão; use o token do provedor."
                 : "Informe um token de pagamento válido.";
-            PaymentMethod = StorefrontOnlinePayments.Card;
+            PaymentMethod = OnlinePaymentMethod.Card;
             return Page();
         }
 
@@ -99,7 +99,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             Message = StorefrontCardPaymentToken.LooksLikePrimaryAccountNumber(PaymentToken ?? "")
                 ? "Não envie o número do cartão; use o token do provedor."
                 : "Informe um token de pagamento válido.";
-            PaymentMethod = StorefrontOnlinePayments.Card;
+            PaymentMethod = OnlinePaymentMethod.Card;
             return Page();
         }
 
@@ -141,16 +141,16 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     private async Task<IActionResult> InitiatePixAsync(string accessToken, string idempotencyKey, CancellationToken cancellationToken)
     {
         var result = await client.InitiatePixAsync(PublicCheckoutId, accessToken, idempotencyKey, cancellationToken);
-        return await CompleteInitiationAsync(result, StorefrontOnlinePayments.Pix, accessToken, cancellationToken);
+        return await CompleteInitiationAsync(result, OnlinePaymentMethod.Pix, accessToken, cancellationToken);
     }
 
     private async Task<IActionResult> InitiateCardAsync(string accessToken, string idempotencyKey, string paymentToken, CancellationToken cancellationToken)
     {
         var result = await client.InitiateCardAsync(PublicCheckoutId, accessToken, idempotencyKey, paymentToken, cancellationToken);
-        return await CompleteInitiationAsync(result, StorefrontOnlinePayments.Card, accessToken, cancellationToken);
+        return await CompleteInitiationAsync(result, OnlinePaymentMethod.Card, accessToken, cancellationToken);
     }
 
-    private async Task<IActionResult> CompleteInitiationAsync(PaymentResult result, string method, string accessToken, CancellationToken cancellationToken)
+    private async Task<IActionResult> CompleteInitiationAsync(PaymentResult result, OnlinePaymentMethod method, string accessToken, CancellationToken cancellationToken)
     {
         if (result.State == PaymentLoadState.Success && result.Payment is { PublicOrderNumber: { } number } && result.Payment.Status == "converted")
         {
@@ -267,27 +267,27 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         var configuration = await client.GetConfigurationAsync(cancellationToken);
         OnlinePaymentMethods = configuration.State == CheckoutLoadState.Success
             ? StorefrontOnlinePayments.Normalize(configuration.Configuration?.OnlinePaymentMethods)
-            : [StorefrontOnlinePayments.Pix];
+            : [OnlinePaymentMethod.Pix];
     }
 
-    private string AvailableOrDefault(string? method)
+    private OnlinePaymentMethod AvailableOrDefault(OnlinePaymentMethod method)
     {
-        if (OnlinePaymentMethods.Contains(method ?? "", StringComparer.OrdinalIgnoreCase))
+        if (OnlinePaymentMethods.Contains(method))
         {
-            return StorefrontOnlinePayments.IsCard(method) ? StorefrontOnlinePayments.Card : StorefrontOnlinePayments.Pix;
+            return method;
         }
 
-        return StorefrontOnlinePayments.DefaultMethod(OnlinePaymentMethods);
+        return StorefrontOnlinePayments.DefaultMethod(OnlinePaymentMethods) ?? OnlinePaymentMethod.Pix;
     }
 
     private IActionResult Inaccessible() { State = CheckoutLoadState.NotFound; Checkout = null; Message = "Esta reserva não está disponível neste dispositivo."; return Page(); }
     private static string? PaymentLifecycleMessage(PixPayment? payment) => payment?.Status == "cancellationpending" ? "Estamos confirmando o cancelamento do pagamento. Aguarde a atualização; não é necessário tentar cancelar novamente." : null;
-    private static string PaymentMessage(PaymentLoadState state, string? method = null) => state switch
+    private static string PaymentMessage(PaymentLoadState state, OnlinePaymentMethod? method = null) => state switch
     {
-        PaymentLoadState.Validation => StorefrontOnlinePayments.IsCard(method)
+        PaymentLoadState.Validation => method == OnlinePaymentMethod.Card
             ? "Não foi possível iniciar o pagamento com cartão com os dados atuais."
             : "Não foi possível iniciar o pagamento PIX com os dados atuais.",
-        PaymentLoadState.Conflict => StorefrontOnlinePayments.IsCard(method)
+        PaymentLoadState.Conflict => method == OnlinePaymentMethod.Card
             ? "A tentativa de pagamento com cartão mudou. Atualize a página e tente novamente."
             : "A tentativa de pagamento PIX mudou. Atualize a página e tente novamente.",
         PaymentLoadState.Timeout => "A confirmação do pagamento demorou. Tente novamente.",
