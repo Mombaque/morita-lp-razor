@@ -43,31 +43,65 @@ if (offerForm) {
   const validationMessage = offerForm.querySelector('#offer-validation-message');
   const offerInputs = [...offerForm.querySelectorAll('input[data-offer-id]')];
   const quantityInput = offerForm.querySelector('input[name="quantity"]');
+  const addButton = offerForm.querySelector('[data-cart="add"]');
   const showValidationMessage = (message) => {
     if (!validationMessage) return;
     validationMessage.textContent = message;
     validationMessage.hidden = !message;
   };
 
-  offerForm.addEventListener('submit', (event) => {
+  offerForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
     const selectedOffer = offerInputs.find((input) => input.checked && !input.disabled);
     const quantity = Number(quantityInput?.value);
 
     if (!selectedOffer) {
-      event.preventDefault();
       showValidationMessage('Selecione uma oferta para adicionar ao carrinho.');
       offerInputs.find((input) => !input.disabled)?.focus();
       return;
     }
 
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
-      event.preventDefault();
       showValidationMessage('A quantidade deve estar entre 1 e 10 unidades.');
       quantityInput?.focus();
       return;
     }
 
-    showValidationMessage('');
+    const data = new FormData(offerForm);
+    const token = document.querySelector('meta[name="request-verification-token"]')?.content;
+    if (token && !data.get('__RequestVerificationToken'))
+      data.set('__RequestVerificationToken', token);
+
+    if (addButton) {
+      addButton.disabled = true;
+      addButton.setAttribute('aria-busy', 'true');
+    }
+
+    try {
+      const response = await fetch(offerForm.action, {
+        method: 'POST',
+        body: data,
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
+      const payload = await response.json().catch(() => null);
+      if (payload?.ok && payload.redirectUrl) {
+        window.location.assign(payload.redirectUrl);
+        return;
+      }
+
+      showValidationMessage(payload?.error || 'Não foi possível adicionar este item. Tente novamente.');
+      quantityInput?.focus();
+    } catch {
+      showValidationMessage('Não foi possível adicionar este item. Tente novamente.');
+    } finally {
+      if (addButton) {
+        addButton.disabled = false;
+        addButton.removeAttribute('aria-busy');
+      }
+    }
   });
 
   offerForm.addEventListener('input', () => showValidationMessage(''));

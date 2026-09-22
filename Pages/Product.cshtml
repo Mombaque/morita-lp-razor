@@ -40,7 +40,7 @@
     <main class="detail-shell"><div class="catalog-state catalog-unavailable"><h1>Produto temporariamente indisponível</h1><p>Tente novamente em instantes.</p><a href="/products">Voltar ao catálogo</a></div></main>
 }
 @if (p is not null) {
-    @if (!ViewData.ModelState.IsValid) { <div class="validation-error" role="alert">@foreach (var error in ViewData.ModelState.Values.SelectMany(value => value.Errors)) { <p>@error.ErrorMessage</p> }</div> }
+    var offerError = string.Join(" ", ViewData.ModelState.Values.SelectMany(value => value.Errors).Select(error => error.ErrorMessage).Where(message => !string.IsNullOrWhiteSpace(message)));
     <main class="detail-shell" data-product-slug="@p.Slug" data-selected-variant-key="@selectedVariantKey">
         <a class="back-link" href="/products">← Voltar ao catálogo</a>
         <div class="detail-layout">
@@ -80,11 +80,10 @@
                                         @foreach (var offer in variant.Offers) {
                                             var sizeLabel = string.IsNullOrWhiteSpace(offer.SizeLabel) ? "Tamanho único" : offer.SizeLabel;
                                             var unavailable = !string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase);
-                                            var presentation = $"{colorLabel} / {sizeLabel}";
+                                            var presentation = unavailable ? $"{colorLabel} / {sizeLabel} indisponível" : $"{colorLabel} / {sizeLabel}";
                                             <label class="offer-size-choice@(unavailable ? " is-unavailable" : "")" aria-label="@presentation">
                                                 <input type="radio" name="publicOfferId" value="@offer.PublicOfferId" data-offer-id="@offer.PublicOfferId" data-variant-key="@key" data-price="@(offer.UnitPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture))" data-currency="@offer.Currency" data-availability="@offer.Availability" checked="@(Model.SelectedOfferId == offer.PublicOfferId && !unavailable ? "checked" : null)" disabled="@(unavailable ? "disabled" : null)" required>
                                                 <span>@sizeLabel</span>
-                                                @if (unavailable) { <small>Indisponível</small> }
                                             </label>
                                         }
                                     </div>
@@ -94,8 +93,8 @@
                     </fieldset>
                     <label class="quantity-label">Quantidade <input type="number" name="quantity" min="1" max="10" value="@Model.Quantity" aria-describedby="quantity-help"></label>
                     <p id="quantity-help">Escolha de 1 a 10 unidades.</p>
-                    <p id="offer-validation-message" class="offer-validation-message" role="alert" aria-live="assertive" hidden></p>
                     <p class="live-offer" aria-live="polite">@(!selectedOfferIsAvailable ? "Selecione uma oferta para ver preço e disponibilidade." : $"Oferta selecionada: {Model.SelectedOffer!.ColorLabel ?? "Cor única"} / {Model.SelectedOffer.SizeLabel ?? "Tamanho único"}.")</p>
+                    <p id="offer-validation-message" class="offer-validation-message" role="alert" aria-live="assertive" hidden="@(string.IsNullOrWhiteSpace(offerError) ? "hidden" : null)">@offerError</p>
                     <button class="button primary-cta" type="submit" data-cart="add">Adicionar ao carrinho</button>
                 </form>
                 @if (StorefrontOptions.Value.PublicAssistantEnabled) { <button class="button" type="button" data-assistant-open data-assistant-product="@p.Slug">Perguntar sobre este produto</button> }

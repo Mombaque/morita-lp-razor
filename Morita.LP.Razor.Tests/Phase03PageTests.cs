@@ -216,7 +216,10 @@ public sealed class Phase03PageTests
         var html = WebUtility.HtmlDecode(await (await client.GetAsync($"/products/kimono?publicOfferId={available}&quantity=2")).Content.ReadAsStringAsync());
         Assert.Contains($"name=\"publicOfferId\" value=\"{available}\"", html);
         Assert.Contains("Azul / A1", html);
+        Assert.Contains("Azul / A2 indisponível", html);
+        Assert.Contains("is-unavailable", html);
         Assert.Contains("disabled=\"disabled\"", html);
+        Assert.DoesNotContain("<small>Indisponível</small>", html);
         Assert.DoesNotContain("name=\"color\"", html);
         Assert.Contains("application/ld+json", html);
         Assert.Contains("novalidate", html);

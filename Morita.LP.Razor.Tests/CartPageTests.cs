@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Net;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -197,7 +198,10 @@ public sealed class CartPageTests
         ]))).StatusCode);
         var invalid = await client.GetAsync($"/products/kimono?publicOfferId={offer}&quantity=11");
         Assert.Equal(HttpStatusCode.OK, invalid.StatusCode);
-        Assert.Contains("A quantidade deve estar entre 1 e 10.", await invalid.Content.ReadAsStringAsync());
+        var invalidBody = await invalid.Content.ReadAsStringAsync();
+        Assert.Contains("A quantidade deve estar entre 1 e 10.", invalidBody);
+        Assert.Contains("id=\"offer-validation-message\"", invalidBody);
+        Assert.DoesNotContain("<div class=\"validation-error\"", invalidBody);
         var productPage = await client.GetAsync($"/products/kimono?publicOfferId={offer}&quantity=1");
         var productBody = await productPage.Content.ReadAsStringAsync();
         var token = Regex.Match(productBody, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
@@ -206,6 +210,48 @@ public sealed class CartPageTests
             new KeyValuePair<string, string>("publicOfferId", offer.ToString()), new KeyValuePair<string, string>("quantity", "1"), new KeyValuePair<string, string>("__RequestVerificationToken", token)
         ]));
         Assert.Equal(HttpStatusCode.Redirect, added.StatusCode);
+    }
+
+    [Fact]
+    public async Task Product_add_insufficient_renders_form_error_and_ajax_skips_reload()
+    {
+        var offer = Guid.NewGuid();
+        var product = new Product { Slug = "kimono", Nome = "Kimono", Variants = [new ProductVariant { ColorLabel = "Azul", Offers = [new ProductOffer { PublicOfferId = offer, Availability = "available" }] }] };
+        var cart = new TestCart(new CartState(DateTimeOffset.UtcNow, []));
+        var quote = new CatalogQuoteResult(CatalogLoadState.Partial, "BRL", 0, [
+            new() { PublicOfferId = offer, Quantity = 1, Availability = "insufficient", Presentation = "Kimono", Currency = "BRL", UnitPrice = 10 }
+        ]);
+        using var factory = CreateFactory(cart, quote, product);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var productBody = await (await client.GetAsync($"/products/kimono?publicOfferId={offer}&quantity=1")).Content.ReadAsStringAsync();
+        var token = Regex.Match(productBody, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+        Assert.NotEmpty(token);
+
+        var htmlFailure = await client.PostAsync("/products/kimono?handler=Add", new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("publicOfferId", offer.ToString()),
+            new KeyValuePair<string, string>("quantity", "1"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]));
+        Assert.Equal(HttpStatusCode.OK, htmlFailure.StatusCode);
+        var html = await htmlFailure.Content.ReadAsStringAsync();
+        Assert.Contains("id=\"offer-validation-message\"", html);
+        Assert.Contains("A quantidade solicitada n", html);
+        Assert.Contains("Reduza a quantidade", html);
+        Assert.DoesNotContain("<div class=\"validation-error\"", html);
+
+        using var ajax = new HttpRequestMessage(HttpMethod.Post, "/products/kimono?handler=Add");
+        ajax.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        ajax.Headers.TryAddWithoutValidation("Accept", "application/json");
+        ajax.Content = new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("publicOfferId", offer.ToString()),
+            new KeyValuePair<string, string>("quantity", "1"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]);
+        var ajaxResponse = await client.SendAsync(ajax);
+        Assert.Equal(HttpStatusCode.OK, ajaxResponse.StatusCode);
+        using var payload = JsonDocument.Parse(await ajaxResponse.Content.ReadAsStringAsync());
+        Assert.False(payload.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Contains("Reduza a quantidade", payload.RootElement.GetProperty("error").GetString());
     }
 
     private static WebApplicationFactory<Program> CreateFactory(CartState state, CatalogQuoteResult quote, Product? product = null) => CreateFactory(new TestCart(state), quote, product);

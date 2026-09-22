@@ -2385,12 +2385,14 @@ body {
   color: var(--fight-paper);
   cursor: pointer;
   display: inline-flex;
+  flex-wrap: nowrap;
   gap: .35rem;
   justify-content: center;
   min-height: 2.75rem;
   min-width: 3.5rem;
   padding: .25rem .65rem;
   position: relative;
+  white-space: nowrap;
   z-index: 3;
 }
 
@@ -2411,13 +2413,6 @@ body {
   cursor: not-allowed;
   opacity: .58;
   text-decoration: line-through;
-}
-
-.offer-size-choice small {
-  color: #ffcf80;
-  font-size: .58rem;
-  letter-spacing: .04em;
-  text-transform: uppercase;
 }
 
 @media (max-width: 520px) {
@@ -3481,6 +3476,7 @@ body {
 .account-error-toast li { color: #ff4d4d; font-weight: 800; margin: .25rem 0; }
 .account-page .validation-error { color: #ff4d4d; display: block; font-weight: 800; margin: .35rem 0 .5rem; }
 .offer-validation-message { color: #ff4d4d; display: block; font-weight: 800; margin: .35rem 0 .5rem; }
+.offer-boundary .offer-validation-message { margin: .55rem 0 0; max-width: 28rem; }
 .account-layout { display: grid; grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); gap: clamp(1rem, 3vw, 2.5rem); align-items: start; }
 .account-sidebar { position: sticky; top: 1.25rem; border: 1px solid #343434; border-top: 2px solid #3CF9AE; background: linear-gradient(145deg, #151515, #090909); padding: 1rem; }
 .account-sidebar-label { color: #888; font-size: .68rem; letter-spacing: .14em; margin: 0 0 .8rem; text-transform: uppercase; }
