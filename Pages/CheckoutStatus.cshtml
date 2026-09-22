@@ -263,8 +263,6 @@
                 {
                     <div class="card-payment-pending">
                         <p class="pix-instructions-title">Aguardando a operadora</p>
-                        <p>O pagamento acontece na página da operadora. Ao voltar, permaneça nesta tela até o pedido ser confirmado.</p>
-                        <p class="pix-expiry">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@payment.ExpiresAt.ToLocalTime().ToString("g")</time>.</p>
                     </div>
                 }
                 @if (canCancelPayment)
