@@ -43,38 +43,50 @@
              @if (Model.Configuration.Configuration?.ShippingEnabled == true)
              {
                <div class="fulfillment-panel shipping-panel" data-fulfillment-panel="shipping">
-                 @if (Model.SavedAddresses.Count > 0) { <fieldset class="saved-addresses"><legend>Endereço salvo</legend><label><input asp-for="SelectedAddressId" type="radio" value="" data-new-address="true"> Usar outro endereço</label>@foreach (var address in Model.SavedAddresses) { <label><input asp-for="SelectedAddressId" type="radio" value="@address.PublicAddressId" data-saved-address="true" data-recipient="@address.Recipient" data-street="@address.Street" data-number="@address.Number" data-complement="@address.Complement" data-neighborhood="@address.Neighborhood" data-city="@address.City" data-state="@address.State" data-postal-code="@address.PostalCode"> @address.Label — @address.Street, @address.Number, @address.City/@address.State@(address.IsDefault ? " · Padrão" : "")</label> }</fieldset> }
-                <div class="shipping-postal"><label class="checkout-field" asp-for="ShippingAddress.PostalCode">CEP de entrega</label><input class="checkout-control" asp-for="ShippingAddress.PostalCode" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000"><button class="commerce-button commerce-button-secondary" type="submit" asp-page-handler="QuoteShipping" formnovalidate data-quote-shipping>Calcular frete</button></div>
-                <span asp-validation-for="ShippingAddress.PostalCode" class="validation-error"></span>
-                @await Html.PartialAsync("_CheckoutShippingQuote", Model)
-                 <div class="address-grid">
-                  <label class="checkout-field full">Destinatário<input class="checkout-control" asp-for="ShippingAddress.Recipient" autocomplete="name"></label><span asp-validation-for="ShippingAddress.Recipient" class="validation-error"></span>
-                  <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="ShippingAddress.Street" autocomplete="address-line1"></label>
-                  <label class="checkout-field number">Número<input class="checkout-control" asp-for="ShippingAddress.Number" autocomplete="off"></label>
-                  <label class="checkout-field full">Complemento <small>(opcional)</small><input class="checkout-control" asp-for="ShippingAddress.Complement" autocomplete="address-line3"></label>
-                  <label class="checkout-field">Bairro<input class="checkout-control" asp-for="ShippingAddress.Neighborhood"></label>
-                  <label class="checkout-field">Cidade<input class="checkout-control" asp-for="ShippingAddress.City" autocomplete="address-level2"></label>
-                  <label class="checkout-field">UF<input class="checkout-control" asp-for="ShippingAddress.State" maxlength="2" autocomplete="address-level1" placeholder="SP"></label>
-                 </div>
-                 @if (Model.AccountPrefilled && Model.SavedAddresses.Count < 10)
-                 {
-                     <fieldset class="saved-address-options" data-new-address-controls hidden="@(Model.SelectedAddressId is not null ? "hidden" : null)">
-                         <legend>Salvar este endereço</legend>
-                         <label class="checkout-check" asp-for="SaveShippingAddress">
-                             <input class="checkout-check-input" asp-for="SaveShippingAddress">
-                             <span>Guardar este endereço na minha conta</span>
-                         </label>
-                         <label class="checkout-field" asp-for="SavedAddressLabel">Rótulo do endereço<input class="checkout-control" asp-for="SavedAddressLabel" placeholder="Casa" maxlength="80" autocomplete="off"></label>
-                         <label class="checkout-check" asp-for="SetSavedAddressDefault">
-                             <input class="checkout-check-input" asp-for="SetSavedAddressDefault">
-                             <span>Usar como endereço padrão</span>
-                         </label>
-                     </fieldset>
-                 }
-                 else if (Model.SavedAddresses.Count >= 10)
-                 {
-                     <p class="cart-estimate-note">Sua conta já possui o limite de 10 endereços salvos.</p>
-                 }
+                 <section class="delivery-address-panel" aria-labelledby="delivery-address-heading">
+                   <div class="delivery-panel-heading">
+                     <div><p class="fight-label">Onde entregar</p><h3 id="delivery-address-heading">Endereço de entrega</h3></div>
+                     <p>Escolha um endereço salvo ou informe um novo.</p>
+                   </div>
+                   @if (Model.SavedAddresses.Count > 0) { <fieldset class="saved-addresses"><legend>Endereço salvo</legend><label><input asp-for="SelectedAddressId" type="radio" value="" data-new-address="true"> Usar outro endereço</label>@foreach (var address in Model.SavedAddresses) { <label><input asp-for="SelectedAddressId" type="radio" value="@address.PublicAddressId" data-saved-address="true" data-recipient="@address.Recipient" data-street="@address.Street" data-number="@address.Number" data-complement="@address.Complement" data-neighborhood="@address.Neighborhood" data-city="@address.City" data-state="@address.State" data-postal-code="@address.PostalCode"> @address.Label — @address.Street, @address.Number, @address.City/@address.State@(address.IsDefault ? " · Padrão" : "")</label> }</fieldset> }
+                   <div class="address-grid">
+                    <label class="checkout-field full">Destinatário<input class="checkout-control" asp-for="ShippingAddress.Recipient" autocomplete="name"></label><span asp-validation-for="ShippingAddress.Recipient" class="validation-error"></span>
+                    <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="ShippingAddress.Street" autocomplete="address-line1"></label>
+                    <label class="checkout-field number">Número<input class="checkout-control" asp-for="ShippingAddress.Number" autocomplete="off"></label>
+                    <label class="checkout-field full">Complemento <small>(opcional)</small><input class="checkout-control" asp-for="ShippingAddress.Complement" autocomplete="address-line3"></label>
+                    <label class="checkout-field">Bairro<input class="checkout-control" asp-for="ShippingAddress.Neighborhood"></label>
+                    <label class="checkout-field">Cidade<input class="checkout-control" asp-for="ShippingAddress.City" autocomplete="address-level2"></label>
+                    <label class="checkout-field">UF<input class="checkout-control" asp-for="ShippingAddress.State" maxlength="2" autocomplete="address-level1" placeholder="SP"></label>
+                   </div>
+                   @if (Model.AccountPrefilled && Model.SavedAddresses.Count < 10)
+                   {
+                       <fieldset class="saved-address-options" data-new-address-controls hidden="@(Model.SelectedAddressId is not null ? "hidden" : null)">
+                           <legend>Salvar este endereço</legend>
+                           <label class="checkout-check" asp-for="SaveShippingAddress">
+                               <input class="checkout-check-input" asp-for="SaveShippingAddress">
+                               <span>Guardar este endereço na minha conta</span>
+                           </label>
+                           <label class="checkout-field" asp-for="SavedAddressLabel">Rótulo do endereço<input class="checkout-control" asp-for="SavedAddressLabel" placeholder="Casa" maxlength="80" autocomplete="off"></label>
+                           <label class="checkout-check" asp-for="SetSavedAddressDefault">
+                               <input class="checkout-check-input" asp-for="SetSavedAddressDefault">
+                               <span>Usar como endereço padrão</span>
+                           </label>
+                       </fieldset>
+                   }
+                   else if (Model.SavedAddresses.Count >= 10)
+                   {
+                       <p class="cart-estimate-note">Sua conta já possui o limite de 10 endereços salvos.</p>
+                   }
+                 </section>
+                 <section class="shipping-quote-panel" aria-labelledby="shipping-quote-heading">
+                   <div class="delivery-panel-heading">
+                     <div><p class="fight-label">Como entregar</p><h3 id="shipping-quote-heading">Frete</h3></div>
+                     <p>Calcule as opções para o CEP de destino e escolha a melhor entrega.</p>
+                   </div>
+                   <div class="shipping-postal"><label class="checkout-field" asp-for="ShippingAddress.PostalCode">CEP de entrega</label><input class="checkout-control" asp-for="ShippingAddress.PostalCode" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000"><button class="commerce-button commerce-button-secondary" type="submit" asp-page-handler="QuoteShipping" formnovalidate data-quote-shipping>Calcular frete</button></div>
+                   <span asp-validation-for="ShippingAddress.PostalCode" class="validation-error"></span>
+                   @await Html.PartialAsync("_CheckoutShippingQuote", Model)
+                 </section>
                </div>
             }
           </div>
@@ -145,7 +157,7 @@
         </ul>
         @if (Model.Quote.Total is not null)
         {
-          <dl><div><dt>Produtos</dt><dd>@CurrencyPresentation.Symbol(Model.Quote.Currency) @Model.Quote.Total.Value.ToString("0.00")</dd></div><div><dt>Frete</dt><dd>Calculado pelo CEP</dd></div><div class="summary-total"><dt>Total</dt><dd>Confirmado na próxima etapa</dd></div></dl>
+          <dl><div><dt>Produtos</dt><dd>@CurrencyPresentation.Symbol(Model.Quote.Currency) @Model.Quote.Total.Value.ToString("0.00")</dd></div><div data-summary-shipping><dt>Frete</dt><dd data-summary-shipping-value>Calcule pelo CEP</dd><small data-summary-shipping-detail hidden></small></div><div class="summary-total"><dt>Total</dt><dd>Confirmado na próxima etapa</dd></div></dl>
         }
       </aside>
     </form>

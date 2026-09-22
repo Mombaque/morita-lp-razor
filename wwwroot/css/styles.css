@@ -3115,6 +3115,45 @@ body {
   margin: .35rem 0;
 }
 
+.delivery-address-panel,
+.shipping-quote-panel {
+  border: 1px solid var(--fight-line);
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.shipping-quote-panel {
+  background: linear-gradient(135deg, rgba(60, 249, 174, .1), rgba(60, 249, 174, .025));
+  border-color: rgba(60, 249, 174, .55);
+  margin-top: 1rem;
+}
+
+.delivery-panel-heading {
+  align-items: start;
+  border-bottom: 1px solid var(--fight-line);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding-bottom: 1rem;
+}
+
+.delivery-panel-heading .fight-label {
+  margin: 0 0 .3rem;
+}
+
+.delivery-panel-heading h3 {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.55rem;
+  letter-spacing: -.02em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.delivery-panel-heading > p {
+  margin: .15rem 0 0;
+  max-width: 18rem;
+  text-align: right;
+}
+
 .shipping-postal {
   align-items: end;
   display: grid;
@@ -3225,6 +3264,7 @@ body {
 .checkout-layout fieldset.saved-addresses label:has(input:checked) {
   background: rgba(60, 249, 174, .08);
   border-color: var(--fight-green);
+  box-shadow: inset 3px 0 0 var(--fight-green);
   position: relative;
 }
 
@@ -3258,6 +3298,15 @@ body {
   gap: .8rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin-top: 1.5rem;
+}
+
+.delivery-address-panel .address-grid {
+  border-top: 1px solid var(--fight-line);
+  padding-top: 1.5rem;
+}
+
+.shipping-quote-panel .shipping-options {
+  margin-bottom: 1rem;
 }
 
 .address-grid .full {
@@ -3399,6 +3448,18 @@ body {
   padding: .45rem 0;
 }
 
+.checkout-summary dl [data-summary-shipping] {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .15rem .75rem;
+}
+
+.checkout-summary dl [data-summary-shipping] small {
+  color: var(--fight-muted);
+  font-size: .72rem;
+  grid-column: 1 / -1;
+}
+
 .checkout-summary dd {
   margin: 0;
 }
@@ -3441,6 +3502,15 @@ body {
   .shipping-postal button {
     grid-column: 1;
     grid-row: auto;
+  }
+
+  .delivery-panel-heading {
+    display: grid;
+  }
+
+  .delivery-panel-heading > p {
+    max-width: none;
+    text-align: left;
   }
 
   .checkout-step {
