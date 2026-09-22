@@ -3122,8 +3122,6 @@ body {
 }
 
 .shipping-quote-panel {
-  background: linear-gradient(135deg, rgba(60, 249, 174, .1), rgba(60, 249, 174, .025));
-  border-color: rgba(60, 249, 174, .55);
   margin-top: 1rem;
 }
 
