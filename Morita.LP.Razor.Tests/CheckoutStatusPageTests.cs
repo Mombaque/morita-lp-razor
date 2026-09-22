@@ -7,11 +7,15 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.Routing;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Morita.LP.Razor.Models;
 using Morita.LP.Razor.Pages;
 using Morita.LP.Razor.Services;
@@ -89,6 +93,32 @@ public sealed class CheckoutStatusPageTests
         Assert.Null(page.Message);
     }
 
+    [Fact]
+    public async Task Successful_pix_ajax_initiation_returns_the_payment_fragment()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "active"),
+            Initiation = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "pending",
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+                PixCopyPaste = "000201010212FAKE",
+                QrCodePngDataUri = "data:image/png;base64,valid"
+            })
+        };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnPostPayPixAsync(CancellationToken.None);
+
+        var fragment = Assert.IsType<PartialViewResult>(result);
+        Assert.Equal("_CheckoutPaymentFlow", fragment.ViewName);
+        Assert.Same(page, fragment.Model);
+    }
+
     [Theory]
     [InlineData("paymentpending", "pending")]
     [InlineData("cancelled", "cancelled")]
@@ -122,6 +152,26 @@ public sealed class CheckoutStatusPageTests
         Assert.Equal(0, api.PaymentCancelCount);
     }
 
+    [Theory]
+    [InlineData(PaymentLoadState.Validation, "dados atuais")]
+    [InlineData(PaymentLoadState.Conflict, "tentativa de pagamento PIX mudou")]
+    public async Task Ajax_pix_initiation_errors_return_the_payment_fragment(PaymentLoadState state, string expectedMessage)
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "active"),
+            Initiation = PaymentResult.Failure(state)
+        };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnPostPayPixAsync(CancellationToken.None);
+
+        var fragment = Assert.IsType<PartialViewResult>(result);
+        Assert.Equal("_CheckoutPaymentFlow", fragment.ViewName);
+        Assert.Contains(expectedMessage, page.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public async Task Successful_card_initiation_redirects_to_hosted_checkout()
     {
@@ -148,6 +198,72 @@ public sealed class CheckoutStatusPageTests
         Assert.Equal(hostedUrl, redirect.Url);
         Assert.Equal(1, api.CardInitiationCount);
         Assert.Null(page.Message);
+    }
+
+    [Fact]
+    public async Task Successful_card_ajax_initiation_returns_hosted_checkout_json()
+    {
+        var id = Guid.NewGuid();
+        const string hostedUrl = "http://127.0.0.1/v1/testing/online-payments/hosted/ajax";
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "active"),
+            CardInitiation = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "pending",
+                Method = OnlinePaymentMethod.Card,
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+                CheckoutUrl = hostedUrl
+            })
+        };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnPostPayCardAsync(CancellationToken.None);
+
+        var json = Assert.IsType<JsonResult>(result);
+        var payload = System.Text.Json.JsonSerializer.Serialize(json.Value);
+        Assert.Contains(hostedUrl, payload, StringComparison.Ordinal);
+        Assert.DoesNotContain("<html", payload, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Checkout_status_renders_the_payment_flow_without_the_removed_method_submit_button()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout { Checkout = Checkout(id, "active") };
+        api.Configuration = new(CheckoutLoadState.Success, new CheckoutConfiguration
+        {
+            Currency = "BRL",
+            PickupEnabled = true,
+            OnlinePaymentMethods = [OnlinePaymentMethod.Pix, OnlinePaymentMethod.Card]
+        });
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ICheckoutClient>();
+            services.RemoveAll<ICheckoutAccessCookieStore>();
+            services.RemoveAll<IPaymentAttemptCookieStore>();
+            services.RemoveAll<IOrderAccessCookieStore>();
+            services.RemoveAll<ICartCookieStore>();
+            services.AddSingleton<ICheckoutClient>(api);
+            services.AddSingleton<ICheckoutAccessCookieStore>(new FakeAccess(id));
+            services.AddSingleton<IPaymentAttemptCookieStore>(new FakeAttempt());
+            services.AddSingleton<IOrderAccessCookieStore>(new FakeOrderAccess());
+            services.AddSingleton<ICartCookieStore>(new FakeCart());
+        }));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await client.GetAsync($"/checkout/{id}");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("data-payment-flow", body, StringComparison.Ordinal);
+        Assert.Contains("data-payment-action=\"pay\"", body, StringComparison.Ordinal);
+        Assert.Contains("method=\"post\"", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Pagar com PIX", body, StringComparison.Ordinal);
+        Assert.Contains("Pagar com cartão", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("Usar esta forma", body, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -200,6 +316,34 @@ public sealed class CheckoutStatusPageTests
 
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Order", redirect.PageName);
+        Assert.Equal("MF-0123456789ABCDEF", order.Number);
+    }
+
+    [Fact]
+    public async Task Converted_card_ajax_initiation_returns_order_redirect_json()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "active"),
+            CardInitiation = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "converted",
+                Method = OnlinePaymentMethod.Card,
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1),
+                PublicOrderNumber = "MF-0123456789ABCDEF"
+            })
+        };
+        var order = new FakeOrderAccess();
+        var page = Create(id, api, order, ajax: true);
+
+        var result = await page.OnPostPayCardAsync(CancellationToken.None);
+
+        var json = Assert.IsType<JsonResult>(result);
+        var payload = System.Text.Json.JsonSerializer.Serialize(json.Value);
+        Assert.Contains("redirectUrl", payload, StringComparison.Ordinal);
         Assert.Equal("MF-0123456789ABCDEF", order.Number);
     }
 
@@ -302,6 +446,25 @@ public sealed class CheckoutStatusPageTests
     }
 
     [Fact]
+    public async Task Ajax_retry_pix_returns_the_payment_fragment()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "expired", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1) }),
+            Initiation = new(PaymentLoadState.Success, new PixPayment { Status = "pending", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15), PixCopyPaste = "pix", QrCodePngDataUri = "data:image/png;base64,x" })
+        };
+        var page = Create(id, api, new FakeOrderAccess(), new FakeCart(), new FakeAttempt(), ajax: true);
+
+        var result = await page.OnPostRetryPixAsync(CancellationToken.None);
+
+        var fragment = Assert.IsType<PartialViewResult>(result);
+        Assert.Equal("_CheckoutPaymentFlow", fragment.ViewName);
+        Assert.Equal(1, api.InitiationCount);
+    }
+
+    [Fact]
     public async Task Retry_pix_does_not_create_a_new_attempt_when_payment_is_still_processing()
     {
         var id = Guid.NewGuid();
@@ -319,17 +482,73 @@ public sealed class CheckoutStatusPageTests
         Assert.Contains("não pode ser gerado novamente", page.Message, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static CheckoutStatusModel Create(Guid id, FakeCheckout api, FakeOrderAccess order, FakeCart? cart = null, FakeAttempt? attempt = null)
+    [Fact]
+    public async Task Payment_poll_fragment_returns_the_updated_payment_flow_without_redirecting_the_document()
     {
-        var context = new DefaultHttpContext { RequestServices = new ServiceCollection().AddSingleton<IHostEnvironment>(new TestEnvironment()).BuildServiceProvider() };
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "expired",
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1)
+            })
+        };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnGetPaymentAsync(CancellationToken.None, "fragment");
+
+        var fragment = Assert.IsType<PartialViewResult>(result);
+        Assert.Equal("_CheckoutPaymentFlow", fragment.ViewName);
+    }
+
+    [Fact]
+    public async Task Successful_payment_cancellation_returns_the_payment_fragment_for_ajax()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "pending",
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5)
+            })
+        };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnPostCancelAsync(CancellationToken.None);
+
+        var fragment = Assert.IsType<PartialViewResult>(result);
+        Assert.Equal("_CheckoutPaymentFlow", fragment.ViewName);
+        Assert.Equal(1, api.PaymentCancelCount);
+    }
+
+    private static CheckoutStatusModel Create(Guid id, FakeCheckout api, FakeOrderAccess order, FakeCart? cart = null, FakeAttempt? attempt = null, bool ajax = false)
+    {
+        var context = new DefaultHttpContext
+        {
+            RequestServices = new ServiceCollection()
+                .AddSingleton<IHostEnvironment>(new TestEnvironment())
+                .AddSingleton<IModelMetadataProvider>(new EmptyModelMetadataProvider())
+                .BuildServiceProvider()
+        };
+        if (ajax) context.Request.Headers["X-Requested-With"] = "XMLHttpRequest";
         var page = new CheckoutStatusModel(api, new FakeAccess(id), attempt ?? new FakeAttempt(), order, cart ?? new FakeCart(), new CheckoutRateLimiter(TimeProvider.System)) { PublicCheckoutId = id };
         page.PageContext = new PageContext(new Microsoft.AspNetCore.Mvc.ActionContext(context, new RouteData(), new PageActionDescriptor())) { ViewData = new ViewDataDictionary(new EmptyModelMetadataProvider(), new ModelStateDictionary()) };
+        page.Url = new TestUrlHelper(page.PageContext);
         return page;
     }
     private static CheckoutResponse Checkout(Guid id, string status) => new() { PublicCheckoutId = id, Status = status, ExpiresAt = DateTimeOffset.UtcNow.AddHours(1), AccessExpiresAt = DateTimeOffset.UtcNow.AddDays(30), Currency = "BRL", Total = 10, MerchandiseTotal = 10, Pickup = new PickupSnapshot { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new CheckoutAddress { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } }, Contact = new CheckoutContact { Name = "Ana", Email = "a@a.com", Phone = "1" }, Lines = [new CheckoutLine { PublicOfferId = Guid.NewGuid(), Quantity = 1, Presentation = "Item", UnitPrice = 10, LineTotal = 10 }] };
     private sealed class FakeCheckout : ICheckoutClient
     {
         public CheckoutResponse? Checkout;
+        public CheckoutConfigurationResult Configuration = CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable);
         public PaymentResult Payment = PaymentResult.Failure(PaymentLoadState.NotFound);
         public PaymentResult Initiation = PaymentResult.Failure(PaymentLoadState.Unavailable);
         public PaymentResult CardInitiation = PaymentResult.Failure(PaymentLoadState.Unavailable);
@@ -338,7 +557,7 @@ public sealed class CheckoutStatusPageTests
         public int InitiationCount;
         public int CardInitiationCount;
         public string? LastInitiationKey;
-        public Task<CheckoutConfigurationResult> GetConfigurationAsync(CancellationToken c = default) => Task.FromResult(CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable));
+        public Task<CheckoutConfigurationResult> GetConfigurationAsync(CancellationToken c = default) => Task.FromResult(Configuration);
         public Task<CheckoutResult> CreateAsync(CheckoutCreateRequest r, string i, string a, CancellationToken c = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.Unavailable));
         public Task<CheckoutResult> GetAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, Checkout));
         public Task<CheckoutResult> CancelAsync(Guid i, string a, CancellationToken c = default) { CheckoutCancelCount++; return Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, null)); }
@@ -351,5 +570,18 @@ public sealed class CheckoutStatusPageTests
     private sealed class FakeAttempt : IPaymentAttemptCookieStore { public PaymentAttempt? Read(Guid id) => null; public PaymentAttempt Ensure(Guid id) => new(id, new string('i', 32), DateTimeOffset.UtcNow); public PaymentAttempt Rotate(Guid id) => new(id, new string('r', 32), DateTimeOffset.UtcNow); public void Clear(Guid id) { } }
     private sealed class FakeCart(CartState? initial = null) : ICartCookieStore { private CartState state = initial ?? new(DateTimeOffset.UtcNow, []); public IReadOnlyList<CartLine>? ReplacedLines { get; private set; } public CartState Read() => state; public bool Add(Guid id, int quantity) => true; public bool Update(Guid id, int quantity) => true; public bool Remove(Guid id) => true; public bool Replace(IReadOnlyList<CartLine> lines) { ReplacedLines = lines; state = new(DateTimeOffset.UtcNow, lines); return true; } public void Clear() { } }
     private sealed class FakeOrderAccess : IOrderAccessCookieStore { public string? Number; public OrderAccess? Read(string n) => null; public bool Write(string n, string t) { Number = n; return true; } public void Clear() { } }
+    private sealed class TestUrlHelper(ActionContext actionContext) : IUrlHelper
+    {
+        public ActionContext ActionContext { get; } = actionContext;
+        public string? Action(UrlActionContext actionContext) => null;
+        public string? Content(string? contentPath) => contentPath;
+        public bool IsLocalUrl(string? url) => url?.StartsWith('/') == true;
+        public string? Link(string? routeName, object? values) => null;
+        public string? RouteUrl(UrlRouteContext routeContext)
+        {
+            var orderNumber = new RouteValueDictionary(routeContext.Values)["publicOrderNumber"]?.ToString();
+            return orderNumber is null ? null : $"/Order?publicOrderNumber={Uri.EscapeDataString(orderNumber)}";
+        }
+    }
     private sealed class TestEnvironment : IHostEnvironment { public string EnvironmentName { get; set; } = Environments.Development; public string ApplicationName { get; set; } = "tests"; public string ApplicationVersion { get; set; } = "tests"; public string ContentRootPath { get; set; } = AppContext.BaseDirectory; public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider(); }
 }

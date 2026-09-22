@@ -42,10 +42,6 @@
                     <span>@statusLabel</span>
                 </div>
             </div>
-            @if (Model.Message is not null)
-            {
-                <p class="@(Model.Payment?.Status == "cancellationpending" ? "payment-lifecycle-message" : "validation-error")" role="@(Model.Payment?.Status == "cancellationpending" ? "status" : "alert")">@Model.Message</p>
-            }
         </header>
 
         <div class="checkout-status-grid">
@@ -132,64 +128,9 @@
             }
         </div>
 
-        @if (Model.Checkout.Status == "active" && Model.Payment is null)
+        @if ((Model.Checkout.Status == "active" && Model.Payment is null) || Model.Payment is not null)
         {
-            @if (Model.PaymentState is PaymentLoadState.NotFound or PaymentLoadState.Success)
-            {
-                <section class="checkout-next-step" aria-labelledby="next-step-heading" data-checkout="payment-choice">
-                    <div>
-                        <p class="checkout-card-kicker">03 // Próximo passo</p>
-                        <h2 id="next-step-heading">Finalize sua reserva</h2>
-                        @if (!Model.HasOnlinePaymentMethods)
-                        {
-                            <p>Pagamentos online estão indisponíveis no momento.</p>
-                        }
-                        else if (Model.PixAvailable && Model.CardAvailable)
-                        {
-                            <p>Escolha PIX ou cartão para concluir o pedido.</p>
-                        }
-                        else if (Model.CardAvailable)
-                        {
-                            <p>Faça o pagamento com cartão para concluir o pedido. O número do cartão não é enviado à Morita.</p>
-                        }
-                        else
-                        {
-                            <p>Faça o pagamento com PIX para concluir o pedido.</p>
-                        }
-                    </div>
-                    <div class="checkout-status-actions">
-                        @if (Model.PixAvailable && Model.CardAvailable)
-                        {
-                            <form method="get" class="payment-method-switch" data-payment-methods>
-                                <fieldset>
-                                    <legend class="visually-hidden">Forma de pagamento</legend>
-                                    <label class="fulfillment-choice">
-                                        <input type="radio" name="paymentMethod" value="@OnlinePaymentMethod.Pix.ToWireValue()" checked="@(Model.PaymentMethod != OnlinePaymentMethod.Card ? "checked" : null)" data-payment-method="@OnlinePaymentMethod.Pix.ToWireValue()">
-                                        <span><strong>PIX</strong><small>QR Code ou copia e cola</small></span>
-                                    </label>
-                                    <label class="fulfillment-choice">
-                                        <input type="radio" name="paymentMethod" value="@OnlinePaymentMethod.Card.ToWireValue()" checked="@(Model.PaymentMethod == OnlinePaymentMethod.Card ? "checked" : null)" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
-                                        <span><strong>Cartão</strong><small>Pague na página da operadora</small></span>
-                                    </label>
-                                </fieldset>
-                                <button class="commerce-button commerce-button-secondary" type="submit">Usar esta forma</button>
-                            </form>
-                        }
-                        @if (Model.PixAvailable && Model.PaymentMethod != OnlinePaymentMethod.Card)
-                        {
-                            <form method="post" asp-page-handler="PayPix"><button class="commerce-button commerce-button-primary" type="submit">Pagar com PIX</button></form>
-                        }
-                        @if (Model.CardAvailable && (Model.PaymentMethod == OnlinePaymentMethod.Card || !Model.PixAvailable))
-                        {
-                            <form method="post" asp-page-handler="PayCard" data-card-payment>
-                                <p class="cart-estimate-note">Você será enviado para a página de pagamento. O cartão é informado lá, não nesta loja.</p>
-                                <button class="commerce-button commerce-button-primary" type="submit">Pagar com cartão</button>
-                            </form>
-                        }
-                        <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar reserva</button></form>
-                    </div>
-                </section>
-            }
+            @await Html.PartialAsync("_CheckoutPaymentFlow", Model)
         }
 
         @if (Model.Checkout.Status == "expired")
@@ -219,74 +160,6 @@
             </section>
         }
 
-        @if (Model.Payment is { } payment)
-        {
-            var terminal = payment.Status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
-            var canCancelPayment = (Model.Checkout.Status is "active" or "paymentpending" or "conversionpending") && (payment.Status is "pending" or "processing" or "approved" or "conversionpending");
-            var canRetryPayment = (Model.Checkout.Status is "active" or "paymentpending") && payment.Status is ("expired" or "failed" or "cancelled");
-            <section class="pix-corner-card checkout-payment-card" aria-labelledby="payment-heading" data-payment-status="@payment.Status" data-payment-method="@payment.Method.ToWireValue()">
-                <div class="checkout-payment-heading">
-                    <div>
-                        <p class="checkout-card-kicker">03 // Pagamento</p>
-                        <h2 id="payment-heading">@(payment.IsCard ? "Cartão" : "PIX")</h2>
-                    </div>
-                    <span class="checkout-payment-state">@(payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" })</span>
-                </div>
-
-                @if (payment.IsCard && payment.Status is "pending" or "processing" or "approved" or "conversionpending" && StorefrontHostedCheckoutUrl.IsAllowed(payment.CheckoutUrl))
-                {
-                    <p class="card-hosted-return">Se a página de pagamento ainda estiver aberta, conclua lá. Esta tela confirma o pedido automaticamente.</p>
-                    <p><a class="commerce-button commerce-button-secondary" href="@payment.CheckoutUrl" rel="noopener noreferrer" data-hosted-checkout>Continuar o pagamento</a></p>
-                }
-
-                @if (!terminal && payment.IsPix && (payment.Status is "pending" or "processing" or "approved" or "conversionpending") && !string.IsNullOrWhiteSpace(payment.QrCodePngDataUri) && !string.IsNullOrWhiteSpace(payment.PixCopyPaste))
-                {
-                    <div class="pix-payment-layout">
-                        <div class="pix-instructions">
-                            <p class="pix-instructions-title">Pague pelo app do seu banco</p>
-                            <ol>
-                                <li>Abra o app do seu banco.</li>
-                                <li>Escaneie o QR Code ou copie o código PIX.</li>
-                                <li>Confirme o valor e aguarde a aprovação.</li>
-                            </ol>
-                        </div>
-                        <div class="pix-payment-data">
-                            <img class="pix-qr" src="@payment.QrCodePngDataUri" alt="QR Code para pagar @CurrencyPresentation.Symbol(payment.Currency) @payment.Amount.ToString("0.00")" />
-                            <label for="pix-copy">Código PIX</label>
-                            <textarea id="pix-copy" readonly rows="4">@payment.PixCopyPaste</textarea>
-                            <button class="commerce-button commerce-button-secondary" type="button" data-copy-pix>Copiar código PIX</button>
-                            <p class="pix-expiry">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@payment.ExpiresAt.ToLocalTime().ToString("g")</time>.</p>
-                        </div>
-                    </div>
-                }
-                @if (!terminal && payment.IsCard && payment.Status is "pending" or "processing" or "approved" or "conversionpending")
-                {
-                    <div class="card-payment-pending">
-                        <p class="pix-instructions-title">Aguardando a operadora</p>
-                    </div>
-                }
-                @if (canCancelPayment)
-                {
-                    <div class="checkout-status-actions">
-                        <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar pagamento</button></form>
-                    </div>
-                }
-                @if (canRetryPayment && payment.IsPix)
-                {
-                    <div class="checkout-status-actions">
-                        <form method="post" asp-page-handler="RetryPix"><button class="commerce-button commerce-button-primary" type="submit">Gerar novo PIX</button></form>
-                    </div>
-                }
-                @if (canRetryPayment && payment.IsCard)
-                {
-                    <div class="checkout-status-actions">
-                        <form method="post" asp-page-handler="RetryCard" data-card-payment>
-                            <button class="commerce-button commerce-button-primary" type="submit">Gerar novo pagamento com cartão</button>
-                        </form>
-                    </div>
-                }
-            </section>
-        }
     }
 </main>
 @section Scripts { <script type="module" src="~/js/payment.js" asp-append-version="true"></script> }

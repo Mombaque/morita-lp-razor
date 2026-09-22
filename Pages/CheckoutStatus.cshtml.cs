@@ -22,6 +22,8 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
     [BindProperty(SupportsGet = true)] public OnlinePaymentMethod PaymentMethod { get; set; } = OnlinePaymentMethod.Pix;
 
+    private bool IsAjaxPaymentRequest => string.Equals(Request.Headers["X-Requested-With"].ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         ViewData["Robots"] = "noindex,nofollow";
@@ -58,7 +60,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         {
             await LoadOwnedAsync(cancellationToken);
             Message = "O pagamento PIX não pode ser gerado novamente neste momento.";
-            return Page();
+            return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
         }
 
         return await InitiatePixAsync(credential.Token, paymentAttempt.Rotate(PublicCheckoutId).IdempotencyKey, cancellationToken);
@@ -79,7 +81,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         {
             await LoadOwnedAsync(cancellationToken);
             Message = "O pagamento com cartão não pode ser gerado novamente neste momento.";
-            return Page();
+            return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
         }
 
         return await InitiateCardAsync(credential.Token, paymentAttempt.Rotate(PublicCheckoutId).IdempotencyKey, cancellationToken);
@@ -133,7 +135,11 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     {
         if (result.State == PaymentLoadState.Success && result.Payment is { PublicOrderNumber: { } number } && result.Payment.Status == "converted")
         {
-            if (orderAccess.Write(number, accessToken)) return RedirectToPage("/Order", new { publicOrderNumber = number });
+            if (orderAccess.Write(number, accessToken))
+            {
+                if (IsAjaxPaymentRequest) return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = number }) });
+                return RedirectToPage("/Order", new { publicOrderNumber = number });
+            }
             return Inaccessible();
         }
 
@@ -141,6 +147,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             && result.Payment is { Status: "pending", CheckoutUrl: { } checkoutUrl }
             && StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
         {
+            if (IsAjaxPaymentRequest) return new JsonResult(new { redirectUrl = checkoutUrl });
             return Redirect(checkoutUrl);
         }
 
@@ -149,52 +156,80 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         Payment = result.Payment;
         PaymentMethod = method;
         Message = result.Message ?? (result.State == PaymentLoadState.Success ? null : PaymentMessage(result.State, method));
-        return Page();
+        return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
     }
 
-    public async Task<IActionResult> OnGetPaymentAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetPaymentAsync(CancellationToken cancellationToken, string? format)
     {
         var credential = access.Read(PublicCheckoutId);
-        if (credential is null) return new JsonResult(new { state = "inaccessible" }) { StatusCode = StatusCodes.Status404NotFound };
+        if (credential is null)
+        {
+            if (string.Equals(format, "fragment", StringComparison.OrdinalIgnoreCase) && IsAjaxPaymentRequest) return Inaccessible();
+            return new JsonResult(new { state = "inaccessible" }) { StatusCode = StatusCodes.Status404NotFound };
+        }
         var result = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
-        if (result.State == PaymentLoadState.Success && result.Payment is { PublicOrderNumber: { } number } && result.Payment.Status == "converted" && orderAccess.Write(number, credential.Token)) return new JsonResult(new { state = "converted", url = Url.Page("/Order", new { publicOrderNumber = number }) });
+        if (result.State == PaymentLoadState.Success && result.Payment is { PublicOrderNumber: { } number } && result.Payment.Status == "converted" && orderAccess.Write(number, credential.Token))
+        {
+            var orderUrl = Url.Page("/Order", new { publicOrderNumber = number });
+            return IsAjaxPaymentRequest
+                ? new JsonResult(new { state = "converted", redirectUrl = orderUrl })
+                : new JsonResult(new { state = "converted", url = orderUrl });
+        }
+        if (string.Equals(format, "fragment", StringComparison.OrdinalIgnoreCase))
+        {
+            var loaded = await LoadOwnedAsync(cancellationToken);
+            if (loaded is RedirectToPageResult && Payment?.PublicOrderNumber is { } orderNumber)
+            {
+                return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = orderNumber }) });
+            }
+
+            return PaymentFlowFragment();
+        }
         return new JsonResult(new { state = result.State.ToString().ToLowerInvariant(), status = result.Payment?.Status, expiresAt = result.Payment?.ExpiresAt });
     }
 
     public async Task<IActionResult> OnPostCancelAsync(CancellationToken cancellationToken)
     {
         var credential = access.Read(PublicCheckoutId);
-        if (credential is null) { State = CheckoutLoadState.NotFound; Message = "Esta reserva não está disponível neste dispositivo."; return Page(); }
+        if (credential is null) return Inaccessible();
         if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "checkout-cancel"))
         {
             await LoadOwnedAsync(cancellationToken);
             State = CheckoutLoadState.RateLimited;
             Message = "Muitas tentativas. Aguarde um pouco.";
-            return Page();
+            return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
         }
         var currentPayment = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
         if (currentPayment.State == PaymentLoadState.Success && currentPayment.Payment is { Status: "pending" or "processing" or "approved" or "conversionpending" })
         {
             var paymentCancellation = await client.CancelPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
-            if (paymentCancellation.State == PaymentLoadState.Success) return RedirectToPage(new { publicCheckoutId = PublicCheckoutId });
-            await LoadOwnedAsync(cancellationToken); PaymentState = paymentCancellation.State; Payment = paymentCancellation.Payment; Message = PaymentLifecycleMessage(Payment) ?? "O pagamento não pode ser cancelado neste momento."; return Page();
+            if (paymentCancellation.State == PaymentLoadState.Success)
+            {
+                if (IsAjaxPaymentRequest) return await RefreshPaymentFlowAsync(cancellationToken);
+                return RedirectToPage(new { publicCheckoutId = PublicCheckoutId });
+            }
+            await LoadOwnedAsync(cancellationToken); PaymentState = paymentCancellation.State; Payment = paymentCancellation.Payment; Message = PaymentLifecycleMessage(Payment) ?? "O pagamento não pode ser cancelado neste momento."; return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
         }
         if (currentPayment.State != PaymentLoadState.NotFound)
         {
             await LoadOwnedAsync(cancellationToken);
             PaymentState = currentPayment.State;
             Message = PaymentLifecycleMessage(currentPayment.Payment) ?? "O pagamento não pode ser cancelado neste momento.";
-            return Page();
+            return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
         }
         var result = await client.CancelAsync(PublicCheckoutId, credential.Token, cancellationToken);
-        if (result.State == CheckoutLoadState.Success) return RedirectToPage(new { publicCheckoutId = PublicCheckoutId });
+        if (result.State == CheckoutLoadState.Success)
+        {
+            if (IsAjaxPaymentRequest) return await RefreshPaymentFlowAsync(cancellationToken);
+            return RedirectToPage(new { publicCheckoutId = PublicCheckoutId });
+        }
         if (result.State == CheckoutLoadState.NotFound)
         {
             access.Clear();
             State = result.State;
             Checkout = null;
             Message = "Esta reserva não está disponível ou já expirou.";
-            return Page();
+            return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
         }
 
         var errorMessage = result.Message ?? "A reserva não pode ser cancelada neste momento.";
@@ -204,7 +239,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             State = result.State;
             Message = errorMessage;
         }
-        return Page();
+        return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
     }
 
     private async Task<IActionResult?> LoadOwnedAsync(CancellationToken cancellationToken)
@@ -267,7 +302,19 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         return StorefrontOnlinePayments.DefaultMethod(OnlinePaymentMethods) ?? OnlinePaymentMethod.Pix;
     }
 
-    private IActionResult Inaccessible() { State = CheckoutLoadState.NotFound; Checkout = null; Message = "Esta reserva não está disponível neste dispositivo."; return Page(); }
+    private async Task<IActionResult> RefreshPaymentFlowAsync(CancellationToken cancellationToken)
+    {
+        var loaded = await LoadOwnedAsync(cancellationToken);
+        if (loaded is RedirectToPageResult && Payment?.PublicOrderNumber is { } number)
+        {
+            return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = number }) });
+        }
+
+        return PaymentFlowFragment();
+    }
+
+    private IActionResult PaymentFlowFragment() => Partial("_CheckoutPaymentFlow", this);
+    private IActionResult Inaccessible() { State = CheckoutLoadState.NotFound; Checkout = null; Message = "Esta reserva não está disponível neste dispositivo."; return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page(); }
     private static string? PaymentLifecycleMessage(PixPayment? payment) => payment?.Status == "cancellationpending" ? "Estamos confirmando o cancelamento do pagamento. Aguarde a atualização; não é necessário tentar cancelar novamente." : null;
     private static string PaymentMessage(PaymentLoadState state, OnlinePaymentMethod? method = null) => state switch
     {

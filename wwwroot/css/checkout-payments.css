@@ -4,15 +4,10 @@
 }
 
 .payment-method-switch {
-  display: grid;
-  gap: .75rem;
-  width: 100%;
-}
-
-.payment-method-switch fieldset {
   border: 0;
   display: grid;
   gap: .65rem;
+  width: 100%;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   margin: 0;
   min-width: 0;
@@ -40,7 +35,7 @@
 }
 
 @media (max-width: 520px) {
-  .payment-method-switch fieldset {
+  .payment-method-switch {
     grid-template-columns: 1fr;
   }
 }
