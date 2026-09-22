@@ -346,6 +346,10 @@ public sealed class CheckoutPageTests
 
         Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("name=\"__RequestVerificationToken\"", body);
+        Assert.Contains("Endereço de entrega", body);
+        Assert.Contains("Como entregar", body);
+        Assert.Contains("data-summary-shipping", body);
+        Assert.True(body.IndexOf("Endereço de entrega", StringComparison.Ordinal) < body.IndexOf("Como entregar", StringComparison.Ordinal));
         var quoteButton = System.Text.RegularExpressions.Regex.Match(body, "<button[^>]*>Calcular frete").Value;
         Assert.Equal("<button class=\"commerce-button commerce-button-secondary\" type=\"submit\" formnovalidate data-quote-shipping formaction=\"/checkout?handler=QuoteShipping\">Calcular frete", quoteButton);
 

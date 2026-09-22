@@ -13,6 +13,8 @@ if (form) {
   const submit = form.querySelector('[data-checkout-submit]');
   const submitLabel = submit?.querySelector('[data-checkout-submit-label]');
   const feedback = form.querySelector('[data-checkout-feedback]');
+  const summaryShippingValue = form.querySelector('[data-summary-shipping-value]');
+  const summaryShippingDetail = form.querySelector('[data-summary-shipping-detail]');
   const checkoutReady = submit?.dataset.checkoutReady === 'true';
   const initialFeedback = feedback?.textContent?.trim() ?? '';
   const addressFieldNames = {
@@ -52,6 +54,7 @@ if (form) {
   const update = () => {
     const method = methodInputs.find((input) => input.checked)?.value;
     const hasShippingQuote = Boolean(form.querySelector('input[name="PublicShippingQuoteId"]:checked'));
+    const selectedShippingOption = form.querySelector('input[name="PublicShippingQuoteId"]:checked');
     panels.forEach((panel) => {
       panel.hidden = panel.dataset.fulfillmentPanel !== method;
     });
@@ -76,6 +79,13 @@ if (form) {
             : '';
       feedback.textContent = disabled ? message : '';
       feedback.hidden = !disabled;
+    }
+    if (summaryShippingValue && summaryShippingDetail) {
+      summaryShippingValue.textContent = selectedShippingOption?.dataset.shippingPrice ?? 'Calcule pelo CEP';
+      summaryShippingDetail.textContent = selectedShippingOption
+        ? `${selectedShippingOption.dataset.shippingService} · ${selectedShippingOption.dataset.shippingDetail}`
+        : '';
+      summaryShippingDetail.hidden = !selectedShippingOption;
     }
   };
 
