@@ -18,12 +18,17 @@ public sealed record PaymentResult(PaymentLoadState State, PixPayment? Payment, 
 public sealed class PixPayment
 {
     public string Status { get; init; } = "";
+    public OnlinePaymentMethod Method { get; init; } = OnlinePaymentMethod.Pix;
     public decimal Amount { get; init; }
     public string Currency { get; init; } = "";
     public DateTimeOffset ExpiresAt { get; init; }
     public string PixCopyPaste { get; init; } = "";
     public string QrCodePngDataUri { get; init; } = "";
+    public string? CheckoutUrl { get; init; }
     public string? PublicOrderNumber { get; init; }
+
+    public bool IsPix => Method == OnlinePaymentMethod.Pix;
+    public bool IsCard => Method == OnlinePaymentMethod.Card;
 }
 
 public enum OrderLoadState { Success, NotFound, Unauthorized, Unavailable, Timeout, Malformed }
@@ -72,6 +77,7 @@ public sealed class CheckoutConfiguration
     public Guid? PublicPickupId { get; init; }
     public string Currency { get; init; } = "BRL";
     public PickupSnapshot? Pickup { get; init; }
+    public IReadOnlyList<OnlinePaymentMethod> OnlinePaymentMethods { get; init; } = [];
 }
 
 public sealed class CheckoutResponse

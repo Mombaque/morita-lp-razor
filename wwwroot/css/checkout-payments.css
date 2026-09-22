@@ -1,0 +1,46 @@
+.checkout-next-step[data-checkout="payment-choice"] {
+  align-items: start;
+  grid-template-columns: 1fr;
+}
+
+.payment-method-switch {
+  display: grid;
+  gap: .75rem;
+  width: 100%;
+}
+
+.payment-method-switch fieldset {
+  border: 0;
+  display: grid;
+  gap: .65rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.payment-method-switch .fulfillment-choice > span {
+  min-height: 6.5rem;
+}
+
+.card-hosted-return,
+.card-payment-pending {
+  margin: 1.25rem 0 0;
+}
+
+.card-hosted-return {
+  color: var(--fight-muted);
+  line-height: 1.55;
+}
+
+.card-payment-pending p {
+  color: var(--fight-muted);
+  line-height: 1.55;
+  margin: .6rem 0 0;
+}
+
+@media (max-width: 520px) {
+  .payment-method-switch fieldset {
+    grid-template-columns: 1fr;
+  }
+}

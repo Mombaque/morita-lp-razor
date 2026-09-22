@@ -110,6 +110,40 @@ public sealed class CheckoutPageTests
         Assert.Equal("pickup", page.FulfillmentMethod);
         Assert.True(page.CanSubmit);
         Assert.Equal(0, account.AddressReads);
+        Assert.Equal("Continuar para o PIX", page.ContinueLabel);
+        Assert.False(page.HasOnlinePaymentMethods);
+    }
+
+    [Fact]
+    public async Task Checkout_defaults_to_pix_and_exposes_card_when_configuration_lists_both_methods()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer);
+        api.Configuration = new(CheckoutLoadState.Success, new()
+        {
+            PickupEnabled = true,
+            PublicPickupId = Guid.NewGuid(),
+            ShippingEnabled = false,
+            Currency = "BRL",
+            Pickup = new() { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } },
+            OnlinePaymentMethods = [OnlinePaymentMethod.Pix, OnlinePaymentMethod.Card]
+        });
+
+        var result = await page.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.True(page.HasOnlinePaymentMethods);
+        Assert.True(page.PixAvailable);
+        Assert.True(page.CardAvailable);
+        Assert.Equal(OnlinePaymentMethod.Pix, page.PaymentMethod);
+        Assert.Equal("Continuar para o PIX", page.ContinueLabel);
+
+        page.PaymentMethod = OnlinePaymentMethod.Card;
+        Assert.Equal("Continuar para o cartão", page.ContinueLabel);
     }
 
     [Fact]

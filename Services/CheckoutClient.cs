@@ -21,7 +21,15 @@ public sealed class CheckoutClient(
     {
         var result = await SendAsync<ConfigurationDto>(HttpMethod.Get, "v1/storefront/checkout/configuration", null, null, cancellationToken);
         if (result.State != CheckoutLoadState.Success || result.Value is null || !ValidConfiguration(result.Value)) return CheckoutConfigurationResult.Failure(result.State == CheckoutLoadState.Success ? CheckoutLoadState.Malformed : result.State);
-        return new(CheckoutLoadState.Success, new() { PickupEnabled = result.Value.PickupEnabled, ShippingEnabled = result.Value.ShippingEnabled, PublicPickupId = result.Value.PublicPickupId, Currency = result.Value.Currency!, Pickup = result.Value.Pickup is null ? null : Map(result.Value.Pickup) });
+        return new(CheckoutLoadState.Success, new()
+        {
+            PickupEnabled = result.Value.PickupEnabled,
+            ShippingEnabled = result.Value.ShippingEnabled,
+            PublicPickupId = result.Value.PublicPickupId,
+            Currency = result.Value.Currency!,
+            Pickup = result.Value.Pickup is null ? null : Map(result.Value.Pickup),
+            OnlinePaymentMethods = StorefrontOnlinePayments.Normalize(result.Value.OnlinePaymentMethods)
+        });
     }
 
     public async Task<ShippingQuoteResult> QuoteShippingAsync(ShippingQuoteRequest request, CancellationToken cancellationToken = default)
@@ -73,13 +81,20 @@ public sealed class CheckoutClient(
 
     public async Task<PaymentResult> InitiatePixAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, CancellationToken cancellationToken = default)
     {
-        var result = await SendAsync<PaymentDto>(HttpMethod.Post, $"v1/storefront/checkouts/{publicCheckoutId:D}/payments/pix", new { method = "pix" }, ("Idempotency-Key", idempotencyKey), cancellationToken, accessToken);
-        return result.State switch
-        {
-            CheckoutLoadState.Validation => PaymentResult.Failure(PaymentLoadState.Validation, "Não foi possível iniciar o pagamento PIX com os dados atuais."),
-            CheckoutLoadState.Conflict => PaymentResult.Failure(PaymentLoadState.Conflict, "A tentativa de pagamento PIX mudou. Atualize a página e tente novamente."),
-            _ => MapPayment(result)
-        };
+        var result = await SendAsync<PaymentDto>(HttpMethod.Post, $"v1/storefront/checkouts/{publicCheckoutId:D}/payments/pix", new { method = OnlinePaymentMethod.Pix }, ("Idempotency-Key", idempotencyKey), cancellationToken, accessToken);
+        return MapInitiation(result, OnlinePaymentMethod.Pix);
+    }
+
+    public async Task<PaymentResult> InitiateCardAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, CancellationToken cancellationToken = default)
+    {
+        var result = await SendAsync<PaymentDto>(
+            HttpMethod.Post,
+            $"v1/storefront/checkouts/{publicCheckoutId:D}/payments/card",
+            new { method = OnlinePaymentMethod.Card },
+            ("Idempotency-Key", idempotencyKey),
+            cancellationToken,
+            accessToken);
+        return MapInitiation(result, OnlinePaymentMethod.Card);
     }
 
     public async Task<PaymentResult> GetPaymentAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default)
@@ -103,6 +118,26 @@ public sealed class CheckoutClient(
         return result.Value is not null && TryMap(result.Value, expectedLines, expectedFulfillment, out var checkout) ? new(CheckoutLoadState.Success, checkout) : CheckoutResult.Failure(CheckoutLoadState.Malformed);
     }
 
+    private static PaymentResult MapInitiation(ReadResult<PaymentDto> result, OnlinePaymentMethod method)
+    {
+        return result.State switch
+        {
+            CheckoutLoadState.Validation => PaymentResult.Failure(PaymentLoadState.Validation, InitiationValidationMessage(method)),
+            CheckoutLoadState.Conflict => PaymentResult.Failure(PaymentLoadState.Conflict, InitiationConflictMessage(method)),
+            _ => MapPayment(result)
+        };
+    }
+
+    private static string InitiationValidationMessage(OnlinePaymentMethod method) =>
+        method == OnlinePaymentMethod.Card
+            ? "Não foi possível iniciar o pagamento com cartão com os dados atuais."
+            : "Não foi possível iniciar o pagamento PIX com os dados atuais.";
+
+    private static string InitiationConflictMessage(OnlinePaymentMethod method) =>
+        method == OnlinePaymentMethod.Card
+            ? "A tentativa de pagamento com cartão mudou. Atualize a página e tente novamente."
+            : "A tentativa de pagamento PIX mudou. Atualize a página e tente novamente.";
+
     private static PaymentResult MapPayment(ReadResult<PaymentDto> result)
     {
         if (result.State != CheckoutLoadState.Success) return PaymentResult.Failure(result.State switch { CheckoutLoadState.NotFound => PaymentLoadState.NotFound, CheckoutLoadState.Timeout => PaymentLoadState.Timeout, CheckoutLoadState.Malformed => PaymentLoadState.Malformed, CheckoutLoadState.RateLimited => PaymentLoadState.RateLimited, CheckoutLoadState.Validation => PaymentLoadState.Validation, CheckoutLoadState.Conflict => PaymentLoadState.Conflict, _ => PaymentLoadState.Unavailable }, result.Message);
@@ -114,13 +149,42 @@ public sealed class CheckoutClient(
     {
         payment = null;
         var status = x.Status?.Trim().ToLowerInvariant();
-        var needsPix = status == "pending";
+        var method = x.Method ?? OnlinePaymentMethod.Pix;
+        var isCard = method == OnlinePaymentMethod.Card;
+        var needsPix = status == "pending" && !isCard;
+        var needsCheckoutUrl = status == "pending" && isCard;
         var terminal = status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
         byte[] bytes = [];
         var validQr = string.IsNullOrWhiteSpace(x.QrCodePngBase64) || TryPng(x.QrCodePngBase64, out bytes) && bytes.Length <= 2 * 1024 * 1024;
+        var checkoutUrl = string.IsNullOrWhiteSpace(x.CheckoutUrl) ? null : x.CheckoutUrl.Trim();
+        if (isCard)
+        {
+            if (needsCheckoutUrl && !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl)
+                || needsCheckoutUrl && (!string.IsNullOrWhiteSpace(x.PixCopyPaste) || !string.IsNullOrWhiteSpace(x.QrCodePngBase64))
+                || checkoutUrl is not null && !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            checkoutUrl = null;
+        }
+
         if (status is not ("pending" or "processing" or "approved" or "conversionpending" or "cancellationpending" or "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded") || x.Amount < 0 || x.Amount != decimal.Round(x.Amount, 2) || x.Amount > 100000000 || !Currency(x.Currency) || x.ExpiresAt == default || !terminal && x.ExpiresAt < DateTimeOffset.UtcNow.AddMinutes(-5) || needsPix && (string.IsNullOrWhiteSpace(x.PixCopyPaste) || x.PixCopyPaste.Length > 10000 || string.IsNullOrWhiteSpace(x.QrCodePngBase64)) || !validQr || status == "converted" && !OrderAccessCookieStore.IsValidOrderNumber(x.PublicOrderNumber ?? "") || status != "converted" && x.PublicOrderNumber is not null || x.PublicOrderNumber is not null && !OrderAccessCookieStore.IsValidOrderNumber(x.PublicOrderNumber)) return false;
         var qr = string.IsNullOrWhiteSpace(x.QrCodePngBase64) ? "" : Convert.ToBase64String(bytes);
-        payment = new() { Status = status, Amount = decimal.Round(x.Amount, 2), Currency = x.Currency!.Trim().ToUpperInvariant(), ExpiresAt = x.ExpiresAt, PixCopyPaste = x.PixCopyPaste?.Trim() ?? "", QrCodePngDataUri = qr.Length == 0 ? "" : "data:image/png;base64," + qr, PublicOrderNumber = x.PublicOrderNumber?.Trim().ToUpperInvariant() };
+        payment = new()
+        {
+            Status = status,
+            Method = method,
+            Amount = decimal.Round(x.Amount, 2),
+            Currency = x.Currency!.Trim().ToUpperInvariant(),
+            ExpiresAt = x.ExpiresAt,
+            PixCopyPaste = isCard ? "" : x.PixCopyPaste?.Trim() ?? "",
+            QrCodePngDataUri = isCard || qr.Length == 0 ? "" : "data:image/png;base64," + qr,
+            CheckoutUrl = checkoutUrl,
+            PublicOrderNumber = x.PublicOrderNumber?.Trim().ToUpperInvariant()
+        };
         return true;
     }
 
@@ -224,13 +288,13 @@ public sealed class CheckoutClient(
     private sealed class LineRequestDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } }
     private sealed class ContactDto { public string? Name { get; set; } public string? Email { get; set; } public string? Phone { get; set; } }
     private sealed class FulfillmentDto { public string? Method { get; set; } public Guid PublicPickupId { get; set; } public Guid PublicShippingQuoteId { get; set; } public AddressDto? ShippingAddress { get; set; } }
-    private sealed class ConfigurationDto { public bool PickupEnabled { get; set; } public bool ShippingEnabled { get; set; } public Guid? PublicPickupId { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } }
+    private sealed class ConfigurationDto { public bool PickupEnabled { get; set; } public bool ShippingEnabled { get; set; } public Guid? PublicPickupId { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } public List<string>? OnlinePaymentMethods { get; set; } }
     private sealed class PickupDto { public Guid PublicPickupId { get; set; } public string? DisplayName { get; set; } public AddressDto? Address { get; set; } public string? Hours { get; set; } public string? Instructions { get; set; } }
     private sealed class AddressDto { public string? Recipient { get; set; } public string? Street { get; set; } public string? Number { get; set; } public string? Complement { get; set; } public string? Neighborhood { get; set; } public string? City { get; set; } public string? State { get; set; } public string? PostalCode { get; set; } public string? CountryCode { get; set; } }
     private sealed class ShippingDto { public string? CarrierName { get; set; } public string? ServiceName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } public AddressDto? Address { get; set; } }
     private sealed class ResponseDto { public Guid PublicCheckoutId { get; set; } public string? Status { get; set; } public DateTimeOffset ExpiresAt { get; set; } public DateTimeOffset AccessExpiresAt { get; set; } public List<LineDto>? Lines { get; set; } public decimal MerchandiseTotal { get; set; } public decimal DiscountTotal { get; set; } public decimal FreightTotal { get; set; } public decimal Total { get; set; } public string? Currency { get; set; } public string? FulfillmentMethod { get; set; } public PickupDto? Pickup { get; set; } public ShippingDto? Shipping { get; set; } public ContactDto? Contact { get; set; } }
     private sealed class LineDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } public string? Presentation { get; set; } public string? ImageUrl { get; set; } public decimal UnitPrice { get; set; } public decimal LineTotal { get; set; } }
-    private sealed class PaymentDto { public string? Status { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? PublicOrderNumber { get; set; } }
+    private sealed class PaymentDto { public string? Status { get; set; } public OnlinePaymentMethod? Method { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? CheckoutUrl { get; set; } public string? PublicOrderNumber { get; set; } }
     private sealed class ShippingQuoteRequestDto { public List<LineRequestDto> Lines { get; set; } = []; public string DestinationPostalCode { get; set; } = ""; }
     private sealed class ShippingQuoteDto { public DateTimeOffset ExpiresAt { get; set; } public string? Currency { get; set; } public List<ShippingQuoteOptionDto>? Options { get; set; } }
     private sealed class ShippingQuoteOptionDto { public Guid PublicShippingQuoteId { get; set; } public string? ServiceName { get; set; } public string? CarrierName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } }

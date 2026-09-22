@@ -6,7 +6,7 @@
     ViewData["BodyClass"] = "commerce-page checkout-page";
 }
 <main class="checkout-shell commerce-checkout" data-checkout="page">
-  <header class="checkout-heading"><p class="fight-label">Checkout seguro / PIX</p><h1>Como você quer receber?</h1><p>Escolha retirada em Sorocaba ou calcule a entrega para qualquer CEP do Brasil.</p></header>
+  <header class="checkout-heading"><p class="fight-label">Checkout seguro</p><h1>Como você quer receber?</h1><p>Escolha retirada em Sorocaba ou calcule a entrega para qualquer CEP do Brasil.</p></header>
   @if (Model.Empty)
   {
     <div class="catalog-state" data-checkout="empty"><p>Seu carrinho está vazio.</p><a class="commerce-button commerce-button-primary" href="/products">Ver produtos</a></div>
@@ -91,9 +91,43 @@
           </div>
         </section>
 
+        @if (Model.HasOnlinePaymentMethods)
+        {
+          <section class="checkout-step" aria-labelledby="payment-method-heading">
+            <div class="checkout-step-number">03</div>
+            <div class="checkout-step-content">
+              <h2 id="payment-method-heading">Forma de pagamento</h2>
+              <div class="fulfillment-choices" data-payment-methods>
+                @if (Model.PixAvailable)
+                {
+                  <label class="fulfillment-choice">
+                    <input asp-for="PaymentMethod" type="radio" value="@OnlinePaymentMethod.Pix.ToWireValue()" data-payment-method="@OnlinePaymentMethod.Pix.ToWireValue()">
+                    <span>
+                      <strong>PIX</strong>
+                      <small>QR Code ou código copia e cola no app do banco</small>
+                      <em>Confirmação automática</em>
+                    </span>
+                  </label>
+                }
+                @if (Model.CardAvailable)
+                {
+                  <label class="fulfillment-choice">
+                    <input asp-for="PaymentMethod" type="radio" value="@OnlinePaymentMethod.Card.ToWireValue()" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
+                    <span>
+                      <strong>Cartão</strong>
+                      <small>Você paga na página da operadora. O número do cartão não é enviado à Morita.</small>
+                      <em>Ambiente de teste</em>
+                    </span>
+                  </label>
+                }
+              </div>
+            </div>
+          </section>
+        }
+
         <div class="checkout-actions">
           <div class="checkout-actions-content">
-            <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")">Continuar para o PIX <span aria-hidden="true">→</span></button>
+            <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")"><span data-checkout-submit-label>@Model.ContinueLabel</span> <span aria-hidden="true">→</span></button>
             <p class="checkout-submit-feedback" data-checkout-feedback role="status" aria-live="polite" hidden="@(Model.CanSubmit ? "hidden" : null)">@Model.SubmitFeedback</p>
             <p class="checkout-security"><i class="fas fa-lock" aria-hidden="true"></i> Preço, estoque e frete são reconfirmados pelo servidor antes da reserva.</p>
           </div>

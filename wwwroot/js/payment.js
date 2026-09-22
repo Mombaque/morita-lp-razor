@@ -1,3 +1,10 @@
+const methodSwitch = document.querySelector('[data-payment-methods]');
+if (methodSwitch instanceof HTMLFormElement) {
+  methodSwitch.querySelectorAll('input[name="paymentMethod"]').forEach((input) => {
+    input.addEventListener('change', () => methodSwitch.requestSubmit());
+  });
+}
+
 const card = document.querySelector('[data-payment-status]');
 const copy = document.querySelector('[data-copy-pix]');
 if (copy) copy.addEventListener('click', async () => {

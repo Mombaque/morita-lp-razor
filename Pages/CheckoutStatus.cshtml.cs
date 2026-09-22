@@ -15,7 +15,12 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public PixPayment? Payment { get; private set; }
     public PaymentLoadState PaymentState { get; private set; } = PaymentLoadState.NotFound;
     public bool HasCurrentCart { get; private set; }
+    public IReadOnlyList<OnlinePaymentMethod> OnlinePaymentMethods { get; private set; } = [];
+    public bool PixAvailable => OnlinePaymentMethods.Contains(OnlinePaymentMethod.Pix);
+    public bool CardAvailable => OnlinePaymentMethods.Contains(OnlinePaymentMethod.Card);
+    public bool HasOnlinePaymentMethods => OnlinePaymentMethods.Count > 0;
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
+    [BindProperty(SupportsGet = true)] public OnlinePaymentMethod PaymentMethod { get; set; } = OnlinePaymentMethod.Pix;
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -30,6 +35,13 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         var credential = access.Read(PublicCheckoutId);
         if (credential is null) return Inaccessible();
         return await InitiatePixAsync(credential.Token, paymentAttempt.Ensure(PublicCheckoutId).IdempotencyKey, cancellationToken);
+    }
+
+    public async Task<IActionResult> OnPostPayCardAsync(CancellationToken cancellationToken)
+    {
+        var credential = access.Read(PublicCheckoutId);
+        if (credential is null) return Inaccessible();
+        return await InitiateCardAsync(credential.Token, paymentAttempt.Ensure(PublicCheckoutId).IdempotencyKey, cancellationToken);
     }
 
     public async Task<IActionResult> OnPostRetryPixAsync(CancellationToken cancellationToken)
@@ -50,6 +62,27 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         }
 
         return await InitiatePixAsync(credential.Token, paymentAttempt.Rotate(PublicCheckoutId).IdempotencyKey, cancellationToken);
+    }
+
+    public async Task<IActionResult> OnPostRetryCardAsync(CancellationToken cancellationToken)
+    {
+        var credential = access.Read(PublicCheckoutId);
+        if (credential is null) return Inaccessible();
+
+        var checkoutResult = await client.GetAsync(PublicCheckoutId, credential.Token, cancellationToken);
+        var paymentResult = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
+        if (checkoutResult.State != CheckoutLoadState.Success || checkoutResult.Checkout is null ||
+            paymentResult.State != PaymentLoadState.Success || paymentResult.Payment is not { } payment ||
+            !payment.IsCard ||
+            checkoutResult.Checkout.Status is not ("active" or "paymentpending") ||
+            payment.Status is not ("expired" or "failed" or "cancelled"))
+        {
+            await LoadOwnedAsync(cancellationToken);
+            Message = "O pagamento com cartão não pode ser gerado novamente neste momento.";
+            return Page();
+        }
+
+        return await InitiateCardAsync(credential.Token, paymentAttempt.Rotate(PublicCheckoutId).IdempotencyKey, cancellationToken);
     }
 
     public async Task<IActionResult> OnPostRestoreCheckoutAsync(CancellationToken cancellationToken)
@@ -87,15 +120,35 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     private async Task<IActionResult> InitiatePixAsync(string accessToken, string idempotencyKey, CancellationToken cancellationToken)
     {
         var result = await client.InitiatePixAsync(PublicCheckoutId, accessToken, idempotencyKey, cancellationToken);
+        return await CompleteInitiationAsync(result, OnlinePaymentMethod.Pix, accessToken, cancellationToken);
+    }
+
+    private async Task<IActionResult> InitiateCardAsync(string accessToken, string idempotencyKey, CancellationToken cancellationToken)
+    {
+        var result = await client.InitiateCardAsync(PublicCheckoutId, accessToken, idempotencyKey, cancellationToken);
+        return await CompleteInitiationAsync(result, OnlinePaymentMethod.Card, accessToken, cancellationToken);
+    }
+
+    private async Task<IActionResult> CompleteInitiationAsync(PaymentResult result, OnlinePaymentMethod method, string accessToken, CancellationToken cancellationToken)
+    {
         if (result.State == PaymentLoadState.Success && result.Payment is { PublicOrderNumber: { } number } && result.Payment.Status == "converted")
         {
             if (orderAccess.Write(number, accessToken)) return RedirectToPage("/Order", new { publicOrderNumber = number });
             return Inaccessible();
         }
+
+        if (result.State == PaymentLoadState.Success
+            && result.Payment is { Status: "pending", CheckoutUrl: { } checkoutUrl }
+            && StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
+        {
+            return Redirect(checkoutUrl);
+        }
+
         await LoadOwnedAsync(cancellationToken);
         PaymentState = result.State;
         Payment = result.Payment;
-        Message = result.Message ?? (result.State == PaymentLoadState.Success ? null : PaymentMessage(result.State));
+        PaymentMethod = method;
+        Message = result.Message ?? (result.State == PaymentLoadState.Success ? null : PaymentMessage(result.State, method));
         return Page();
     }
 
@@ -176,8 +229,17 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         if (Checkout is not null)
         {
             HasCurrentCart = cart.Read().Lines.Count > 0;
+            await LoadPaymentMethodsAsync(cancellationToken);
             var payment = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
             PaymentState = payment.State; Payment = payment.Payment;
+            if (Payment is not null)
+            {
+                PaymentMethod = Payment.Method;
+            }
+            else
+            {
+                PaymentMethod = AvailableOrDefault(PaymentMethod);
+            }
             Message = PaymentLifecycleMessage(Payment);
             if (Payment is { PublicOrderNumber: { } number } && Payment.Status == "converted" && orderAccess.Write(number, credential.Token))
             {
@@ -187,7 +249,38 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         return null;
     }
 
+    private async Task LoadPaymentMethodsAsync(CancellationToken cancellationToken)
+    {
+        var configuration = await client.GetConfigurationAsync(cancellationToken);
+        OnlinePaymentMethods = configuration.State == CheckoutLoadState.Success
+            ? StorefrontOnlinePayments.Normalize(configuration.Configuration?.OnlinePaymentMethods)
+            : [OnlinePaymentMethod.Pix];
+    }
+
+    private OnlinePaymentMethod AvailableOrDefault(OnlinePaymentMethod method)
+    {
+        if (OnlinePaymentMethods.Contains(method))
+        {
+            return method;
+        }
+
+        return StorefrontOnlinePayments.DefaultMethod(OnlinePaymentMethods) ?? OnlinePaymentMethod.Pix;
+    }
+
     private IActionResult Inaccessible() { State = CheckoutLoadState.NotFound; Checkout = null; Message = "Esta reserva não está disponível neste dispositivo."; return Page(); }
     private static string? PaymentLifecycleMessage(PixPayment? payment) => payment?.Status == "cancellationpending" ? "Estamos confirmando o cancelamento do pagamento. Aguarde a atualização; não é necessário tentar cancelar novamente." : null;
-    private static string PaymentMessage(PaymentLoadState state) => state switch { PaymentLoadState.Validation => "Não foi possível iniciar o pagamento PIX com os dados atuais.", PaymentLoadState.Conflict => "A tentativa de pagamento PIX mudou. Atualize a página e tente novamente.", PaymentLoadState.Timeout => "A confirmação do pagamento demorou. Tente novamente.", PaymentLoadState.Unavailable => "O pagamento está temporariamente indisponível.", PaymentLoadState.Malformed => "Não foi possível validar os dados do pagamento.", PaymentLoadState.RateLimited => "Muitas tentativas. Aguarde um pouco.", _ => "O pagamento não pôde ser iniciado agora." };
+    private static string PaymentMessage(PaymentLoadState state, OnlinePaymentMethod? method = null) => state switch
+    {
+        PaymentLoadState.Validation => method == OnlinePaymentMethod.Card
+            ? "Não foi possível iniciar o pagamento com cartão com os dados atuais."
+            : "Não foi possível iniciar o pagamento PIX com os dados atuais.",
+        PaymentLoadState.Conflict => method == OnlinePaymentMethod.Card
+            ? "A tentativa de pagamento com cartão mudou. Atualize a página e tente novamente."
+            : "A tentativa de pagamento PIX mudou. Atualize a página e tente novamente.",
+        PaymentLoadState.Timeout => "A confirmação do pagamento demorou. Tente novamente.",
+        PaymentLoadState.Unavailable => "O pagamento está temporariamente indisponível.",
+        PaymentLoadState.Malformed => "Não foi possível validar os dados do pagamento.",
+        PaymentLoadState.RateLimited => "Muitas tentativas. Aguarde um pouco.",
+        _ => "O pagamento não pôde ser iniciado agora."
+    };
 }
