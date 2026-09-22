@@ -23,29 +23,14 @@
   min-height: 6.5rem;
 }
 
-.card-token-form {
-  display: grid;
-  gap: .85rem;
-  width: 100%;
-}
-
-.card-token-scenarios {
-  display: grid;
-  gap: .65rem;
-}
-
-.card-last4,
+.card-hosted-return,
 .card-payment-pending {
   margin: 1.25rem 0 0;
 }
 
-.card-last4 {
-  color: var(--fight-green);
-  font-family: "Barlow Condensed", sans-serif;
-  font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+.card-hosted-return {
+  color: var(--fight-muted);
+  line-height: 1.55;
 }
 
 .card-payment-pending p {

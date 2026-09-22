@@ -85,12 +85,12 @@ public sealed class CheckoutClient(
         return MapInitiation(result, OnlinePaymentMethod.Pix);
     }
 
-    public async Task<PaymentResult> InitiateCardAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, string paymentToken, CancellationToken cancellationToken = default)
+    public async Task<PaymentResult> InitiateCardAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, CancellationToken cancellationToken = default)
     {
         var result = await SendAsync<PaymentDto>(
             HttpMethod.Post,
             $"v1/storefront/checkouts/{publicCheckoutId:D}/payments/card",
-            new { method = OnlinePaymentMethod.Card, paymentToken },
+            new { method = OnlinePaymentMethod.Card },
             ("Idempotency-Key", idempotencyKey),
             cancellationToken,
             accessToken);
@@ -152,22 +152,23 @@ public sealed class CheckoutClient(
         var method = x.Method ?? OnlinePaymentMethod.Pix;
         var isCard = method == OnlinePaymentMethod.Card;
         var needsPix = status == "pending" && !isCard;
-        var needsCardLast4 = status == "pending" && isCard;
+        var needsCheckoutUrl = status == "pending" && isCard;
         var terminal = status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
         byte[] bytes = [];
         var validQr = string.IsNullOrWhiteSpace(x.QrCodePngBase64) || TryPng(x.QrCodePngBase64, out bytes) && bytes.Length <= 2 * 1024 * 1024;
-        var last4 = string.IsNullOrWhiteSpace(x.CardLast4) ? null : x.CardLast4.Trim();
-        var validLast4 = last4 is null || last4.Length == 4 && last4.All(char.IsDigit);
+        var checkoutUrl = string.IsNullOrWhiteSpace(x.CheckoutUrl) ? null : x.CheckoutUrl.Trim();
         if (isCard)
         {
-            if (!validLast4 || needsCardLast4 && last4 is null || needsCardLast4 && (!string.IsNullOrWhiteSpace(x.PixCopyPaste) || !string.IsNullOrWhiteSpace(x.QrCodePngBase64)))
+            if (needsCheckoutUrl && !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl)
+                || needsCheckoutUrl && (!string.IsNullOrWhiteSpace(x.PixCopyPaste) || !string.IsNullOrWhiteSpace(x.QrCodePngBase64))
+                || checkoutUrl is not null && !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
             {
                 return false;
             }
         }
         else
         {
-            last4 = null;
+            checkoutUrl = null;
         }
 
         if (status is not ("pending" or "processing" or "approved" or "conversionpending" or "cancellationpending" or "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded") || x.Amount < 0 || x.Amount != decimal.Round(x.Amount, 2) || x.Amount > 100000000 || !Currency(x.Currency) || x.ExpiresAt == default || !terminal && x.ExpiresAt < DateTimeOffset.UtcNow.AddMinutes(-5) || needsPix && (string.IsNullOrWhiteSpace(x.PixCopyPaste) || x.PixCopyPaste.Length > 10000 || string.IsNullOrWhiteSpace(x.QrCodePngBase64)) || !validQr || status == "converted" && !OrderAccessCookieStore.IsValidOrderNumber(x.PublicOrderNumber ?? "") || status != "converted" && x.PublicOrderNumber is not null || x.PublicOrderNumber is not null && !OrderAccessCookieStore.IsValidOrderNumber(x.PublicOrderNumber)) return false;
@@ -181,7 +182,7 @@ public sealed class CheckoutClient(
             ExpiresAt = x.ExpiresAt,
             PixCopyPaste = isCard ? "" : x.PixCopyPaste?.Trim() ?? "",
             QrCodePngDataUri = isCard || qr.Length == 0 ? "" : "data:image/png;base64," + qr,
-            CardLast4 = last4,
+            CheckoutUrl = checkoutUrl,
             PublicOrderNumber = x.PublicOrderNumber?.Trim().ToUpperInvariant()
         };
         return true;
@@ -293,7 +294,7 @@ public sealed class CheckoutClient(
     private sealed class ShippingDto { public string? CarrierName { get; set; } public string? ServiceName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } public AddressDto? Address { get; set; } }
     private sealed class ResponseDto { public Guid PublicCheckoutId { get; set; } public string? Status { get; set; } public DateTimeOffset ExpiresAt { get; set; } public DateTimeOffset AccessExpiresAt { get; set; } public List<LineDto>? Lines { get; set; } public decimal MerchandiseTotal { get; set; } public decimal DiscountTotal { get; set; } public decimal FreightTotal { get; set; } public decimal Total { get; set; } public string? Currency { get; set; } public string? FulfillmentMethod { get; set; } public PickupDto? Pickup { get; set; } public ShippingDto? Shipping { get; set; } public ContactDto? Contact { get; set; } }
     private sealed class LineDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } public string? Presentation { get; set; } public string? ImageUrl { get; set; } public decimal UnitPrice { get; set; } public decimal LineTotal { get; set; } }
-    private sealed class PaymentDto { public string? Status { get; set; } public OnlinePaymentMethod? Method { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? CardLast4 { get; set; } public string? PublicOrderNumber { get; set; } }
+    private sealed class PaymentDto { public string? Status { get; set; } public OnlinePaymentMethod? Method { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? CheckoutUrl { get; set; } public string? PublicOrderNumber { get; set; } }
     private sealed class ShippingQuoteRequestDto { public List<LineRequestDto> Lines { get; set; } = []; public string DestinationPostalCode { get; set; } = ""; }
     private sealed class ShippingQuoteDto { public DateTimeOffset ExpiresAt { get; set; } public string? Currency { get; set; } public List<ShippingQuoteOptionDto>? Options { get; set; } }
     private sealed class ShippingQuoteOptionDto { public Guid PublicShippingQuoteId { get; set; } public string? ServiceName { get; set; } public string? CarrierName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } }

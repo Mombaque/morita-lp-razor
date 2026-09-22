@@ -44,15 +44,14 @@ public sealed class CheckoutPaymentMethodTests
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<OnlinePaymentMethod>("\"0\"", JsonOptions));
     }
 
-    [Fact]
-    public void Card_token_accepts_fake_scenarios_and_rejects_a_primary_account_number()
+    [Theory]
+    [InlineData("http://127.0.0.1/v1/testing/online-payments/hosted/ref", true)]
+    [InlineData("https://pay.example/checkout/ref", true)]
+    [InlineData("http://example.com/checkout", false)]
+    [InlineData("javascript:alert(1)", false)]
+    [InlineData(null, false)]
+    public void Hosted_checkout_urls_allow_https_or_loopback_http(string? url, bool expected)
     {
-        Assert.True(StorefrontCardPaymentToken.TryNormalize("tok_pending", out var pending));
-        Assert.Equal("tok_pending", pending);
-        Assert.True(StorefrontCardPaymentToken.TryNormalize(" tok_approve ", out var approved));
-        Assert.Equal("tok_approve", approved);
-        Assert.False(StorefrontCardPaymentToken.TryNormalize("4242424242424242", out _));
-        Assert.True(StorefrontCardPaymentToken.LooksLikePrimaryAccountNumber("4242 4242 4242 4242"));
-        Assert.False(StorefrontCardPaymentToken.TryNormalize("short", out _));
+        Assert.Equal(expected, StorefrontHostedCheckoutUrl.IsAllowed(url));
     }
 }

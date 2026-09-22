@@ -169,7 +169,7 @@
                                     </label>
                                     <label class="fulfillment-choice">
                                         <input type="radio" name="paymentMethod" value="@OnlinePaymentMethod.Card.ToWireValue()" checked="@(Model.PaymentMethod == OnlinePaymentMethod.Card ? "checked" : null)" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
-                                        <span><strong>Cartão</strong><small>Token de teste, sem o número do cartão</small></span>
+                                        <span><strong>Cartão</strong><small>Pague na página da operadora</small></span>
                                     </label>
                                 </fieldset>
                                 <button class="commerce-button commerce-button-secondary" type="submit">Usar esta forma</button>
@@ -181,13 +181,9 @@
                         }
                         @if (Model.CardAvailable && (Model.PaymentMethod == OnlinePaymentMethod.Card || !Model.PixAvailable))
                         {
-                            <form method="post" asp-page-handler="PayCard" class="card-token-form" data-card-payment>
-                                <p class="cart-estimate-note">Ambiente de teste: use um token. Nunca informe o número, a validade ou o CVV.</p>
-                                <div class="card-token-scenarios">
-                                    <button class="commerce-button commerce-button-primary" type="submit" name="PaymentToken" value="tok_pending" data-card-scenario="tok_pending">Simular pagamento pendente (final 4242)</button>
-                                    <button class="commerce-button commerce-button-secondary" type="submit" name="PaymentToken" value="tok_approve" data-card-scenario="tok_approve">Aprovar imediatamente (final 0002)</button>
-                                    <button class="commerce-button commerce-button-secondary" type="submit" name="PaymentToken" value="tok_fail" data-card-scenario="tok_fail">Simular recusa (final 0003)</button>
-                                </div>
+                            <form method="post" asp-page-handler="PayCard" data-card-payment>
+                                <p class="cart-estimate-note">Você será enviado para a página de pagamento. O cartão é informado lá, não nesta loja.</p>
+                                <button class="commerce-button commerce-button-primary" type="submit">Pagar com cartão</button>
                             </form>
                         }
                         <form method="post" asp-page-handler="Cancel"><button class="commerce-button commerce-button-danger" type="submit">Cancelar reserva</button></form>
@@ -237,9 +233,10 @@
                     <span class="checkout-payment-state">@(payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" })</span>
                 </div>
 
-                @if (payment.IsCard && !string.IsNullOrWhiteSpace(payment.CardLast4))
+                @if (payment.IsCard && payment.Status is "pending" or "processing" or "approved" or "conversionpending" && StorefrontHostedCheckoutUrl.IsAllowed(payment.CheckoutUrl))
                 {
-                    <p class="card-last4" data-card-last4="@payment.CardLast4">Cartão final @payment.CardLast4</p>
+                    <p class="card-hosted-return">Se a página de pagamento ainda estiver aberta, conclua lá. Esta tela confirma o pedido automaticamente.</p>
+                    <p><a class="commerce-button commerce-button-secondary" href="@payment.CheckoutUrl" rel="noopener noreferrer" data-hosted-checkout>Continuar o pagamento</a></p>
                 }
 
                 @if (!terminal && payment.IsPix && (payment.Status is "pending" or "processing" or "approved" or "conversionpending") && !string.IsNullOrWhiteSpace(payment.QrCodePngDataUri) && !string.IsNullOrWhiteSpace(payment.PixCopyPaste))
@@ -266,7 +263,7 @@
                 {
                     <div class="card-payment-pending">
                         <p class="pix-instructions-title">Aguardando a operadora</p>
-                        <p>Não saia desta página. O pedido será confirmado automaticamente quando o pagamento for aprovado.</p>
+                        <p>O pagamento acontece na página da operadora. Ao voltar, permaneça nesta tela até o pedido ser confirmado.</p>
                         <p class="pix-expiry">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@payment.ExpiresAt.ToLocalTime().ToString("g")</time>.</p>
                     </div>
                 }
@@ -285,13 +282,8 @@
                 @if (canRetryPayment && payment.IsCard)
                 {
                     <div class="checkout-status-actions">
-                        <form method="post" asp-page-handler="RetryCard" class="card-token-form" data-card-payment>
-                            <p class="cart-estimate-note">Escolha um novo token de teste. O número do cartão continua fora desta tela.</p>
-                            <div class="card-token-scenarios">
-                                <button class="commerce-button commerce-button-primary" type="submit" name="PaymentToken" value="tok_pending" data-card-scenario="tok_pending">Tentar cartão pendente (final 4242)</button>
-                                <button class="commerce-button commerce-button-secondary" type="submit" name="PaymentToken" value="tok_approve" data-card-scenario="tok_approve">Aprovar imediatamente (final 0002)</button>
-                                <button class="commerce-button commerce-button-secondary" type="submit" name="PaymentToken" value="tok_fail" data-card-scenario="tok_fail">Simular recusa (final 0003)</button>
-                            </div>
+                        <form method="post" asp-page-handler="RetryCard" data-card-payment>
+                            <button class="commerce-button commerce-button-primary" type="submit">Gerar novo pagamento com cartão</button>
                         </form>
                     </div>
                 }

@@ -123,7 +123,35 @@ public sealed class CheckoutStatusPageTests
     }
 
     [Fact]
-    public async Task Successful_card_initiation_keeps_last4_without_pix_data()
+    public async Task Successful_card_initiation_redirects_to_hosted_checkout()
+    {
+        var id = Guid.NewGuid();
+        const string hostedUrl = "http://127.0.0.1/v1/testing/online-payments/hosted/ref";
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "active"),
+            CardInitiation = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "pending",
+                Method = OnlinePaymentMethod.Card,
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
+                CheckoutUrl = hostedUrl
+            })
+        };
+        var page = Create(id, api, new FakeOrderAccess());
+
+        var result = await page.OnPostPayCardAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal(hostedUrl, redirect.Url);
+        Assert.Equal(1, api.CardInitiationCount);
+        Assert.Null(page.Message);
+    }
+
+    [Fact]
+    public async Task Card_initiation_does_not_redirect_to_a_disallowed_checkout_url()
     {
         var id = Guid.NewGuid();
         var api = new FakeCheckout
@@ -136,39 +164,20 @@ public sealed class CheckoutStatusPageTests
                 Amount = 10,
                 Currency = "BRL",
                 ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
-                CardLast4 = "4242"
+                CheckoutUrl = "http://example.com/checkout"
             })
         };
         var page = Create(id, api, new FakeOrderAccess());
-        page.PaymentToken = "tok_pending";
 
-        await page.OnPostPayCardAsync(CancellationToken.None);
+        var result = await page.OnPostPayCardAsync(CancellationToken.None);
 
-        Assert.Equal(PaymentLoadState.Success, page.PaymentState);
-        Assert.Equal("pending", page.Payment!.Status);
-        Assert.Equal(OnlinePaymentMethod.Card, page.Payment.Method);
-        Assert.Equal(OnlinePaymentMethod.Card, page.PaymentMethod);
-        Assert.Equal("4242", page.Payment.CardLast4);
-        Assert.Equal("tok_pending", api.LastPaymentToken);
-        Assert.Null(page.Message);
+        Assert.IsType<PageResult>(result);
+        Assert.Equal(1, api.CardInitiationCount);
+        Assert.Equal("http://example.com/checkout", page.Payment!.CheckoutUrl);
     }
 
     [Fact]
-    public async Task Card_initiation_rejects_a_primary_account_number()
-    {
-        var id = Guid.NewGuid();
-        var api = new FakeCheckout { Checkout = Checkout(id, "active") };
-        var page = Create(id, api, new FakeOrderAccess());
-        page.PaymentToken = "4242424242424242";
-
-        await page.OnPostPayCardAsync(CancellationToken.None);
-
-        Assert.Equal(0, api.CardInitiationCount);
-        Assert.Contains("não envie o número do cartão", page.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    public async Task Approved_card_initiation_redirects_to_the_converted_order()
+    public async Task Converted_card_initiation_still_redirects_to_the_order()
     {
         var id = Guid.NewGuid();
         var api = new FakeCheckout
@@ -181,19 +190,54 @@ public sealed class CheckoutStatusPageTests
                 Amount = 10,
                 Currency = "BRL",
                 ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5),
-                CardLast4 = "0002",
                 PublicOrderNumber = "MF-0123456789ABCDEF"
             })
         };
         var order = new FakeOrderAccess();
         var page = Create(id, api, order);
-        page.PaymentToken = "tok_approve";
 
         var result = await page.OnPostPayCardAsync(CancellationToken.None);
 
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Order", redirect.PageName);
         Assert.Equal("MF-0123456789ABCDEF", order.Number);
+    }
+
+    [Fact]
+    public async Task Retry_card_rotates_attempt_key_and_redirects_to_hosted_checkout()
+    {
+        var id = Guid.NewGuid();
+        const string hostedUrl = "http://127.0.0.1/v1/testing/online-payments/hosted/retry";
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "failed",
+                Method = OnlinePaymentMethod.Card,
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1)
+            }),
+            CardInitiation = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "pending",
+                Method = OnlinePaymentMethod.Card,
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(15),
+                CheckoutUrl = hostedUrl
+            })
+        };
+        var attempts = new FakeAttempt();
+        var page = Create(id, api, new FakeOrderAccess(), new FakeCart(), attempts);
+
+        var result = await page.OnPostRetryCardAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal(hostedUrl, redirect.Url);
+        Assert.Equal(1, api.CardInitiationCount);
+        Assert.Equal(new string('r', 32), api.LastInitiationKey);
     }
 
     [Fact]
@@ -294,13 +338,12 @@ public sealed class CheckoutStatusPageTests
         public int InitiationCount;
         public int CardInitiationCount;
         public string? LastInitiationKey;
-        public string? LastPaymentToken;
         public Task<CheckoutConfigurationResult> GetConfigurationAsync(CancellationToken c = default) => Task.FromResult(CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable));
         public Task<CheckoutResult> CreateAsync(CheckoutCreateRequest r, string i, string a, CancellationToken c = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.Unavailable));
         public Task<CheckoutResult> GetAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, Checkout));
         public Task<CheckoutResult> CancelAsync(Guid i, string a, CancellationToken c = default) { CheckoutCancelCount++; return Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, null)); }
         public Task<PaymentResult> InitiatePixAsync(Guid i, string a, string k, CancellationToken c = default) { InitiationCount++; LastInitiationKey = k; return Task.FromResult(Initiation); }
-        public Task<PaymentResult> InitiateCardAsync(Guid i, string a, string k, string token, CancellationToken c = default) { CardInitiationCount++; LastInitiationKey = k; LastPaymentToken = token; return Task.FromResult(CardInitiation); }
+        public Task<PaymentResult> InitiateCardAsync(Guid i, string a, string k, CancellationToken c = default) { CardInitiationCount++; LastInitiationKey = k; return Task.FromResult(CardInitiation); }
         public Task<PaymentResult> GetPaymentAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(Payment);
         public Task<PaymentResult> CancelPaymentAsync(Guid i, string a, CancellationToken c = default) { PaymentCancelCount++; return Task.FromResult(PaymentResult.Failure(PaymentLoadState.Success)); }
     }

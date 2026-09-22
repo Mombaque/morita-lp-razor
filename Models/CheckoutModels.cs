@@ -24,7 +24,7 @@ public sealed class PixPayment
     public DateTimeOffset ExpiresAt { get; init; }
     public string PixCopyPaste { get; init; } = "";
     public string QrCodePngDataUri { get; init; } = "";
-    public string? CardLast4 { get; init; }
+    public string? CheckoutUrl { get; init; }
     public string? PublicOrderNumber { get; init; }
 
     public bool IsPix => Method == OnlinePaymentMethod.Pix;

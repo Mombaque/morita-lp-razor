@@ -21,7 +21,6 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public bool HasOnlinePaymentMethods => OnlinePaymentMethods.Count > 0;
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
     [BindProperty(SupportsGet = true)] public OnlinePaymentMethod PaymentMethod { get; set; } = OnlinePaymentMethod.Pix;
-    [BindProperty] public string? PaymentToken { get; set; }
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -42,17 +41,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     {
         var credential = access.Read(PublicCheckoutId);
         if (credential is null) return Inaccessible();
-        if (!StorefrontCardPaymentToken.TryNormalize(PaymentToken, out var token))
-        {
-            await LoadOwnedAsync(cancellationToken);
-            Message = StorefrontCardPaymentToken.LooksLikePrimaryAccountNumber(PaymentToken ?? "")
-                ? "Não envie o número do cartão; use o token do provedor."
-                : "Informe um token de pagamento válido.";
-            PaymentMethod = OnlinePaymentMethod.Card;
-            return Page();
-        }
-
-        return await InitiateCardAsync(credential.Token, paymentAttempt.Ensure(PublicCheckoutId).IdempotencyKey, token, cancellationToken);
+        return await InitiateCardAsync(credential.Token, paymentAttempt.Ensure(PublicCheckoutId).IdempotencyKey, cancellationToken);
     }
 
     public async Task<IActionResult> OnPostRetryPixAsync(CancellationToken cancellationToken)
@@ -93,17 +82,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             return Page();
         }
 
-        if (!StorefrontCardPaymentToken.TryNormalize(PaymentToken, out var token))
-        {
-            await LoadOwnedAsync(cancellationToken);
-            Message = StorefrontCardPaymentToken.LooksLikePrimaryAccountNumber(PaymentToken ?? "")
-                ? "Não envie o número do cartão; use o token do provedor."
-                : "Informe um token de pagamento válido.";
-            PaymentMethod = OnlinePaymentMethod.Card;
-            return Page();
-        }
-
-        return await InitiateCardAsync(credential.Token, paymentAttempt.Rotate(PublicCheckoutId).IdempotencyKey, token, cancellationToken);
+        return await InitiateCardAsync(credential.Token, paymentAttempt.Rotate(PublicCheckoutId).IdempotencyKey, cancellationToken);
     }
 
     public async Task<IActionResult> OnPostRestoreCheckoutAsync(CancellationToken cancellationToken)
@@ -144,9 +123,9 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         return await CompleteInitiationAsync(result, OnlinePaymentMethod.Pix, accessToken, cancellationToken);
     }
 
-    private async Task<IActionResult> InitiateCardAsync(string accessToken, string idempotencyKey, string paymentToken, CancellationToken cancellationToken)
+    private async Task<IActionResult> InitiateCardAsync(string accessToken, string idempotencyKey, CancellationToken cancellationToken)
     {
-        var result = await client.InitiateCardAsync(PublicCheckoutId, accessToken, idempotencyKey, paymentToken, cancellationToken);
+        var result = await client.InitiateCardAsync(PublicCheckoutId, accessToken, idempotencyKey, cancellationToken);
         return await CompleteInitiationAsync(result, OnlinePaymentMethod.Card, accessToken, cancellationToken);
     }
 
@@ -157,6 +136,14 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             if (orderAccess.Write(number, accessToken)) return RedirectToPage("/Order", new { publicOrderNumber = number });
             return Inaccessible();
         }
+
+        if (result.State == PaymentLoadState.Success
+            && result.Payment is { Status: "pending", CheckoutUrl: { } checkoutUrl }
+            && StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
+        {
+            return Redirect(checkoutUrl);
+        }
+
         await LoadOwnedAsync(cancellationToken);
         PaymentState = result.State;
         Payment = result.Payment;
