@@ -151,25 +151,20 @@ public sealed class CheckoutClient(
         var status = x.Status?.Trim().ToLowerInvariant();
         var method = x.Method ?? OnlinePaymentMethod.Pix;
         var isCard = method == OnlinePaymentMethod.Card;
-        var needsPix = status == "pending" && !isCard;
-        var needsCheckoutUrl = status == "pending" && isCard;
+        var checkoutUrl = string.IsNullOrWhiteSpace(x.CheckoutUrl) ? null : x.CheckoutUrl.Trim();
+        var hosted = checkoutUrl is not null;
+        if (hosted && !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
+            return false;
+        if (!isCard && !hosted)
+            checkoutUrl = null;
+        var needsPix = status == "pending" && !isCard && checkoutUrl is null;
+        var needsCheckoutUrl = status == "pending" && (isCard || checkoutUrl is not null);
         var terminal = status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
         byte[] bytes = [];
         var validQr = string.IsNullOrWhiteSpace(x.QrCodePngBase64) || TryPng(x.QrCodePngBase64, out bytes) && bytes.Length <= 2 * 1024 * 1024;
-        var checkoutUrl = string.IsNullOrWhiteSpace(x.CheckoutUrl) ? null : x.CheckoutUrl.Trim();
-        if (isCard)
-        {
-            if (needsCheckoutUrl && !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl)
-                || needsCheckoutUrl && (!string.IsNullOrWhiteSpace(x.PixCopyPaste) || !string.IsNullOrWhiteSpace(x.QrCodePngBase64))
-                || checkoutUrl is not null && !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
-            {
-                return false;
-            }
-        }
-        else
-        {
-            checkoutUrl = null;
-        }
+        if ((isCard || hosted) && (needsCheckoutUrl && checkoutUrl is null
+            || needsCheckoutUrl && (!string.IsNullOrWhiteSpace(x.PixCopyPaste) || !string.IsNullOrWhiteSpace(x.QrCodePngBase64))))
+            return false;
 
         if (status is not ("pending" or "processing" or "approved" or "conversionpending" or "cancellationpending" or "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded") || x.Amount < 0 || x.Amount != decimal.Round(x.Amount, 2) || x.Amount > 100000000 || !Currency(x.Currency) || x.ExpiresAt == default || !terminal && x.ExpiresAt < DateTimeOffset.UtcNow.AddMinutes(-5) || needsPix && (string.IsNullOrWhiteSpace(x.PixCopyPaste) || x.PixCopyPaste.Length > 10000 || string.IsNullOrWhiteSpace(x.QrCodePngBase64)) || !validQr || status == "converted" && !OrderAccessCookieStore.IsValidOrderNumber(x.PublicOrderNumber ?? "") || status != "converted" && x.PublicOrderNumber is not null || x.PublicOrderNumber is not null && !OrderAccessCookieStore.IsValidOrderNumber(x.PublicOrderNumber)) return false;
         var qr = string.IsNullOrWhiteSpace(x.QrCodePngBase64) ? "" : Convert.ToBase64String(bytes);
@@ -180,8 +175,8 @@ public sealed class CheckoutClient(
             Amount = decimal.Round(x.Amount, 2),
             Currency = x.Currency!.Trim().ToUpperInvariant(),
             ExpiresAt = x.ExpiresAt,
-            PixCopyPaste = isCard ? "" : x.PixCopyPaste?.Trim() ?? "",
-            QrCodePngDataUri = isCard || qr.Length == 0 ? "" : "data:image/png;base64," + qr,
+            PixCopyPaste = isCard || hosted ? "" : x.PixCopyPaste?.Trim() ?? "",
+            QrCodePngDataUri = isCard || hosted || qr.Length == 0 ? "" : "data:image/png;base64," + qr,
             CheckoutUrl = checkoutUrl,
             PublicOrderNumber = x.PublicOrderNumber?.Trim().ToUpperInvariant()
         };

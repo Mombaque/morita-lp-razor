@@ -258,6 +258,10 @@ public sealed class CheckoutClientTests
         Assert.Equal(PaymentLoadState.Malformed, pendingCardWithPix.State);
         var disallowedCheckoutUrl = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "card", checkoutUrl: "http://example.com/checkout", includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Malformed, disallowedCheckoutUrl.State);
+        var pendingPixHosted = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "pix", checkoutUrl: "https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=1", includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        Assert.Equal(PaymentLoadState.Success, pendingPixHosted.State);
+        Assert.Equal("https://www.mercadopago.com.br/checkout/v1/redirect?pref_id=1", pendingPixHosted.Payment!.CheckoutUrl);
+        Assert.Equal("", pendingPixHosted.Payment.PixCopyPaste);
         var convertedCard = await Create(new RecordingHandler(PaymentJson("converted", DateTimeOffset.UtcNow.AddDays(-1), "MF-0123456789ABCDEF", method: "card", includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Success, convertedCard.State);
         Assert.Equal("MF-0123456789ABCDEF", convertedCard.Payment!.PublicOrderNumber);
