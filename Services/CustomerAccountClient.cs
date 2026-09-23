@@ -25,7 +25,6 @@ public interface ICustomerAccountClient
     Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken cancellationToken = default);
     Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
     Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default);
-    Task<AccountResult<bool>> ClaimOrderAsync(string token, string number, string accessToken, CancellationToken cancellationToken = default);
 }
 
 public sealed class CustomerAccountClient(
@@ -84,7 +83,6 @@ public sealed class CustomerAccountClient(
     public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken ct = default) => NoContentAsync(HttpMethod.Post, $"v1/storefront/account/{(all ? "logout-all" : "logout")}", null, token, ct);
     public Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken ct = default) => SendAsync<StorefrontAccountOrderPage>(HttpMethod.Get, $"v1/storefront/account/orders?page={Math.Max(page, 1)}&pageSize={Math.Clamp(pageSize, 1, 20)}", null, token, ct);
     public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken ct = default) => SendAsync<PublicOrder>(HttpMethod.Get, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}", null, token, ct);
-    public Task<AccountResult<bool>> ClaimOrderAsync(string token, string number, string accessToken, CancellationToken ct = default) => NoContentAsync(HttpMethod.Post, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}/claim", null, token, ct, ("X-Order-Access-Token", accessToken));
     private async Task<AccountResult<bool>> NoContentAsync(HttpMethod method, string path, object? body, string token, CancellationToken ct, (string Name, string Value)? extra = null)
     {
         var result = await SendAsync<JsonElement>(method, path, body, token, ct, extra);

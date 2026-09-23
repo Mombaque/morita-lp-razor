@@ -6,10 +6,6 @@
 }
 
 <main class="checkout-shell" data-order="page">
-    @if (Model.ClaimMessage is not null)
-    {
-        <p class="validation-error" role="alert">@Model.ClaimMessage</p>
-    }
     @if (Model.Order is null)
     {
         <div class="catalog-state catalog-unavailable" role="alert">
@@ -26,17 +22,5 @@
             <p class="order-number">Número do pedido: <strong>@Model.Order.PublicOrderNumber</strong></p>
         </header>
         <partial name="_AccountOrderDetail" model="Model.Order" />
-        @if (Model.CanClaim)
-        {
-            <form method="post" asp-page-handler="Claim">
-                <button class="commerce-button commerce-button-secondary" type="submit">Vincular este pedido à minha conta</button>
-            </form>
-            <p>O vínculo é manual e usa o acesso deste pedido neste dispositivo.</p>
-        }
-        else if (!Model.SignedIn)
-        {
-            <p class="account-status">Quer guardar este pedido no seu histórico?</p>
-            <a class="commerce-button commerce-button-primary" href="/conta?mode=signin&amp;returnUrl=%2Forder%2F@Model.PublicOrderNumber">Entrar ou criar conta</a>
-        }
     }
 </main>

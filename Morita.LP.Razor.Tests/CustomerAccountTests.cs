@@ -240,21 +240,18 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
-    public async Task Account_client_forwards_session_and_maps_conflict_rate_limit_and_clears_on_401()
+    public async Task Account_client_forwards_session_and_maps_rate_limit_and_clears_on_401()
     {
         var cookieContext = new DefaultHttpContext();
         var cookie = Store(DataProtectionProvider.Create(Directory.CreateTempSubdirectory()), cookieContext, Now);
         cookie.Write(new string('s', 32), Now.AddDays(1));
-        var handler = new StatusHandler(HttpStatusCode.Conflict);
+        var handler = new StatusHandler((HttpStatusCode)429);
         var client = CreateClient(handler, cookie);
-        var conflict = await client.ClaimOrderAsync(new string('s', 32), "MF-0123456789ABCDEF", new string('o', 32));
-        Assert.Equal(AccountLoadState.Conflict, conflict.State);
+        Assert.Equal(AccountLoadState.RateLimited, (await client.GetProfileAsync(new string('s', 32))).State);
         Assert.Equal(new string('s', 32), handler.Request!.Headers.GetValues("X-Storefront-Session").Single());
         Assert.Equal("proxy-secret", handler.Request.Headers.GetValues("X-Morita-Proxy-Secret").Single());
         Assert.Equal("unknown", handler.Request.Headers.GetValues("X-Morita-Client-IP").Single());
 
-        handler.Status = (HttpStatusCode)429;
-        Assert.Equal(AccountLoadState.RateLimited, (await client.GetProfileAsync(new string('s', 32))).State);
         handler.Status = HttpStatusCode.Unauthorized;
         Assert.Equal(AccountLoadState.Unauthorized, (await client.GetProfileAsync(new string('s', 32))).State);
         Assert.Contains(CustomerAccountCookieStore.CookieName, cookieContext.Response.Headers.SetCookie.ToString());
@@ -374,26 +371,6 @@ public sealed class CustomerAccountTests
         Assert.IsType<NotFoundResult>(result);
     }
 
-    [Fact]
-    public async Task Manual_order_claim_preserves_conflict_and_clears_expired_session()
-    {
-        const string number = "MF-0123456789ABCDEF";
-        var client = new AccountStub { ClaimResult = AccountResult<bool>.Failure(AccountLoadState.Conflict) };
-        var cookies = new SessionCookieStub();
-        var page = new OrderModel(new OrderStub(number), new OrderAccessStub(number), client, cookies)
-        {
-            PageContext = PageContext(),
-            PublicOrderNumber = number
-        };
-
-        await page.OnPostClaimAsync(CancellationToken.None);
-        Assert.Equal("Este pedido já pertence a outra conta.", page.ClaimMessage);
-
-        client.ClaimResult = AccountResult<bool>.Failure(AccountLoadState.Unauthorized);
-        await page.OnPostClaimAsync(CancellationToken.None);
-        Assert.Equal(1, cookies.ClearCalls);
-    }
-
     private static CustomerAccountCookieStore Store(IDataProtectionProvider provider, HttpContext context, DateTimeOffset now) => new(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), new FixedTime(now));
     private static CustomerAccountClient CreateClient(HttpMessageHandler handler, ICustomerAccountCookieStore cookie) => new(
         new HttpClient(handler) { BaseAddress = new("https://api.test/") },
@@ -444,7 +421,6 @@ public sealed class CustomerAccountTests
         public Guid LastVerifyChallengeId { get; private set; }
         public string? LastVerifyPolicyVersion { get; private set; }
         public int CreateAddressCalls { get; private set; }
-        public AccountResult<bool> ClaimResult { get; set; } = new(AccountLoadState.Success, true);
         public AccountResult<AccountCodeChallenge> CodeResult { get; set; } = AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable);
         public AccountResult<IReadOnlyList<PublicOrder>> OrdersResult { get; set; } = new(AccountLoadState.Success, []);
         public StorefrontAccountOrderPage? OrdersPageValue { get; set; }
@@ -475,7 +451,6 @@ public sealed class CustomerAccountTests
         public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<IReadOnlyList<PublicOrder>>> GetOrdersAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(OrdersResult);
         public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default) => Task.FromResult(OrderResult);
-        public Task<AccountResult<bool>> ClaimOrderAsync(string token, string number, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(ClaimResult);
     }
     private sealed class OrderStub(string number) : IOrderClient
     {
