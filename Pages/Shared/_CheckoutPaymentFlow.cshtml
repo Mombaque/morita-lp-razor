@@ -86,7 +86,7 @@
                     <span class="checkout-payment-state">@(payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" })</span>
                 </div>
 
-                @if (payment.IsCard && payment.Status is ("pending" or "processing" or "approved" or "conversionpending") && StorefrontHostedCheckoutUrl.IsAllowed(payment.CheckoutUrl))
+                @if (payment.Status is ("pending" or "processing" or "approved" or "conversionpending") && StorefrontHostedCheckoutUrl.IsAllowed(payment.CheckoutUrl))
                 {
                     <p class="card-hosted-return">Se a página de pagamento ainda estiver aberta, conclua lá. Esta tela confirma o pedido automaticamente.</p>
                     <p><a class="commerce-button commerce-button-secondary" href="@payment.CheckoutUrl" rel="noopener noreferrer" data-hosted-checkout>Continuar o pagamento</a></p>
