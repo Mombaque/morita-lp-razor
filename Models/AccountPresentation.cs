@@ -43,4 +43,12 @@ public static class AccountPresentation
         "pickup" => "Retirada na Morita",
         _ => "Entrega"
     };
+
+    public static string ProblemReason(string? reason) => reason?.ToLowerInvariant() switch
+    {
+        "damaged" => "Item danificado",
+        "exchange" => "Quero trocar",
+        "other" => "Outro",
+        _ => "Outro"
+    };
 }

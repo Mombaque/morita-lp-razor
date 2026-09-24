@@ -54,6 +54,16 @@ public sealed class PublicOrder
     public ShippingSnapshot? Shipping { get; init; }
     public PublicShipment? Shipment { get; init; }
     public IReadOnlyList<PublicOrderLine> Lines { get; init; } = [];
+    public bool CanReportProblem { get; init; }
+    public PublicCustomerOrderProblem? OpenProblem { get; init; }
+}
+
+public sealed class PublicCustomerOrderProblem
+{
+    public string Reason { get; init; } = "";
+    public string Message { get; init; } = "";
+    public string Status { get; init; } = "";
+    public DateTimeOffset CreatedAt { get; init; }
 }
 
 public sealed class PublicOrderLine

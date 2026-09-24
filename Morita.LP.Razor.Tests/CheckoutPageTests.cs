@@ -769,6 +769,7 @@ public sealed class CheckoutPageTests
         public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<IReadOnlyList<PublicOrder>>> GetOrdersAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<IReadOnlyList<PublicOrder>>(AccountLoadState.Success, []));
         public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<PublicOrder>.Failure(AccountLoadState.NotFound));
+        public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<PublicCustomerOrderProblem>.Failure(AccountLoadState.Unavailable));
     }
 
     private sealed class TestEnvironment : IHostEnvironment

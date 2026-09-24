@@ -453,6 +453,7 @@ public sealed class CustomerAccountTests
         public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<IReadOnlyList<PublicOrder>>> GetOrdersAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(OrdersResult);
         public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default) => Task.FromResult(OrderResult);
+        public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<PublicCustomerOrderProblem>.Failure(AccountLoadState.Unavailable));
     }
     private sealed class OrderStub(string number) : IOrderClient
     {

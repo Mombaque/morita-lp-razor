@@ -25,6 +25,7 @@ public interface ICustomerAccountClient
     Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken cancellationToken = default);
     Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
     Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default);
+    Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken cancellationToken = default);
 }
 
 public sealed class CustomerAccountClient(
@@ -83,6 +84,7 @@ public sealed class CustomerAccountClient(
     public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken ct = default) => NoContentAsync(HttpMethod.Post, $"v1/storefront/account/{(all ? "logout-all" : "logout")}", null, token, ct);
     public Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken ct = default) => SendAsync<StorefrontAccountOrderPage>(HttpMethod.Get, $"v1/storefront/account/orders?page={Math.Max(page, 1)}&pageSize={Math.Clamp(pageSize, 1, 20)}", null, token, ct);
     public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken ct = default) => SendAsync<PublicOrder>(HttpMethod.Get, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}", null, token, ct);
+    public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken ct = default) => SendAsync<PublicCustomerOrderProblem>(HttpMethod.Post, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}/problems", new { reason, message }, token, ct);
     private async Task<AccountResult<bool>> NoContentAsync(HttpMethod method, string path, object? body, string token, CancellationToken ct, (string Name, string Value)? extra = null)
     {
         var result = await SendAsync<JsonElement>(method, path, body, token, ct, extra);
@@ -111,7 +113,7 @@ public sealed class CustomerAccountClient(
                 return AccountResult<T>.Failure(AccountLoadState.Unauthorized, "Sua sessão expirou. Entre novamente.");
             }
             if (response.StatusCode == HttpStatusCode.NotFound) return AccountResult<T>.Failure(AccountLoadState.NotFound);
-            if (response.StatusCode == HttpStatusCode.Conflict) return AccountResult<T>.Failure(AccountLoadState.Conflict, "Este pedido já pertence a outra conta.");
+            if (response.StatusCode == HttpStatusCode.Conflict) return AccountResult<T>.Failure(AccountLoadState.Conflict, path.Contains("/problems", StringComparison.Ordinal) ? "Este pedido já possui um relato em aberto." : "Este pedido já pertence a outra conta.");
             if (response.StatusCode == (HttpStatusCode)429) return AccountResult<T>.Failure(AccountLoadState.RateLimited, "Muitas tentativas. Aguarde um pouco.");
             if (response.StatusCode == HttpStatusCode.UnprocessableEntity) return AccountResult<T>.Failure(AccountLoadState.Validation, "Revise os dados informados.");
             if (response.StatusCode == HttpStatusCode.NoContent) return new(AccountLoadState.Success, default);
