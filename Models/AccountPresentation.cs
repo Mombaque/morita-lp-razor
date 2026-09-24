@@ -14,6 +14,13 @@ public static class AccountPresentation
         _ => "Pagamento pendente"
     };
 
+    public static string PaymentStatusClass(string? status) => PaymentStatus(status) switch
+    {
+        "Pagamento pendente" => "payment-status-pending",
+        "Pagamento cancelado" => "payment-status-cancelled",
+        _ => ""
+    };
+
     public static string FulfillmentStatus(string? status) => status?.ToLowerInvariant() switch
     {
         "pending" => "Aguardando preparação",
