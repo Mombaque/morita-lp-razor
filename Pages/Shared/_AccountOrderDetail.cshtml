@@ -1,7 +1,7 @@
 @model Morita.LP.Razor.Models.PublicOrder
 <section class="account-panel order-detail" aria-labelledby="selected-order-heading">
     <h2 id="selected-order-heading">Detalhes do pedido @Model.PublicOrderNumber</h2>
-    <p>Pagamento: <strong>@AccountPresentation.PaymentStatus(Model.PaymentStatus)</strong></p>
+    <p>Pagamento: <strong class="@AccountPresentation.PaymentStatusClass(Model.PaymentStatus)">@AccountPresentation.PaymentStatus(Model.PaymentStatus)</strong></p>
     <p>Status: <strong>@AccountPresentation.FulfillmentStatus(Model.FulfillmentStatus)</strong> · @AccountPresentation.FulfillmentMethod(Model.FulfillmentMethod)</p>
     <ul>
         @foreach (var line in Model.Lines)

@@ -77,13 +77,15 @@
             var terminal = payment.Status is ("converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded");
             var canCancelPayment = (Model.Checkout.Status is ("active" or "paymentpending" or "conversionpending")) && (payment.Status is ("pending" or "processing" or "approved" or "conversionpending"));
             var canRetryPayment = (Model.Checkout.Status is ("active" or "paymentpending")) && (payment.Status is ("expired" or "failed" or "cancelled"));
+            var paymentStateLabel = payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" };
+            var paymentStateClass = paymentStateLabel switch { "Pagamento pendente" => "payment-status-pending", "Pagamento cancelado" => "payment-status-cancelled", _ => "" };
             <section class="pix-corner-card checkout-payment-card" aria-labelledby="payment-heading" data-payment-status="@payment.Status" data-payment-method="@payment.Method.ToWireValue()">
                 <div class="checkout-payment-heading">
                     <div>
                         <p class="checkout-card-kicker">03 // Pagamento</p>
                         <h2 id="payment-heading">@(payment.IsCard ? "Cartão" : "PIX")</h2>
                     </div>
-                    <span class="checkout-payment-state">@(payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" })</span>
+                    <span class="checkout-payment-state @paymentStateClass">@paymentStateLabel</span>
                 </div>
 
                 @if (payment.Status is ("pending" or "processing" or "approved" or "conversionpending") && StorefrontHostedCheckoutUrl.IsAllowed(payment.CheckoutUrl))

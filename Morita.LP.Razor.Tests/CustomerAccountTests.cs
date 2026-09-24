@@ -37,6 +37,8 @@ public sealed class CustomerAccountTests
     public void Account_presentation_uses_customer_facing_portuguese_labels()
     {
         Assert.Equal("Pagamento aprovado", AccountPresentation.PaymentStatus("converted"));
+        Assert.Equal("payment-status-pending", AccountPresentation.PaymentStatusClass("pending"));
+        Assert.Equal("payment-status-cancelled", AccountPresentation.PaymentStatusClass("cancelled"));
         Assert.Equal("Em trânsito", AccountPresentation.FulfillmentStatus("intransit"));
         Assert.Equal("Entrega", AccountPresentation.FulfillmentMethod("shipping"));
     }

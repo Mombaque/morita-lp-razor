@@ -3574,6 +3574,12 @@ body {
 .pending-checkout-note { margin-block: -.25rem 1rem; }
 .pending-checkout-ledger a { border-left: 3px solid #ffd166; padding-left: .75rem; }
 .pending-checkout-ledger em { color: #ffd166; }
+.order-ledger .payment-status-pending,
+.order-detail .payment-status-pending,
+.payment-status-pending { color: #ffd166; }
+.order-ledger .payment-status-cancelled,
+.order-detail .payment-status-cancelled,
+.payment-status-cancelled { color: #ef4444; }
 .commerce-button-danger {
   background: rgba(116, 29, 29, .28);
   border-color: #b84d4d;
@@ -4255,12 +4261,32 @@ body.filter-drawer-open {
   text-transform: uppercase;
 }
 
+.checkout-status-badge.payment-status-pending {
+  border-color: #ffd166;
+  color: #ffd166;
+}
+
+.checkout-status-badge.payment-status-cancelled {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
 .checkout-status-dot {
   background: var(--fight-green);
   border-radius: 50%;
   box-shadow: 0 0 12px rgba(60, 249, 174, .75);
   height: .55rem;
   width: .55rem;
+}
+
+.checkout-status-badge.payment-status-pending .checkout-status-dot {
+  background: #ffd166;
+  box-shadow: 0 0 12px rgba(255, 209, 102, .75);
+}
+
+.checkout-status-badge.payment-status-cancelled .checkout-status-dot {
+  background: #ef4444;
+  box-shadow: 0 0 12px rgba(239, 68, 68, .75);
 }
 
 .checkout-status-header .validation-error,
@@ -4490,6 +4516,14 @@ body.filter-drawer-open {
 .checkout-payment-heading {
   border-bottom: 1px solid var(--fight-line);
   padding-bottom: .85rem;
+}
+
+.checkout-payment-state.payment-status-pending {
+  color: #ffd166;
+}
+
+.checkout-payment-state.payment-status-cancelled {
+  color: #ef4444;
 }
 
 .checkout-payment-state {
