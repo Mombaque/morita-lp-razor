@@ -1799,9 +1799,12 @@ body {
 .commerce-hero-copy {
   align-content: center;
   border-left: 1px solid var(--fight-line);
+  container-type: inline-size;
   display: grid;
   min-width: 0;
   padding: clamp(3rem, 8vw, 7rem) clamp(1rem, 6vw, 5rem) clamp(3rem, 6vw, 5rem) clamp(1rem, 4vw, 3.5rem);
+  position: relative;
+  z-index: 1;
 }
 
 .commerce-hero-media {
@@ -1855,7 +1858,8 @@ body {
 }
 
 .commerce-hero h1 {
-  font-size: clamp(4.4rem, 10vw, 9rem);
+  font-size: min(9rem, 16cqi);
+  max-width: 100%;
 }
 
 .commerce-hero h1 span,
@@ -1870,7 +1874,7 @@ body {
   color: var(--fight-muted);
   font-size: clamp(1rem, 1.5vw, 1.22rem);
   margin: 2rem 0 0;
-  max-width: 620px;
+  max-width: min(620px, 100%);
   padding-left: 1rem;
 }
 
