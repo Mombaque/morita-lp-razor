@@ -2268,6 +2268,7 @@ body {
 .product-variant-color-choice {
   align-items: center;
   border: 1px solid transparent;
+  border-radius: .65rem;
   color: inherit;
   display: inline-flex;
   flex: 0 0 auto;
