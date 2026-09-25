@@ -33,6 +33,8 @@ public sealed class AccountModel(
     [BindProperty(SupportsGet = true)] public string? Mode { get; set; } = "create";
     [BindProperty(SupportsGet = true)] public string? ReturnUrl { get; set; }
     [BindProperty(SupportsGet = true)] public int CurrentPage { get; set; } = 1;
+    [BindProperty] public string ProblemReason { get; set; } = "";
+    [BindProperty] public string ProblemMessage { get; set; } = "";
     [BindProperty] public RegistrationInput Registration { get; set; } = new();
     [BindProperty] public LoginInput Login { get; set; } = new();
     [BindProperty] public EmailInput EmailForm { get; set; } = new();
@@ -160,6 +162,18 @@ public sealed class AccountModel(
         if (!AccountEnabled) return NotFound(); ModelState.Clear(); if (Session is not { } session) return RedirectToPage();
         var result = setDefault ? await client.SetDefaultAddressAsync(session.Token, id, ct) : await client.DeleteAddressAsync(session.Token, id, ct);
         if (result.Value) return Redirect("/conta#enderecos"); ExpireIfNeeded(result.State); Error = result.Message ?? "Não foi possível atualizar os endereços."; await LoadAsync(ct); return Page();
+    }
+
+    public async Task<IActionResult> OnPostReportProblemAsync(CancellationToken ct)
+    {
+        if (!AccountEnabled) return NotFound();
+        ModelState.Clear();
+        if (Session is not { } session || string.IsNullOrWhiteSpace(PublicOrderNumber)) return Redirect("/conta#pedidos");
+        var result = await client.ReportProblemAsync(session.Token, PublicOrderNumber, ProblemReason, ProblemMessage, ct);
+        if (result.State == AccountLoadState.Success) Message = "Relato enviado. A loja vai analisar o pedido.";
+        else { ExpireIfNeeded(result.State); Error = result.Message ?? "Não foi possível enviar o relato."; }
+        await LoadAsync(ct);
+        return Page();
     }
 
     public async Task<IActionResult> OnPostCloseAsync(CancellationToken ct)

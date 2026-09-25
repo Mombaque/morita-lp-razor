@@ -49,4 +49,27 @@
         <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@updatedAt.ToLocalTime().ToString("g")</time>.</p>
     }
     <p><strong>Total: @CurrencyPresentation.Symbol(Model.Currency) @Model.Amount.ToString("N2")</strong></p>
+    @if (Model.OpenProblem is { } problem)
+    {
+        <h3>Relato enviado</h3>
+        <p><strong>@AccountPresentation.ProblemReason(problem.Reason)</strong></p>
+        <p>@problem.Message</p>
+        <p>Enviado em <time datetime="@problem.CreatedAt.ToString("O")">@problem.CreatedAt.ToLocalTime().ToString("g")</time>.</p>
+    }
+    else if (Model.CanReportProblem)
+    {
+        <h3>Informar um problema</h3>
+        <form method="post" action="/conta?handler=ReportProblem&amp;publicOrderNumber=@Uri.EscapeDataString(Model.PublicOrderNumber)#pedidos">
+            <label for="problemReason">Motivo</label>
+            <select id="problemReason" name="ProblemReason" required>
+                <option value="Damaged">Item danificado</option>
+                <option value="Exchange">Quero trocar</option>
+                <option value="Other">Outro</option>
+            </select>
+            <label for="problemMessage">Mensagem</label>
+            <textarea id="problemMessage" name="ProblemMessage" maxlength="1000" required></textarea>
+            @Html.AntiForgeryToken()
+            <button type="submit" class="button">Enviar relato</button>
+        </form>
+    }
 </section>
