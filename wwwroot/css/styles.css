@@ -4868,3 +4868,20 @@ body.filter-drawer-open {
     transition: none;
   }
 }
+
+/* Sign-in step reached from checkout */
+.account-checkout-notice {
+  align-items: center;
+  background: rgba(60, 249, 174, .08);
+  border-left: 3px solid var(--fight-green);
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.5rem;
+  justify-content: space-between;
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.account-checkout-notice p {
+  margin: 0;
+}

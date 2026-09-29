@@ -213,6 +213,21 @@ public sealed class CartPageTests
     }
 
     [Fact]
+    public async Task Sign_in_from_checkout_explains_why_and_keeps_the_cart_in_view()
+    {
+        var cart = new TestCart(new CartState(DateTimeOffset.UtcNow, [new(Guid.NewGuid(), 2), new(Guid.NewGuid(), 1)]));
+        using var factory = CreateFactory(cart, CatalogQuoteResult.Unavailable());
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var fromCheckout = await (await client.GetAsync("/conta?mode=signin&returnUrl=/checkout")).Content.ReadAsStringAsync();
+        var direct = await (await client.GetAsync("/conta?mode=signin")).Content.ReadAsStringAsync();
+
+        Assert.Contains("data-account=\"checkout-notice\"", fromCheckout);
+        Assert.Contains("Seus itens continuam no carrinho (3 itens)", fromCheckout);
+        Assert.DoesNotContain("data-account=\"checkout-notice\"", direct);
+    }
+
+    [Fact]
     public async Task Product_add_ajax_success_returns_updated_cart_count()
     {
         var offer = Guid.NewGuid();
