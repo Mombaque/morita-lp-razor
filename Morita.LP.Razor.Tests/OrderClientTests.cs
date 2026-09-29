@@ -73,7 +73,7 @@ public sealed class OrderClientTests
     }
 
     private const string Token = "tttttttttttttttttttttttttttttttt";
-    private static OrderClient Create(HttpMessageHandler handler) => new(new HttpClient(handler) { BaseAddress = new("https://api.test/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.test", TimeoutSeconds = 2 }), new HttpContextAccessor { HttpContext = new DefaultHttpContext() }, new TestEnvironment(), NullLogger<OrderClient>.Instance);
+    private static OrderClient Create(HttpMessageHandler handler) => new(new HttpClient(handler) { BaseAddress = new("https://api.test/") }, Options.Create(new CatalogApiOptions { BaseUrl = "https://api.test", TimeoutSeconds = 2 }), NullLogger<OrderClient>.Instance);
     private static string Json(string number, string payment = "Converted", decimal amount = 10, string address = "{\"street\":\"Rua A\",\"number\":\"1\",\"neighborhood\":\"Centro\",\"city\":\"Sorocaba\",\"state\":\"SP\",\"postalCode\":\"18000-000\"}") => $$$"""{"publicOrderNumber":"{{{number}}}","paymentStatus":"{{{payment}}}","fulfillmentStatus":"Pending","fulfillmentMethod":"pickup","amount":{{{amount}}},"currency":"BRL","createdAt":"2026-08-20T12:00:00Z","pickupDisplayName":"Loja","pickupAddressJson":{{{JsonSerializer.Serialize(address)}}},"pickupHours":"09:00-18:00","pickupInstructions":"Documento","lines":[{"description":"Item","presentation":"Item","quantity":1,"unitPrice":10,"total":10}]}""";
     private sealed class Handler : HttpMessageHandler
     {
@@ -83,5 +83,4 @@ public sealed class OrderClientTests
         public HttpRequestMessage? Request { get; private set; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) { Request = request; return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body ?? "", System.Text.Encoding.UTF8, "application/json") }); }
     }
-    private sealed class TestEnvironment : IHostEnvironment { public string EnvironmentName { get; set; } = Environments.Development; public string ApplicationName { get; set; } = "tests"; public string ApplicationVersion { get; set; } = "tests"; public string ContentRootPath { get; set; } = AppContext.BaseDirectory; public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider(); }
 }

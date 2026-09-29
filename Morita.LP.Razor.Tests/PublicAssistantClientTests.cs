@@ -111,15 +111,12 @@ public sealed class PublicAssistantClientTests
 
     private static PublicAssistantClient CreateClient(HttpMessageHandler handler, IPublicAssistantCookieStore cookies)
     {
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://api.test/") };
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Loopback;
+        var httpClient = StorefrontApiTestPipeline.CreateClient(handler, new CatalogApiOptions { BaseUrl = "https://api.test", ProxySecret = "proxy-secret" }, context);
         return new PublicAssistantClient(
             httpClient,
-            Options.Create(new CatalogApiOptions { BaseUrl = "https://api.test", ProxySecret = "proxy-secret" }),
             Options.Create(new StorefrontOptions { PublicAssistantTimeoutSeconds = 25 }),
-            new HttpContextAccessor { HttpContext = context },
-            new TestEnvironment(),
             cookies,
             NullLogger<PublicAssistantClient>.Instance);
     }
@@ -157,13 +154,5 @@ public sealed class PublicAssistantClientTests
         public bool Write(PublicAssistantCredentials value) => true;
         public bool Refresh(DateTimeOffset expiresAt) => true;
         public void Clear() { }
-    }
-
-    private sealed class TestEnvironment : IHostEnvironment
-    {
-        public string EnvironmentName { get; set; } = "E2E";
-        public string ApplicationName { get; set; } = "tests";
-        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
-        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 }

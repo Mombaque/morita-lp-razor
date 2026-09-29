@@ -12,7 +12,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Http;
 using Xunit;
 
 namespace Morita.LP.Razor.Tests;
@@ -75,6 +75,26 @@ public sealed class RelayTests
         Assert.Equal(ValidPayload, handler.Body);
         Assert.Equal("relay-secret", handler.Request!.Headers.GetValues("X-Morita-Proxy-Secret").Single());
         Assert.Contains(handler.Request.Headers.GetValues("X-Morita-Client-IP").Single(), new[] { "127.0.0.1", "::1", "unknown" });
+        Assert.Equal("localhost", handler.Request.Headers.GetValues("X-Morita-Storefront-Host").Single());
+    }
+
+    [Fact]
+    public async Task ImageProxy_forwards_the_shoppers_store_host_and_proxy_secret()
+    {
+        var handler = new RecordingHandler(new ImageResponse());
+        using var factory = CreateFactory(handler);
+        using var client = factory.CreateClient();
+        var imageId = Guid.NewGuid();
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"/v1/storefront/catalog/images/{imageId}");
+        request.Headers.Host = "Loja.Example.com:8443";
+
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.EndsWith($"/v1/storefront/catalog/images/{imageId}", handler.Request!.RequestUri!.AbsolutePath);
+        Assert.Equal("relay-secret", handler.Request.Headers.GetValues("X-Morita-Proxy-Secret").Single());
+        Assert.Equal("loja.example.com", handler.Request.Headers.GetValues("X-Morita-Storefront-Host").Single());
+        Assert.True(handler.Request.Headers.Contains("X-Morita-Client-IP"));
     }
 
     [Fact]
@@ -140,10 +160,8 @@ public sealed class RelayTests
             builder.UseEnvironment("E2E");
             builder.UseSetting("CatalogApi:ProxySecret", "relay-secret");
             builder.ConfigureTestServices(services =>
-            {
-                services.RemoveAll<IHttpClientFactory>();
-                services.AddSingleton<IHttpClientFactory>(new StubHttpClientFactory(handler));
-            });
+                services.ConfigureAll<HttpClientFactoryOptions>(options =>
+                    options.HttpMessageHandlerBuilderActions.Add(handlerBuilder => handlerBuilder.PrimaryHandler = new DelegatingHandler(handler))));
         });
 
     private static async Task<string> GetToken(HttpClient client)
@@ -176,6 +194,16 @@ public sealed class RelayTests
             Task.FromResult(new HttpResponseMessage(StatusCode) { Content = new StringContent(Body) });
     }
 
+    private sealed class ImageResponse : IResponseHandler
+    {
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            var content = new ByteArrayContent([0x89, 0x50, 0x4E, 0x47]);
+            content.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        }
+    }
+
     private sealed record StubResponseException(Exception Exception) : IResponseHandler
     {
         public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) => Task.FromException<HttpResponseMessage>(Exception);
@@ -192,12 +220,6 @@ public sealed class RelayTests
                 Body = await request.Content.ReadAsStringAsync(cancellationToken);
             return await response.SendAsync(request, cancellationToken);
         }
-    }
-
-    private sealed class StubHttpClientFactory(IResponseHandler handler) : IHttpClientFactory
-    {
-        private readonly HttpClient _client = new(new DelegatingHandler(handler)) { BaseAddress = new Uri("https://api.test/") };
-        public HttpClient CreateClient(string name) => _client;
     }
 
     private sealed class DelegatingHandler(IResponseHandler handler) : HttpMessageHandler

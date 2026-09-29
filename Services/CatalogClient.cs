@@ -11,9 +11,7 @@ namespace Morita.LP.Razor.Services;
 public sealed class CatalogClient(
     HttpClient httpClient,
     IOptions<CatalogApiOptions> options,
-    ILogger<CatalogClient> logger,
-    IHttpContextAccessor httpContextAccessor,
-    IHostEnvironment environment) : ICatalogClient
+    ILogger<CatalogClient> logger) : ICatalogClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly CatalogApiOptions _options = options.Value;
@@ -120,7 +118,7 @@ public sealed class CatalogClient(
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, 30)));
         try
         {
-            using var request = CreateRequest(HttpMethod.Get, path);
+            using var request = new HttpRequestMessage(HttpMethod.Get, path);
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (!response.IsSuccessStatusCode) { logger.LogWarning("Catalog request returned status {StatusCode}", (int)response.StatusCode); return new(response.StatusCode, false, default); }
             await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
@@ -137,7 +135,7 @@ public sealed class CatalogClient(
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, 30)));
         try
         {
-            using var request = CreateRequest(HttpMethod.Post, path);
+            using var request = new HttpRequestMessage(HttpMethod.Post, path);
             request.Content = JsonContent.Create(body, options: JsonOptions);
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (!response.IsSuccessStatusCode)
@@ -151,20 +149,6 @@ public sealed class CatalogClient(
         catch (OperationCanceledException) when (!callerToken.IsCancellationRequested) { logger.LogWarning("Catalog quote request timed out"); return new(null, false, default); }
         catch (HttpRequestException ex) { logger.LogWarning(ex, "Catalog quote request unavailable"); return new(null, false, default); }
         catch (JsonException ex) { logger.LogWarning(ex, "Catalog quote response malformed"); return new(null, false, default); }
-    }
-
-    private HttpRequestMessage CreateRequest(HttpMethod method, string path)
-    {
-        var request = new HttpRequestMessage(method, path);
-        if (httpContextAccessor.HttpContext is { } context)
-        {
-            request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, environment));
-        }
-
-        if (!string.IsNullOrWhiteSpace(_options.ProxySecret))
-            request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", _options.ProxySecret);
-
-        return request;
     }
 
     private CatalogPage UnavailablePage(CatalogQuery query) => new([], query.Page, CatalogQuery.PageSize, 0, 0, CatalogLoadState.Unavailable);

@@ -295,11 +295,10 @@ public sealed class CheckoutClientTests
     {
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("203.0.113.9");
+        var options = new CatalogApiOptions { BaseUrl = "https://api.test", TimeoutSeconds = 2, ProxySecret = "proxy-secret" };
         return new(
-            new HttpClient(handler) { BaseAddress = new("https://api.test/") },
-            Options.Create(new CatalogApiOptions { BaseUrl = "https://api.test", TimeoutSeconds = 2, ProxySecret = "proxy-secret" }),
-            new HttpContextAccessor { HttpContext = context },
-            new TestEnvironment(),
+            StorefrontApiTestPipeline.CreateClient(handler, options, context),
+            Options.Create(options),
             NullLogger<CheckoutClient>.Instance);
     }
 
@@ -315,14 +314,5 @@ public sealed class CheckoutClientTests
             Body = request.Content?.ReadAsStringAsync().GetAwaiter().GetResult() ?? "";
             return Task.FromResult(new HttpResponseMessage(Status) { Content = new StringContent(response, System.Text.Encoding.UTF8, "application/json") });
         }
-    }
-
-    private sealed class TestEnvironment : IHostEnvironment
-    {
-        public string EnvironmentName { get; set; } = Environments.Development;
-        public string ApplicationName { get; set; } = "tests";
-        public string ApplicationVersion { get; set; } = "tests";
-        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
-        public Microsoft.Extensions.FileProviders.IFileProvider ContentRootFileProvider { get; set; } = new Microsoft.Extensions.FileProviders.NullFileProvider();
     }
 }

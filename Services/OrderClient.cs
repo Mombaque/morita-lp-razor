@@ -11,7 +11,7 @@ public interface IOrderClient
     Task<OrderResult> GetAsync(string publicOrderNumber, string accessToken, CancellationToken cancellationToken = default);
 }
 
-public sealed class OrderClient(HttpClient httpClient, IOptions<CatalogApiOptions> options, IHttpContextAccessor contextAccessor, IHostEnvironment environment, ILogger<OrderClient> logger) : IOrderClient
+public sealed class OrderClient(HttpClient httpClient, IOptions<CatalogApiOptions> options, ILogger<OrderClient> logger) : IOrderClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly CatalogApiOptions options = options.Value;
@@ -24,8 +24,6 @@ public sealed class OrderClient(HttpClient httpClient, IOptions<CatalogApiOption
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, $"v1/storefront/orders/{Uri.EscapeDataString(publicOrderNumber)}");
             request.Headers.TryAddWithoutValidation("X-Order-Access-Token", accessToken);
-            if (contextAccessor.HttpContext is { } context) request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, environment));
-            if (!string.IsNullOrWhiteSpace(options.ProxySecret)) request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", options.ProxySecret);
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden) return OrderResult.Failure(OrderLoadState.Unauthorized);
             if ((int)response.StatusCode >= 500) return OrderResult.Failure(OrderLoadState.Unavailable, "O pedido não pôde ser consultado agora.");

@@ -374,14 +374,16 @@ public sealed class CustomerAccountTests
     }
 
     private static CustomerAccountCookieStore Store(IDataProtectionProvider provider, HttpContext context, DateTimeOffset now) => new(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), new FixedTime(now));
-    private static CustomerAccountClient CreateClient(HttpMessageHandler handler, ICustomerAccountCookieStore cookie) => new(
-        new HttpClient(handler) { BaseAddress = new("https://api.test/") },
-        Options.Create(new CatalogApiOptions { BaseUrl = "https://api.test", TimeoutSeconds = 2, ProxySecret = "proxy-secret" }),
-        NullLogger<CustomerAccountClient>.Instance,
-        cookie,
-        new FixedTime(Now),
-        new HttpContextAccessor { HttpContext = new DefaultHttpContext() },
-        new TestEnvironment());
+    private static CustomerAccountClient CreateClient(HttpMessageHandler handler, ICustomerAccountCookieStore cookie)
+    {
+        var options = new CatalogApiOptions { BaseUrl = "https://api.test", TimeoutSeconds = 2, ProxySecret = "proxy-secret" };
+        return new(
+            StorefrontApiTestPipeline.CreateClient(handler, options, new DefaultHttpContext()),
+            Options.Create(options),
+            NullLogger<CustomerAccountClient>.Instance,
+            cookie,
+            new FixedTime(Now));
+    }
 
     private static PageContext PageContext()
     {

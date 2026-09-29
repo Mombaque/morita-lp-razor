@@ -52,6 +52,11 @@ builder.Services.AddOptions<CatalogApiOptions>().BindConfiguration(CatalogApiOpt
         builder.Environment.IsEnvironment("E2E") ||
         Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps,
         "CatalogApi:BaseUrl must use HTTPS outside Development and E2E.")
+    .Validate(options =>
+        builder.Environment.IsDevelopment() ||
+        builder.Environment.IsEnvironment("E2E") ||
+        !string.IsNullOrWhiteSpace(options.ProxySecret),
+        "CatalogApi:ProxySecret is required outside Development and E2E so the API can resolve this storefront's store from its host.")
     .ValidateOnStart();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
@@ -76,55 +81,56 @@ builder.Services.AddScoped<IOrderAccessCookieStore, OrderAccessCookieStore>();
 builder.Services.AddScoped<ICustomerAccountCookieStore, CustomerAccountCookieStore>();
 builder.Services.AddScoped<IPublicAssistantCookieStore, PublicAssistantCookieStore>();
 builder.Services.AddSingleton<CheckoutRateLimiter>();
+builder.Services.AddTransient<StorefrontApiHeadersHandler>();
 builder.Services.AddScoped<CatalogService>();
 builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
-});
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient("catalog-image-proxy", (serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = TimeSpan.FromSeconds(Math.Clamp(options.TimeoutSeconds, 1, 30));
-});
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient<ICheckoutClient, CheckoutClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
-});
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient<IPublicAssistantClient, PublicAssistantClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
-});
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient<IOrderClient, OrderClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
-});
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient<ICustomerAccountClient, CustomerAccountClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
-});
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient("customer-request", (serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
-});
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient("website-usage-event", (serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
-});
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -212,7 +218,7 @@ app.MapGet("/v1/storefront/catalog/images/{imageId:guid}", async (Guid imageId, 
         return Results.StatusCode(StatusCodes.Status502BadGateway);
     }
 });
-app.MapPost("/analytics/website-usage-event", async (HttpContext context, IHttpClientFactory clients, IOptions<CatalogApiOptions> catalogOptions, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
+app.MapPost("/analytics/website-usage-event", async (HttpContext context, IHttpClientFactory clients, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
 {
     var logger = loggerFactory.CreateLogger("WebsiteUsageEventRelay");
     const int maximumRequestBytes = 32 * 1024;
@@ -240,9 +246,6 @@ app.MapPost("/analytics/website-usage-event", async (HttpContext context, IHttpC
     {
         Content = new StringContent(body, Encoding.UTF8, "application/json")
     };
-    request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, app.Environment));
-    if (!string.IsNullOrWhiteSpace(catalogOptions.Value.ProxySecret))
-        request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", catalogOptions.Value.ProxySecret);
     var userAgent = context.Request.Headers.UserAgent.ToString();
     if (!string.IsNullOrWhiteSpace(userAgent))
         request.Headers.TryAddWithoutValidation("User-Agent", userAgent);
@@ -271,7 +274,7 @@ app.MapPost("/analytics/website-usage-event", async (HttpContext context, IHttpC
         return Results.StatusCode(StatusCodes.Status502BadGateway);
     }
 }).RequireRateLimiting("website-usage-relay").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(32 * 1024));
-app.MapPost("/customer-product-request", async (HttpContext context, IHttpClientFactory clients, IOptions<CatalogApiOptions> catalogOptions, IAntiforgery antiforgery, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
+app.MapPost("/customer-product-request", async (HttpContext context, IHttpClientFactory clients, IAntiforgery antiforgery, ILoggerFactory loggerFactory, CancellationToken cancellationToken) =>
 {
     var logger = loggerFactory.CreateLogger("CustomerProductRequestRelay");
     try
@@ -321,9 +324,6 @@ app.MapPost("/customer-product-request", async (HttpContext context, IHttpClient
     {
         Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json")
     };
-    request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, app.Environment));
-    if (!string.IsNullOrWhiteSpace(catalogOptions.Value.ProxySecret))
-        request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", catalogOptions.Value.ProxySecret);
 
     try
     {
