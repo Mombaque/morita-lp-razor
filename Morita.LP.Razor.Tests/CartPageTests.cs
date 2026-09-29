@@ -213,6 +213,33 @@ public sealed class CartPageTests
     }
 
     [Fact]
+    public async Task Product_add_ajax_success_returns_updated_cart_count()
+    {
+        var offer = Guid.NewGuid();
+        var existing = Guid.NewGuid();
+        var product = new Product { Slug = "kimono", Nome = "Kimono", Variants = [new ProductVariant { ColorLabel = "Azul", Offers = [new ProductOffer { PublicOfferId = offer, Availability = "available" }] }] };
+        var cart = new TestCart(new CartState(DateTimeOffset.UtcNow, [new(existing, 2)]));
+        using var factory = CreateFactory(cart, CatalogQuoteResult.Success("BRL", 10, [new CatalogQuoteLine { PublicOfferId = offer, Quantity = 3, Availability = "available", UnitPrice = 10, LinePrice = 30, Currency = "BRL" }]), product);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var productBody = await (await client.GetAsync($"/products/kimono?publicOfferId={offer}&quantity=1")).Content.ReadAsStringAsync();
+        Assert.Contains("data-mini-cart", productBody);
+        var token = Regex.Match(productBody, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+
+        using var ajax = new HttpRequestMessage(HttpMethod.Post, "/products/kimono?handler=Add");
+        ajax.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        ajax.Content = new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("publicOfferId", offer.ToString()),
+            new KeyValuePair<string, string>("quantity", "3"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]);
+        var response = await client.SendAsync(ajax);
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(payload.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal(5, payload.RootElement.GetProperty("cartCount").GetInt32());
+        Assert.Equal("/cart", payload.RootElement.GetProperty("redirectUrl").GetString());
+    }
+
+    [Fact]
     public async Task Product_add_insufficient_renders_form_error_and_ajax_skips_reload()
     {
         var offer = Guid.NewGuid();
