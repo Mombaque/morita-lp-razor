@@ -10,8 +10,6 @@ namespace Morita.LP.Razor.Services;
 public sealed class CheckoutClient(
     HttpClient httpClient,
     IOptions<CatalogApiOptions> options,
-    IHttpContextAccessor httpContextAccessor,
-    IHostEnvironment environment,
     ILogger<CheckoutClient> logger) : ICheckoutClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -202,14 +200,6 @@ public sealed class CheckoutClient(
             if (header is not null) request.Headers.TryAddWithoutValidation(header.Value.Name, header.Value.Value);
             if (!string.IsNullOrWhiteSpace(accessToken)) request.Headers.TryAddWithoutValidation("X-Checkout-Access-Token", accessToken);
             if (!string.IsNullOrWhiteSpace(storefrontSession)) request.Headers.TryAddWithoutValidation("X-Storefront-Session", storefrontSession);
-            if (httpContextAccessor.HttpContext is { } context)
-            {
-                request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, environment));
-            }
-            if (!string.IsNullOrWhiteSpace(options.ProxySecret))
-            {
-                request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", options.ProxySecret);
-            }
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (response.StatusCode == HttpStatusCode.Unauthorized) return new(response.StatusCode, CheckoutLoadState.Unauthorized, default, "Sua sessão expirou. O checkout continuará como convidado.");
             if (response.StatusCode == HttpStatusCode.NoContent) return new(response.StatusCode, CheckoutLoadState.Success, default, null);

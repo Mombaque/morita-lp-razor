@@ -18,15 +18,11 @@ public interface IPublicAssistantClient
 
 public sealed class PublicAssistantClient(
     HttpClient httpClient,
-    IOptions<CatalogApiOptions> options,
     IOptions<StorefrontOptions> storefrontOptions,
-    IHttpContextAccessor httpContextAccessor,
-    IHostEnvironment environment,
     IPublicAssistantCookieStore cookieStore,
     ILogger<PublicAssistantClient> logger) : IPublicAssistantClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-    private readonly CatalogApiOptions apiOptions = options.Value;
     private readonly int timeoutSeconds = storefrontOptions.Value.PublicAssistantTimeoutSeconds;
 
     public async Task<PublicAssistantResult<(PublicAssistantSession Session, string AccessToken)>> CreateSessionAsync(CreatePublicAssistantSessionRequest request, CancellationToken cancellationToken = default)
@@ -88,10 +84,6 @@ public sealed class PublicAssistantClient(
             if (header is not null) request.Headers.TryAddWithoutValidation(header.Value.Name, header.Value.Value);
             if (includeCredential && cookieStore.Read() is { } credentials)
                 request.Headers.TryAddWithoutValidation("X-Assistant-Token", credentials.AccessToken);
-            if (httpContextAccessor.HttpContext is { } context)
-                request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, environment));
-            if (!string.IsNullOrWhiteSpace(apiOptions.ProxySecret))
-                request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", apiOptions.ProxySecret);
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (response.StatusCode == HttpStatusCode.NoContent) return new(PublicAssistantFailureKind.None, typeof(T) == typeof(object) ? (T)(object)new object() : default);
             if (response.StatusCode == HttpStatusCode.NotFound) return new(PublicAssistantFailureKind.NotFound, default, "A conversa não foi encontrada.");

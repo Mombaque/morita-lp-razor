@@ -33,9 +33,7 @@ public sealed class CustomerAccountClient(
     IOptions<CatalogApiOptions> options,
     ILogger<CustomerAccountClient> logger,
     ICustomerAccountCookieStore cookies,
-    TimeProvider timeProvider,
-    IHttpContextAccessor httpContextAccessor,
-    IHostEnvironment environment) : ICustomerAccountClient
+    TimeProvider timeProvider) : ICustomerAccountClient
 {
     private readonly CatalogApiOptions settings = options.Value;
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -100,10 +98,6 @@ public sealed class CustomerAccountClient(
             if (body is not null) request.Content = JsonContent.Create(body, options: JsonOptions);
             if (!string.IsNullOrWhiteSpace(token)) request.Headers.TryAddWithoutValidation("X-Storefront-Session", token);
             if (extra is not null) request.Headers.TryAddWithoutValidation(extra.Value.Name, extra.Value.Value);
-            if (httpContextAccessor.HttpContext is { } context)
-                request.Headers.TryAddWithoutValidation("X-Morita-Client-IP", ClientIdentityResolver.Resolve(context, environment));
-            if (!string.IsNullOrWhiteSpace(settings.ProxySecret))
-                request.Headers.TryAddWithoutValidation("X-Morita-Proxy-Secret", settings.ProxySecret);
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
