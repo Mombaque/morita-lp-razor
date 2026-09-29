@@ -125,6 +125,7 @@ const INFANTIL_JUDO_SIZES = ['M000', 'M00', 'M0', 'M1', 'M2', 'M3', 'M4'];
 const CLOTHING_SIZES = ['PP', 'P', 'M', 'G', 'GG', 'XGG'];
 const GLOVE_SIZES = ['8oz', '10oz', '12oz', '14oz', '16oz'];
 const SHIN_GUARD_SIZES = ['P', 'M', 'G', 'GG'];
+const SHIN_GUARD_COLORS = ['Azul', 'Vermelha', 'Outra'];
 const KIMONO_COLORS = ['Branco', 'Azul', 'Preto', 'Cinza', 'Outra'];
 const GLOVE_COLORS = ['Preta', 'Vermelha', 'Azul', 'Rosa', 'Branca', 'Outra'];
 const RASHGUARD_AUDIENCES = ['Masculina', 'Feminina', 'Infantil'];
@@ -204,7 +205,11 @@ function getProductConfig(productType, modality) {
     case PRODUCT_TYPE.luvas:
       return { sizes: GLOVE_SIZES, colors: { label: 'Cor da luva', values: GLOVE_COLORS } };
     case PRODUCT_TYPE.caneleira:
-      return { sizes: SHIN_GUARD_SIZES };
+      return {
+        sizes: SHIN_GUARD_SIZES,
+        colors: { label: 'Cor da caneleira', values: SHIN_GUARD_COLORS },
+        brands: ['South Team'],
+      };
     default:
       return { freeText: true };
   }

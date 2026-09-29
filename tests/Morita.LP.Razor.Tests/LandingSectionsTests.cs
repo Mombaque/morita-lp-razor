@@ -82,12 +82,34 @@ public sealed class LandingSectionsTests : IClassFixture<WebApplicationFactory<P
     }
 
     [Fact]
-    public async Task Product_without_images_renders_placeholder_instead_of_external_image()
+    public async Task Caneleiras_card_renders_its_photos()
     {
         var html = await _factory.CreateClient().GetStringAsync("/MuayThai");
 
         Assert.Contains("id=\"caneleiras\"", html);
-        Assert.Contains("class=\"carousel-placeholder\"", html);
+        Assert.Contains("/images/muay-thai/caneleira-st-azul.webp", html);
+        Assert.Contains("/images/muay-thai/caneleira-st-vermelha.webp", html);
         Assert.DoesNotContain("via.placeholder.com", html);
+    }
+
+    [Fact]
+    public void Every_product_image_exists_on_disk()
+    {
+        var root = Path.Combine(FindRepoRoot(), "wwwroot");
+        var service = new ProductService();
+        var images = service.GetJiuJitsuProducts().Concat(service.GetMuayThaiProducts()).SelectMany(p => p.Imagens);
+
+        Assert.All(images, image => Assert.True(File.Exists(Path.Combine(root, image.TrimStart('/'))), $"Missing {image}"));
+    }
+
+    private static string FindRepoRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "Morita.LP.Razor.csproj")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName ?? throw new DirectoryNotFoundException("Repository root not found.");
     }
 }

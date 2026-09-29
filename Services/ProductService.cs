@@ -123,11 +123,15 @@ public class ProductService
         {
             Nome = "Caneleiras e acessórios",
             Slug = "caneleiras",
-            Highlights = new() { "Caneleiras P a GG", "Bandagens e protetor bucal" },
+            Highlights = new() { "South Team", "Azul e vermelha", "Bandagens e protetor bucal" },
             RequestProductType = "Caneleira",
-            Alt = "Caneleiras e acessórios de Muay Thai",
-            Descricao = "Caneleiras para Muay Thai e Boxe, bandagens e protetores bucais para completar o seu equipamento de treino. Consulte modelos e tamanhos disponíveis na loja.",
+            Alt = "Caneleira de Muay Thai South Team com proteção de peito do pé",
+            Descricao = "Caneleiras South Team para Muay Thai, com proteção para canela e peito do pé e fechamento em velcro. Também temos bandagens e protetores bucais para completar o seu equipamento de treino.",
             Imagens = new()
+            {
+                "/images/muay-thai/caneleira-st-azul.webp",
+                "/images/muay-thai/caneleira-st-vermelha.webp"
+            }
         }
     };
 
