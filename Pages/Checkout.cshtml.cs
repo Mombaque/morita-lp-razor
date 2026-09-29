@@ -17,7 +17,9 @@ public sealed class CheckoutModel(
     CheckoutRateLimiter rateLimiter,
     ICustomerAccountClient account,
     ICustomerAccountCookieStore accountCookies,
-    IOptions<StorefrontOptions>? storefrontOptions = null) : PageModel
+    IOptions<StorefrontOptions>? storefrontOptions = null,
+    IPaymentAttemptCookieStore? paymentAttempt = null,
+    IOrderAccessCookieStore? orderAccess = null) : PageModel
 {
     private bool CustomerAccountsEnabled => storefrontOptions?.Value.CustomerAccountsEnabled ?? true;
     public CartState Cart { get; private set; } = new(DateTimeOffset.UtcNow, []);
@@ -189,11 +191,12 @@ public sealed class CheckoutModel(
                     }
                 }
             }
-            return RedirectToPage("/CheckoutStatus", new
-            {
-                publicCheckoutId = result.Checkout.PublicCheckoutId,
-                paymentMethod = SelectedPaymentMethod().ToWireValue()
-            });
+            return await StartPaymentAsync(result.Checkout.PublicCheckoutId, credentials.AccessToken, cancellationToken)
+                ?? RedirectToPage("/CheckoutStatus", new
+                {
+                    publicCheckoutId = result.Checkout.PublicCheckoutId,
+                    paymentMethod = SelectedPaymentMethod().ToWireValue()
+                });
         }
         ErrorState = result.State; ErrorMessage = result.Message ?? Message(result.State);
         if (result.State is CheckoutLoadState.Validation or CheckoutLoadState.Conflict)
@@ -289,6 +292,23 @@ public sealed class CheckoutModel(
             ErrorMessage = ShippingQuotes.Message ?? "Não foi possível calcular o frete para este CEP.";
         }
     }
+    // Start the payment chosen on this page so the shopper does not choose it again on the status page.
+    // PIX lands on the status page with the QR code ready; any failure falls back to the status page's payment choice.
+    private async Task<IActionResult?> StartPaymentAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken)
+    {
+        if (paymentAttempt is null || !HasOnlinePaymentMethods) return null;
+        var idempotencyKey = paymentAttempt.Ensure(publicCheckoutId).IdempotencyKey;
+        var result = SelectedPaymentMethod() == OnlinePaymentMethod.Card
+            ? await checkout.InitiateCardAsync(publicCheckoutId, accessToken, idempotencyKey, cancellationToken)
+            : await checkout.InitiatePixAsync(publicCheckoutId, accessToken, idempotencyKey, cancellationToken);
+        if (result.State != PaymentLoadState.Success || result.Payment is not { } payment) return null;
+        if (payment is { Status: "converted", PublicOrderNumber: { } orderNumber } && orderAccess?.Write(orderNumber, accessToken) == true)
+            return RedirectToPage("/Order", new { publicOrderNumber = orderNumber });
+        if (payment is { Status: "pending", CheckoutUrl: { } checkoutUrl } && StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
+            return Redirect(checkoutUrl);
+        return null;
+    }
+
     private OnlinePaymentMethod SelectedPaymentMethod()
     {
         var available = AvailablePaymentMethods;

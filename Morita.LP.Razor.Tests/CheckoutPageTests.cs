@@ -629,17 +629,79 @@ public sealed class CheckoutPageTests
         Assert.Equal(0, cart.ClearCalls);
     }
 
+    [Fact]
+    public async Task Submitting_checkout_starts_the_chosen_pix_payment_before_showing_status()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()]),
+            PixResult = new PaymentResult(PaymentLoadState.Success, new PixPayment { Status = "pending" })
+        };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, new RecordingAccount(), new RecordingAccountCookie(), paymentAttempt: new FixedPaymentAttempt(), paymentMethods: [OnlinePaymentMethod.Pix, OnlinePaymentMethod.Card]);
+        page.Contact = new() { Name = "Customer", Email = "customer@example.com", Phone = "15999999999" };
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/CheckoutStatus", redirect.PageName);
+        Assert.Equal(("pix", FixedPaymentAttempt.Key), Assert.Single(api.Initiations));
+    }
+
+    [Fact]
+    public async Task Submitting_checkout_with_card_goes_straight_to_the_hosted_payment_page()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()]),
+            CardResult = new PaymentResult(PaymentLoadState.Success, new PixPayment { Status = "pending", Method = OnlinePaymentMethod.Card, CheckoutUrl = "https://pay.example.com/session/1" })
+        };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, new RecordingAccount(), new RecordingAccountCookie(), paymentAttempt: new FixedPaymentAttempt(), paymentMethods: [OnlinePaymentMethod.Pix, OnlinePaymentMethod.Card]);
+        page.Contact = new() { Name = "Customer", Email = "customer@example.com", Phone = "15999999999" };
+        page.PaymentMethod = OnlinePaymentMethod.Card;
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
+        Assert.Equal("https://pay.example.com/session/1", Assert.IsType<RedirectResult>(result).Url);
+        Assert.Equal("card", Assert.Single(api.Initiations).Method);
+    }
+
+    [Fact]
+    public async Task Failed_payment_start_falls_back_to_status_page_choice()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout { CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()]) };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, new RecordingAccount(), new RecordingAccountCookie(), paymentAttempt: new FixedPaymentAttempt(), paymentMethods: [OnlinePaymentMethod.Pix]);
+        page.Contact = new() { Name = "Customer", Email = "customer@example.com", Phone = "15999999999" };
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/CheckoutStatus", redirect.PageName);
+        Assert.Single(api.Initiations);
+    }
+
     private static CatalogQuoteResult Quote(Guid offer, int quantity, string availability = "available")
     {
         var available = availability == "available";
         return CatalogQuoteResult.Success("BRL", available ? 10 * quantity : 0, [new CatalogQuoteLine { PublicOfferId = offer, Quantity = quantity, Availability = availability, Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = available ? 10 * quantity : null }]);
     }
 
-    private static CheckoutModel CreatePage(DefaultHttpContext context, TestCart cart, RecordingCheckout api, ICheckoutDraftCookieStore draft, Guid offer, ICustomerAccountClient? account = null, ICustomerAccountCookieStore? accountCookies = null, IOptions<StorefrontOptions>? storefrontOptions = null, ICatalogClient? catalog = null)
+    private static CheckoutModel CreatePage(DefaultHttpContext context, TestCart cart, RecordingCheckout api, ICheckoutDraftCookieStore draft, Guid offer, ICustomerAccountClient? account = null, ICustomerAccountCookieStore? accountCookies = null, IOptions<StorefrontOptions>? storefrontOptions = null, ICatalogClient? catalog = null, IPaymentAttemptCookieStore? paymentAttempt = null, IReadOnlyList<OnlinePaymentMethod>? paymentMethods = null)
     {
-        var config = new CheckoutConfigurationResult(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), Currency = "BRL", Pickup = new() { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } } });
+        var config = new CheckoutConfigurationResult(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), Currency = "BRL", OnlinePaymentMethods = paymentMethods ?? [], Pickup = new() { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } } });
         var quote = Quote(offer, 1);
-        var page = new CheckoutModel(cart, catalog ?? new StubCatalog(quote), api, draft, new NoopAccess(), new CheckoutRateLimiter(TimeProvider.System), account ?? new NoopAccount(), accountCookies ?? new NoopAccountCookie(), storefrontOptions)
+        var page = new CheckoutModel(cart, catalog ?? new StubCatalog(quote), api, draft, new NoopAccess(), new CheckoutRateLimiter(TimeProvider.System), account ?? new NoopAccount(), accountCookies ?? new NoopAccountCookie(), storefrontOptions, paymentAttempt)
         {
             Contact = new CheckoutModel.ContactInput()
         };
@@ -687,6 +749,20 @@ public sealed class CheckoutPageTests
         }
         public Task<CheckoutResult> GetAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.NotFound));
         public Task<CheckoutResult> CancelAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(CheckoutResult.Failure(CheckoutLoadState.NotFound));
+        public PaymentResult PixResult { get; set; } = PaymentResult.Failure(PaymentLoadState.Unavailable);
+        public PaymentResult CardResult { get; set; } = PaymentResult.Failure(PaymentLoadState.Unavailable);
+        public List<(string Method, string IdempotencyKey)> Initiations { get; } = [];
+        public Task<PaymentResult> InitiatePixAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, CancellationToken cancellationToken = default) { Initiations.Add(("pix", idempotencyKey)); return Task.FromResult(PixResult); }
+        public Task<PaymentResult> InitiateCardAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, CancellationToken cancellationToken = default) { Initiations.Add(("card", idempotencyKey)); return Task.FromResult(CardResult); }
+    }
+
+    private sealed class FixedPaymentAttempt : IPaymentAttemptCookieStore
+    {
+        public const string Key = "attempt-key-0000000000000000000000";
+        public PaymentAttempt? Read(Guid publicCheckoutId) => new(publicCheckoutId, Key, DateTimeOffset.UtcNow);
+        public PaymentAttempt Ensure(Guid publicCheckoutId) => new(publicCheckoutId, Key, DateTimeOffset.UtcNow);
+        public PaymentAttempt Rotate(Guid publicCheckoutId) => new(publicCheckoutId, Key, DateTimeOffset.UtcNow);
+        public void Clear(Guid publicCheckoutId) { }
     }
 
     private sealed class StubCatalog : ICatalogClient
