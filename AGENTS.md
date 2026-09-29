@@ -4,7 +4,7 @@
 
 - Treat the canonical checkout as a control and baseline directory, normally kept on its stable branch; do not edit implementation files in it.
 - Before any edit, inspect `git rev-parse --show-toplevel`, `git branch --show-current`, and `git status --short --branch`.
-- If the current path is canonical, select or create a worktree before editing. Create new worktrees from `origin/main` on a `codex/<feature>` branch unless an existing branch is explicitly selected.
+- If the current path is canonical, select or create a worktree before editing. Create new worktrees from `origin/main` on a `<feature>` branch unless an existing branch is explicitly selected.
 - Use `../worktrees/<feature>/<repository>/` for multi-repository work, with one worktree and branch per affected repository.
 - Set the working directory to the worktree for edits, tests, builds, and feature Docker Compose. Use the canonical checkout only for the stable baseline.
 - Never switch, reset, clean, stash, or remove the canonical or an existing worktree without explicit authorization.
