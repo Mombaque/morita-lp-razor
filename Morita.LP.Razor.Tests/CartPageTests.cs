@@ -50,7 +50,7 @@ public sealed class CartPageTests
         Assert.Contains("Azul / A1", body);
         Assert.Contains("Preta / M", body);
         Assert.Contains("Quantidade indispon", body);
-        Assert.Contains("R$ 12.00", body);
+        Assert.Contains("R$ 12,00", body);
         Assert.Contains("data-cart=\"continue-shopping\"", body);
         Assert.Contains("data-cart=\"quantity-stepper\"", body);
         Assert.Contains("data-cart=\"quantity-decrement\"", body);

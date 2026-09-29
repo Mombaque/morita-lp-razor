@@ -1,11 +1,13 @@
 @page "/checkout"
 @model Morita.LP.Razor.Pages.CheckoutModel
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Environment
 @{
     ViewData["Title"] = "Checkout | Morita Fight";
     ViewData["Robots"] = "noindex,nofollow";
     ViewData["BodyClass"] = "commerce-page checkout-page";
 }
 <main class="checkout-shell commerce-checkout" data-checkout="page">
+  <a class="back-link" href="/cart">← Voltar ao carrinho</a>
   <header class="checkout-heading"><p class="fight-label">Checkout seguro</p><h1>Como você quer receber?</h1><p>Escolha retirada em Sorocaba ou calcule a entrega para qualquer CEP do Brasil.</p></header>
   @if (Model.Empty)
   {
@@ -50,13 +52,16 @@
                    </div>
                    @if (Model.SavedAddresses.Count > 0) { <fieldset class="saved-addresses"><legend>Endereço salvo</legend><label><input asp-for="SelectedAddressId" type="radio" value="" data-new-address="true"> Usar outro endereço</label>@foreach (var address in Model.SavedAddresses) { <label><input asp-for="SelectedAddressId" type="radio" value="@address.PublicAddressId" data-saved-address="true" data-recipient="@address.Recipient" data-street="@address.Street" data-number="@address.Number" data-complement="@address.Complement" data-neighborhood="@address.Neighborhood" data-city="@address.City" data-state="@address.State" data-postal-code="@address.PostalCode"> @address.Label — @address.Street, @address.Number, @address.City/@address.State@(address.IsDefault ? " · Padrão" : "")</label> }</fieldset> }
                    <div class="address-grid">
+                    <label class="checkout-field cep" asp-for="ShippingAddress.PostalCode">CEP<input class="checkout-control" asp-for="ShippingAddress.PostalCode" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9" data-postal-code></label>
+                    <p class="cart-estimate-note cep-lookup-status" data-cep-status role="status" aria-live="polite"><a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noopener">Não sei meu CEP</a></p>
+                    <span asp-validation-for="ShippingAddress.PostalCode" class="validation-error full"></span>
                     <label class="checkout-field full">Destinatário<input class="checkout-control" asp-for="ShippingAddress.Recipient" autocomplete="name"></label><span asp-validation-for="ShippingAddress.Recipient" class="validation-error"></span>
                     <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="ShippingAddress.Street" autocomplete="address-line1"></label>
-                    <label class="checkout-field number">Número<input class="checkout-control" asp-for="ShippingAddress.Number" autocomplete="off"></label>
+                    <label class="checkout-field number">Número<input class="checkout-control" asp-for="ShippingAddress.Number" inputmode="numeric"></label>
                     <label class="checkout-field full">Complemento <small>(opcional)</small><input class="checkout-control" asp-for="ShippingAddress.Complement" autocomplete="address-line3"></label>
-                    <label class="checkout-field">Bairro<input class="checkout-control" asp-for="ShippingAddress.Neighborhood"></label>
+                    <label class="checkout-field">Bairro<input class="checkout-control" asp-for="ShippingAddress.Neighborhood" autocomplete="address-level3"></label>
                     <label class="checkout-field">Cidade<input class="checkout-control" asp-for="ShippingAddress.City" autocomplete="address-level2"></label>
-                    <label class="checkout-field">UF<input class="checkout-control" asp-for="ShippingAddress.State" maxlength="2" autocomplete="address-level1" placeholder="SP"></label>
+                    <label class="checkout-field">UF<select class="checkout-control" asp-for="ShippingAddress.State" autocomplete="address-level1"><option value="">UF</option>@foreach (var state in AccountModel.BrazilianStates) { <option value="@state.Code" selected="@(string.Equals(Model.ShippingAddress?.State, state.Code, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@state.Code</option> }</select></label>
                    </div>
                    @if (Model.AccountPrefilled && Model.SavedAddresses.Count < 10)
                    {
@@ -81,10 +86,9 @@
                  <section class="shipping-quote-panel" aria-labelledby="shipping-quote-heading">
                    <div class="delivery-panel-heading">
                      <div><p class="fight-label">Como entregar</p><h3 id="shipping-quote-heading">Frete</h3></div>
-                     <p>Calcule as opções para o CEP de destino e escolha a melhor entrega.</p>
+                     <p>As opções aparecem assim que o CEP é informado.</p>
                    </div>
-                   <div class="shipping-postal"><label class="checkout-field" asp-for="ShippingAddress.PostalCode">CEP de entrega</label><input class="checkout-control" asp-for="ShippingAddress.PostalCode" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000"><button class="commerce-button commerce-button-secondary" type="submit" asp-page-handler="QuoteShipping" formnovalidate data-quote-shipping>Calcular frete</button></div>
-                   <span asp-validation-for="ShippingAddress.PostalCode" class="validation-error"></span>
+                   <div class="shipping-postal"><p data-quote-postal>Informe o CEP no endereço de entrega.</p><button class="commerce-button commerce-button-secondary" type="submit" asp-page-handler="QuoteShipping" formnovalidate data-quote-shipping>Calcular frete</button></div>
                    @await Html.PartialAsync("_CheckoutShippingQuote", Model)
                  </section>
                </div>
@@ -99,7 +103,7 @@
             <label class="checkout-field">Nome<input class="checkout-control" asp-for="Contact.Name" autocomplete="name" readonly="readonly"></label><span asp-validation-for="Contact.Name" class="validation-error"></span>
             <label class="checkout-field">E-mail<input class="checkout-control" asp-for="Contact.Email" autocomplete="email" type="email" readonly="readonly"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
             <label class="checkout-field">Telefone<input class="checkout-control" asp-for="Contact.Phone" autocomplete="tel" inputmode="tel" readonly="readonly"></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
-            <p class="cart-estimate-note">Esses dados vêm da sua conta. Para alterá-los, acesse o seu perfil.</p>
+            <p class="cart-estimate-note">Esses dados vêm da sua conta. Para alterá-los, <a href="/conta#perfil">acesse o seu perfil</a>.</p>
           </div>
         </section>
 
@@ -128,7 +132,7 @@
                     <span>
                       <strong>Cartão</strong>
                       <small>Você paga na página da operadora. O número do cartão não é enviado à Morita.</small>
-                      <em>Ambiente de teste</em>
+                      @if (Environment.IsDevelopment()) { <em>Ambiente de teste</em> }
                     </span>
                   </label>
                 }
@@ -139,6 +143,7 @@
 
         <div class="checkout-actions">
           <div class="checkout-actions-content">
+            <p class="checkout-actions-total" data-actions-total-row hidden>Total <strong data-actions-total></strong></p>
             <button class="commerce-button commerce-button-primary checkout-submit" type="submit" data-checkout-submit data-checkout-ready="@(!Model.Empty && Model.Quote.State == CatalogLoadState.Success && Model.Configuration.State == CheckoutLoadState.Success ? "true" : "false")" disabled="@(Model.CanSubmit ? null : "disabled")"><span data-checkout-submit-label>@Model.ContinueLabel</span> <span aria-hidden="true">→</span></button>
             <p class="checkout-submit-feedback" data-checkout-feedback role="status" aria-live="polite" hidden="@(Model.CanSubmit ? "hidden" : null)">@Model.SubmitFeedback</p>
             <p class="checkout-security"><i class="fas fa-lock" aria-hidden="true"></i> Preço, estoque e frete são reconfirmados pelo servidor antes da reserva.</p>
@@ -148,16 +153,19 @@
 
       <aside class="cart-summary checkout-summary" aria-label="Resumo atual">
         <p class="fight-label">Seu corner</p><h2>Resumo</h2>
+        <details class="checkout-lines-details" open data-summary-details>
+        <summary>Ver itens (@Model.Quote.Lines.Sum(line => line.Quantity))</summary>
         <ul class="checkout-lines" data-checkout="lines">
           @foreach (var line in Model.Quote.Lines)
           {
             var available = string.Equals(line.Availability, "available", StringComparison.OrdinalIgnoreCase);
-            <li class="@(available ? "" : "checkout-line-unavailable")">@if (!string.IsNullOrWhiteSpace(line.ImageUrl)) { <img src="@line.ImageUrl" alt=""> }<span><strong>@line.Presentation</strong><small>Quantidade: @line.Quantity</small></span><em>@(available ? $"{CurrencyPresentation.Symbol(line.Currency)} {line.LinePrice?.ToString("0.00")}" : "Indisponível")</em></li>
+            <li class="@(available ? "" : "checkout-line-unavailable")">@if (!string.IsNullOrWhiteSpace(line.ImageUrl)) { <img src="@line.ImageUrl" alt=""> }<span><strong>@line.Presentation</strong><small>Quantidade: @line.Quantity</small></span><em>@(available ? CurrencyPresentation.Format(line.LinePrice, line.Currency) : "Indisponível")</em></li>
           }
         </ul>
+        </details>
         @if (Model.Quote.Total is not null)
         {
-          <dl><div><dt>Produtos</dt><dd>@CurrencyPresentation.Symbol(Model.Quote.Currency) @Model.Quote.Total.Value.ToString("0.00")</dd></div><div data-summary-shipping><dt>Frete</dt><dd data-summary-shipping-value>Calcule pelo CEP</dd><small data-summary-shipping-detail hidden></small></div><div class="summary-total"><dt>Total</dt><dd>Confirmado na próxima etapa</dd></div></dl>
+          <dl data-merchandise-amount="@Model.Quote.Total.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-currency="@Model.Quote.Currency"><div><dt>Produtos</dt><dd>@CurrencyPresentation.Format(Model.Quote.Total.Value, Model.Quote.Currency)</dd></div><div data-summary-shipping><dt>Frete</dt><dd data-summary-shipping-value>Calcule pelo CEP</dd><small data-summary-shipping-detail hidden></small></div><div class="summary-total"><dt>Total</dt><dd data-summary-total>Calcule o frete</dd></div></dl>
         }
       </aside>
     </form>

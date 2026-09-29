@@ -78,7 +78,7 @@
             var canCancelPayment = (Model.Checkout.Status is ("active" or "paymentpending" or "conversionpending")) && (payment.Status is ("pending" or "processing" or "approved" or "conversionpending"));
             var canRetryPayment = (Model.Checkout.Status is ("active" or "paymentpending")) && (payment.Status is ("expired" or "failed" or "cancelled"));
             var paymentStateLabel = payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" };
-            var paymentStateClass = paymentStateLabel switch { "Pagamento pendente" => "payment-status-pending", "Pagamento cancelado" => "payment-status-cancelled", _ => "" };
+            var paymentStateClass = payment.Status switch { "pending" or "processing" or "conversionpending" or "cancellationpending" => "payment-status-pending", "failed" or "cancelled" or "expired" => "payment-status-cancelled", _ => "" };
             <section class="pix-corner-card checkout-payment-card" aria-labelledby="payment-heading" data-payment-status="@payment.Status" data-payment-method="@payment.Method.ToWireValue()">
                 <div class="checkout-payment-heading">
                     <div>
@@ -106,11 +106,11 @@
                             </ol>
                         </div>
                         <div class="pix-payment-data">
-                            <img class="pix-qr" src="@payment.QrCodePngDataUri" alt="QR Code para pagar @CurrencyPresentation.Symbol(payment.Currency) @payment.Amount.ToString("0.00")" />
+                            <img class="pix-qr" src="@payment.QrCodePngDataUri" alt="QR Code para pagar @CurrencyPresentation.Format(payment.Amount, payment.Currency)" />
                             <label for="pix-copy">Código PIX</label>
                             <textarea id="pix-copy" readonly rows="4">@payment.PixCopyPaste</textarea>
                             <button class="commerce-button commerce-button-secondary" type="button" data-copy-pix>Copiar código PIX</button>
-                            <p class="pix-expiry">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@payment.ExpiresAt.ToLocalTime().ToString("g")</time>.</p>
+                            <p class="pix-expiry">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@TimePresentation.ToStoreTime(payment.ExpiresAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
                         </div>
                     </div>
                 }

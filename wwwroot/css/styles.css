@@ -2066,7 +2066,8 @@ body {
   margin-top: 0;
 }
 
-.detail-shell > .back-link {
+.detail-shell > .back-link,
+.commerce-checkout > .back-link {
   align-items: center;
   border-left: 2px solid var(--fight-green);
   color: var(--fight-paper);
@@ -2082,13 +2083,15 @@ body {
   transition: background .2s ease, color .2s ease, transform .2s ease;
 }
 
-.detail-shell > .back-link:hover {
+.detail-shell > .back-link:hover,
+.commerce-checkout > .back-link:hover {
   background: var(--fight-green);
   color: #06100c;
   transform: translateX(-.25rem);
 }
 
-.detail-shell > .back-link:focus-visible {
+.detail-shell > .back-link:focus-visible,
+.commerce-checkout > .back-link:focus-visible {
   outline: 2px solid var(--fight-green);
   outline-offset: 3px;
 }
@@ -4637,5 +4640,54 @@ body.filter-drawer-open {
 
   .checkout-line-items li {
     gap: .75rem;
+  }
+}
+
+/* Checkout: CEP-first address, preview total and collapsible mobile summary */
+.commerce-checkout > .back-link {
+  margin-bottom: 1rem;
+}
+
+.address-grid .cep-lookup-status {
+  align-self: end;
+  margin: 0 0 .75rem;
+}
+
+.address-grid .cep-lookup-status a {
+  color: var(--fight-green);
+}
+
+.shipping-postal [data-quote-postal] {
+  color: var(--fight-paper);
+  font-weight: 600;
+  grid-column: 1;
+  margin: 0;
+}
+
+.checkout-actions-total {
+  align-items: baseline;
+  display: flex;
+  font-size: 1rem;
+  justify-content: space-between;
+  margin: 0 0 .75rem;
+}
+
+.checkout-actions-total strong {
+  color: var(--fight-green);
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.6rem;
+}
+
+.checkout-lines-details > summary {
+  display: none;
+}
+
+@media (max-width: 800px) {
+  .checkout-lines-details > summary {
+    color: var(--fight-green);
+    cursor: pointer;
+    display: list-item;
+    font-weight: 700;
+    margin-bottom: .75rem;
   }
 }

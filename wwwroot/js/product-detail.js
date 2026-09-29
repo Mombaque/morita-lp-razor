@@ -61,8 +61,9 @@ if (offerForm) {
       return;
     }
 
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
-      showValidationMessage('A quantidade deve estar entre 1 e 10 unidades.');
+    const maxQuantity = Number(quantityInput?.max) || 10;
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity) {
+      showValidationMessage(`A quantidade deve estar entre 1 e ${maxQuantity} unidades.`);
       quantityInput?.focus();
       return;
     }

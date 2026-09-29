@@ -23,4 +23,20 @@ public sealed class CurrencyPresentationTests
     {
         Assert.Equal(expected, CurrencyPresentation.NormalizeFormattedPrice(formattedPrice));
     }
+
+    [Theory]
+    [InlineData(12, "BRL", "R$ 12,00")]
+    [InlineData(1234.5, "BRL", "R$ 1.234,50")]
+    [InlineData(1234567.891, null, "R$ 1.234.567,89")]
+    [InlineData(99.9, "USD", "USD 99,90")]
+    public void Format_uses_brazilian_separators(decimal amount, string? currency, string expected)
+    {
+        Assert.Equal(expected, CurrencyPresentation.Format(amount, currency));
+    }
+
+    [Fact]
+    public void Format_of_missing_amount_is_empty()
+    {
+        Assert.Equal("", CurrencyPresentation.Format((decimal?)null, "BRL"));
+    }
 }
