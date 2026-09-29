@@ -7,6 +7,7 @@ if (form) {
   const addressChoices = [...form.querySelectorAll('input[name="SelectedAddressId"]')];
   const addressControls = form.querySelector('[data-new-address-controls]');
   const quoteShipping = form.querySelector('[data-quote-shipping]');
+  const quoteShippingLabel = quoteShipping?.textContent ?? 'Calcular frete';
   let shippingQuoteContent = form.querySelector('[data-shipping-quote]');
   const paymentMethods = { pix: 'pix', card: 'card' };
   const paymentInputs = [...form.querySelectorAll('input[name="PaymentMethod"]')];
@@ -76,10 +77,9 @@ if (form) {
 
   const formatPostal = (digits) => (digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits);
 
-  const setField = (name, value, { onlyEmpty = false } = {}) => {
+  const setField = (name, value) => {
     const field = form.querySelector(`[name="${name}"]`);
-    if (!field || !value || (onlyEmpty && field.value.trim())) return;
-    field.value = value;
+    if (field) field.value = value ?? '';
   };
 
   let lastLookup = '';
@@ -90,6 +90,8 @@ if (form) {
     try {
       const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { headers: { Accept: 'application/json' } });
       const address = response.ok ? await response.json() : null;
+      // Ignore a lookup that finished after the shopper moved on to another CEP.
+      if (postalDigits() !== digits) return;
       if (!address || address.erro) {
         if (postalStatus) postalStatus.textContent = 'CEP não encontrado. Confira o número ou preencha o endereço.';
         return;
@@ -179,7 +181,7 @@ if (form) {
   const requestShippingQuote = async () => {
     if (!quoteShipping || !shippingQuoteContent) return;
     const action = quoteShipping.getAttribute('formaction') || form.getAttribute('action') || window.location.href;
-    const originalLabel = quoteShipping.textContent;
+    const requestedPostal = postalDigits();
     quoteShipping.disabled = true;
     quoteShipping.textContent = 'Calculando frete...';
     quoteShipping.setAttribute('aria-busy', 'true');
@@ -196,6 +198,8 @@ if (form) {
         }
       });
       const html = await response.text();
+      // A newer CEP has its own request in flight; this response would show stale options.
+      if (postalInput && postalDigits() !== requestedPostal) return;
       if (!response.ok) throw new Error(`Shipping quote failed with status ${response.status}`);
       const template = document.createElement('template');
       template.innerHTML = html.trim();
@@ -211,7 +215,7 @@ if (form) {
       update();
     } finally {
       quoteShipping.disabled = false;
-      quoteShipping.textContent = originalLabel;
+      quoteShipping.textContent = quoteShippingLabel;
       quoteShipping.removeAttribute('aria-busy');
     }
   };

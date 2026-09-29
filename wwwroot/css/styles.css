@@ -4770,16 +4770,23 @@ body.filter-drawer-open {
 
 .mini-cart-header {
   align-items: center;
+  background: none;
   border-bottom: 1px solid var(--fight-line);
   display: flex;
+  gap: 1rem;
   justify-content: space-between;
-  padding-bottom: 1rem;
+  margin: 0;
+  padding: 0 0 1rem;
+  position: static;
 }
 
 .mini-cart-header h2 {
+  background: none;
   font-family: "Barlow Condensed", sans-serif;
   font-size: 1.5rem;
   margin: 0;
+  padding: 0;
+  text-align: left;
   text-transform: uppercase;
 }
 
@@ -4802,6 +4809,14 @@ body.filter-drawer-open {
   display: grid;
   gap: 1rem;
   grid-template-columns: 88px minmax(0, 1fr);
+}
+
+.mini-cart-item:has(img[hidden]) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mini-cart-item img[hidden] {
+  display: none;
 }
 
 .mini-cart-item img {
