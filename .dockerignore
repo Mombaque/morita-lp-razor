@@ -2,4 +2,8 @@
 .vs
 bin/
 obj/
+**/bin/
+**/obj/
 out/
+tests/
+worktrees/

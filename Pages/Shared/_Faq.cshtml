@@ -1,0 +1,14 @@
+<section class="faq-section" aria-labelledby="faq-title">
+    <p class="eyebrow">Dúvidas frequentes</p>
+    <h2 id="faq-title">Perguntas frequentes</h2>
+    <div class="faq-list">
+        @foreach (var item in FaqContent.Items)
+        {
+            <details class="faq-item">
+                <summary>@item.Question</summary>
+                <p>@item.Answer</p>
+            </details>
+        }
+    </div>
+    <script type="application/ld+json">@Html.Raw(FaqContent.JsonLd)</script>
+</section>

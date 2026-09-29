@@ -18,9 +18,12 @@
     <link rel="canonical" href="@canonical">
     <link rel="alternate" hreflang="pt-BR" href="@canonical">
     <link rel="icon" href="~/images/favicon.png" type="image/png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;700;800&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="~/css/styles.css" asp-append-version="true">
-    
+
     <meta property="og:type" content="website">
     <meta property="og:locale" content="pt_BR">
     <meta property="og:title" content="@(ViewData["OgTitle"] ?? "Morita | Artes Marciais em Sorocaba")">
@@ -47,7 +50,7 @@
 
     @RenderSection("Header", required: false)
 </head>
-<body class="@ViewData["BodyClass"]">
+<body class="site @ViewData["BodyClass"]">
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TK3DKRF9"
       height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
@@ -56,34 +59,91 @@
     @{
         var currentPage = ViewContext.RouteData.Values["page"]?.ToString();
     }
-    <nav class="main-nav">
-        <a href="/" class="nav-link @(currentPage == "/Index" ? "active" : "")">Home</a>
-        <a href="/JiuJitsu" class="nav-link @(currentPage == "/JiuJitsu" ? "active" : "")">Jiu-Jitsu</a>
-        <a href="/MuayThai" class="nav-link @(currentPage == "/MuayThai" ? "active" : "")">Muay Thai</a>
+    <nav class="main-nav" aria-label="Navegação principal">
+        <a href="/" class="nav-brand" aria-label="Morita - página inicial">
+            <img src="~/images/logo.webp" alt="" width="36" height="36">
+        </a>
+        <div class="nav-links">
+            <a href="/" class="nav-link @(currentPage == "/Index" ? "active" : "")" aria-current="@(currentPage == "/Index" ? "page" : null)">Home</a>
+            <a href="/JiuJitsu" class="nav-link @(currentPage == "/JiuJitsu" ? "active" : "")" aria-current="@(currentPage == "/JiuJitsu" ? "page" : null)">Jiu-Jitsu</a>
+            <a href="/MuayThai" class="nav-link @(currentPage == "/MuayThai" ? "active" : "")" aria-current="@(currentPage == "/MuayThai" ? "page" : null)">Muay Thai</a>
+        </div>
+        <button class="nav-cta" type="button" aria-label="Consultar disponibilidade" data-request-open data-track-event="customer_product_request_open" data-track-category="nav">
+            <i class="fas fa-ruler"></i>
+            <span>Consultar</span>
+        </button>
     </nav>
 
     @RenderBody()
 
-    <div id="footer-container">
-        <h2 style="text-align: center; color: white; margin-top: 2rem;">Como chegar</h2>
-        <div style="position: relative; width: 100%; height: 400px;">
-          <iframe
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8018589048047!2d-47.448025699999995!3d-23.5036453!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cf617d35af8a47%3A0x9305c5aada5d6b5e!2sMorita!5e0!3m2!1spt-BR!2sbr!4v1754033972086!5m2!1spt-BR!2sbr"
-            width="100%"
-            height="400"
-            style="border:0;"
-            allowfullscreen=""
-            loading="lazy"
-            referrerpolicy="no-referrer-when-downgrade">
-          </iframe>
+    <footer class="site-footer">
+        <div class="site-footer-inner">
+            <div class="footer-brand">
+                <img src="~/images/logo.webp" alt="Morita" width="120" height="120" loading="lazy">
+                <p>Equipamentos de Jiu-Jitsu, Muay Thai e Boxe em Sorocaba, com ajuda para escolher o tamanho certo.</p>
+                <span class="open-status" data-open-status data-hours="@StoreInfo.HoursJson" data-time-zone="@StoreInfo.TimeZoneId"></span>
+            </div>
+            <div class="footer-column">
+                <h2>Visite a loja</h2>
+                <a href="@StoreInfo.MapsUrl" target="_blank" rel="noopener noreferrer" data-track-event="store_location_click" data-track-category="footer">
+                    <i class="fas fa-location-dot"></i>
+                    @StoreInfo.AddressLine
+                </a>
+                <ul class="footer-hours">
+                    @foreach (var line in StoreInfo.HoursSummary)
+                    {
+                        <li>@line</li>
+                    }
+                </ul>
+            </div>
+            <div class="footer-column">
+                <h2>Fale com a gente</h2>
+                <a href="@WhatsAppLink.Chat("Olá, Morita! Vim pelo site e quero ajuda para escolher meu equipamento.")" target="_blank" rel="noopener noreferrer" data-track-event="whatsapp_catalog_click" data-track-category="footer">
+                    <i class="fab fa-whatsapp"></i>
+                    WhatsApp @StoreInfo.PhoneDisplay
+                </a>
+                <a href="@StoreInfo.InstagramUrl" target="_blank" rel="noopener noreferrer" data-track-event="instagram_click" data-track-category="footer">
+                    <i class="fab fa-instagram"></i>
+                    @StoreInfo.InstagramHandle
+                </a>
+                <button class="footer-request" type="button" data-request-open data-track-event="customer_product_request_open" data-track-category="footer">
+                    <i class="fas fa-ruler"></i>
+                    Consultar disponibilidade
+                </button>
+            </div>
+            <div class="footer-column">
+                <h2>Navegue</h2>
+                <a href="/">Home</a>
+                <a href="/JiuJitsu">Jiu-Jitsu</a>
+                <a href="/MuayThai">Muay Thai e Boxe</a>
+                <a href="/Privacidade">Política de Privacidade</a>
+            </div>
         </div>
-    </div>
+        <div class="footer-map">
+            <h2>Como chegar</h2>
+            <iframe
+              title="Mapa da loja Morita em Sorocaba"
+              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3658.8018589048047!2d-47.448025699999995!3d-23.5036453!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x94cf617d35af8a47%3A0x9305c5aada5d6b5e!2sMorita!5e0!3m2!1spt-BR!2sbr!4v1754033972086!5m2!1spt-BR!2sbr"
+              width="100%"
+              height="360"
+              style="border:0;"
+              allowfullscreen=""
+              loading="lazy"
+              referrerpolicy="no-referrer-when-downgrade">
+            </iframe>
+        </div>
+        <p class="footer-legal">© @DateTime.Now.Year @StoreInfo.Name · @StoreInfo.City, @StoreInfo.State</p>
+    </footer>
 
     <script>
         window.API_BASE_URL = "@apiBaseUrl";
+        window.MORITA_WHATSAPP_PHONE = "@WhatsAppLink.Phone";
     </script>
     <script type="module" src="~/js/customer-product-request.js" asp-append-version="true"></script>
     <script type="module" src="~/js/tracking.js" asp-append-version="true"></script>
+    <script type="module" src="~/js/size-calculator.js" asp-append-version="true"></script>
+    <script type="module" src="~/js/store-hours.js" asp-append-version="true"></script>
+    <script src="~/js/carousel.js" asp-append-version="true" defer></script>
     @RenderSection("Scripts", required: false)
 </body>
 </html>

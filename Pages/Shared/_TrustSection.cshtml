@@ -1,0 +1,15 @@
+@model SectionViewModel
+<section class="trust-section" aria-labelledby="trust-title">
+    <p class="eyebrow" id="trust-title">Marcas que você encontra na Morita</p>
+    <ul class="brand-strip">
+        <li>In The Guard</li>
+        <li>Venum</li>
+        <li>South Team</li>
+        <li>Naja</li>
+        <li>Keiko</li>
+    </ul>
+    <a class="reviews-link" href="@StoreInfo.MapsUrl" target="_blank" rel="noopener noreferrer" data-track-event="google_reviews_click" data-track-category="@Model.TrackCategory">
+        <i class="fab fa-google" aria-hidden="true"></i>
+        Veja as avaliações dos nossos clientes no Google
+    </a>
+</section>

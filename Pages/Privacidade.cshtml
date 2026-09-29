@@ -1,0 +1,61 @@
+@page
+@model PrivacidadeModel
+@{
+    ViewData["Title"] = "Política de Privacidade | Morita";
+    ViewData["Description"] = "Como a Morita coleta, usa e protege os dados enviados pelo site, de acordo com a LGPD.";
+    ViewData["BodyClass"] = "legal-page";
+}
+
+<main class="legal-main">
+    <p class="eyebrow">LGPD</p>
+    <h1>Política de Privacidade</h1>
+    <p class="legal-updated">Última atualização: 29 de setembro de 2026</p>
+
+    <section>
+        <h2>Quem somos</h2>
+        <p>Este site é da @StoreInfo.Name, loja de artes marciais localizada na @StoreInfo.AddressLine. A Morita é a controladora dos dados pessoais tratados por meio deste site.</p>
+    </section>
+
+    <section>
+        <h2>Quais dados coletamos</h2>
+        <ul>
+            <li><strong>Consulta de produtos:</strong> nome, número de WhatsApp, produtos de interesse (tamanho, cor, marca e quantidade), altura, peso e idade quando você informa para a escolha do kimono, preferência de retirada ou entrega com bairro e cidade, prazo desejado e observações que você escrever.</li>
+            <li><strong>Origem do acesso:</strong> a página em que a consulta foi enviada e a campanha de divulgação, quando o link tiver essa informação.</li>
+            <li><strong>Navegação no site:</strong> páginas visitadas, cliques em botões, página de origem e parâmetros de campanha. Nosso servidor também registra o endereço IP e o tipo de navegador de cada evento.</li>
+            <li><strong>Ferramentas do Google:</strong> usamos o Google Tag Manager e o Google Ads para medir visitas e contatos gerados pelos anúncios. Essas ferramentas podem usar cookies no seu navegador.</li>
+            <li><strong>Rascunho da consulta:</strong> para você não perder o que preencheu, o formulário guarda um rascunho apenas no seu navegador. Ele não é enviado para a Morita até você concluir a consulta e pode ser apagado limpando os dados do site no navegador.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Para que usamos os dados</h2>
+        <ul>
+            <li>Responder à sua consulta pelo WhatsApp com disponibilidade, tamanhos e valores.</li>
+            <li>Organizar o atendimento da equipe e acompanhar o andamento das consultas.</li>
+            <li>Entender como o site é usado e medir o resultado das campanhas de divulgação.</li>
+            <li>Proteger o site contra abuso e envios automáticos.</li>
+        </ul>
+        <p>Os dados da consulta são tratados com base no seu consentimento, dado ao marcar a caixa de concordância no formulário. Os dados de navegação são tratados com base no legítimo interesse da Morita em manter e melhorar o site.</p>
+    </section>
+
+    <section>
+        <h2>Com quem compartilhamos</h2>
+        <p>Não vendemos seus dados. Eles podem ser processados por fornecedores que nos ajudam a operar o site e o atendimento, como serviços de hospedagem, as ferramentas do Google citadas acima e o aplicativo de mensagens usado pela equipe para receber o aviso de novas consultas. Esses fornecedores só usam os dados para prestar o serviço à Morita.</p>
+    </section>
+
+    <section>
+        <h2>Por quanto tempo guardamos</h2>
+        <p>Guardamos os dados pelo tempo necessário para concluir o atendimento e cumprir obrigações legais. Depois disso, eles são excluídos ou anonimizados.</p>
+    </section>
+
+    <section>
+        <h2>Seus direitos</h2>
+        <p>De acordo com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), você pode pedir a confirmação de que tratamos seus dados, o acesso, a correção, a exclusão ou a portabilidade deles, informações sobre o compartilhamento e a revogação do consentimento a qualquer momento.</p>
+        <p>Para exercer esses direitos, fale com a gente pelo <a href="@WhatsAppLink.Chat("Olá, Morita! Quero fazer uma solicitação sobre os meus dados pessoais.")" target="_blank" rel="noopener noreferrer">WhatsApp @StoreInfo.PhoneDisplay</a> ou na loja.</p>
+    </section>
+
+    <section>
+        <h2>Alterações</h2>
+        <p>Esta política pode ser atualizada quando o site ou o atendimento mudarem. A data da última atualização fica sempre no topo desta página.</p>
+    </section>
+</main>
