@@ -52,6 +52,11 @@ builder.Services.AddOptions<CatalogApiOptions>().BindConfiguration(CatalogApiOpt
         builder.Environment.IsEnvironment("E2E") ||
         Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps,
         "CatalogApi:BaseUrl must use HTTPS outside Development and E2E.")
+    .Validate(options =>
+        builder.Environment.IsDevelopment() ||
+        builder.Environment.IsEnvironment("E2E") ||
+        !string.IsNullOrWhiteSpace(options.ProxySecret),
+        "CatalogApi:ProxySecret is required outside Development and E2E so the API can resolve this storefront's store from its host.")
     .ValidateOnStart();
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
