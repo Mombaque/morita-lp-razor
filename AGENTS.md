@@ -19,3 +19,9 @@
 - Keep changes minimal and preserve the established storefront visual identity and interaction patterns.
 - Run focused verification appropriate to the change. Do not run E2E tests unless explicitly requested.
 - Update relevant project or wiki documentation after significant architectural or domain discoveries.
+
+## API Calls And Tenancy
+
+- Register every `HttpClient` that calls Morita.API with `.AddHttpMessageHandler<StorefrontApiHeadersHandler>()`. The handler alone sets `X-Morita-Client-IP`, `X-Morita-Proxy-Secret`, and `X-Morita-Storefront-Host`; do not add these headers per request.
+- The multi-tenant API resolves the store from `X-Morita-Storefront-Host` (the shopper's host, lowercase, no port) and trusts it only with a matching proxy secret. Without it, and once a second store is active, every storefront call returns `404`.
+- `CatalogApi:ProxySecret` is required outside Development and E2E. Each storefront host must be registered in the API's `TenantDomain` table before a second store is activated.
