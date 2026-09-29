@@ -4608,6 +4608,20 @@ body.filter-drawer-open {
   margin: .9rem 0 0;
 }
 
+.pix-expiry [data-pix-countdown] {
+  color: var(--fight-paper);
+  font-weight: 600;
+}
+
+.pix-payment-data [data-check-payment] {
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.pix-payment-data [data-check-payment-status] {
+  margin: .5rem 0 0;
+}
+
 .checkout-payment-card > .checkout-status-actions {
   border-top: 1px solid var(--fight-line);
   margin-top: 1.5rem;
