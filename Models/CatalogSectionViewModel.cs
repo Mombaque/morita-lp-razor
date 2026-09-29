@@ -51,6 +51,8 @@ public sealed class CatalogSectionViewModel
 
     public string ClearFiltersUrl() => BuildUrl(null, null, Sort);
 
+    public string PageUrl(int page) => BuildUrl(Category, BrandId, Sort, page);
+
     public IReadOnlyDictionary<string, string> SortFormValues
     {
         get
@@ -71,13 +73,17 @@ public sealed class CatalogSectionViewModel
         }
     }
 
+    // Read "page" from the query string: Razor Pages reserves the "page" route value for the page path.
+    public static int RequestedPage(Microsoft.AspNetCore.Http.IQueryCollection query) =>
+        int.TryParse(query["page"].ToString(), NumberStyles.None, CultureInfo.InvariantCulture, out var page) && page > 1 ? page : 1;
+
     public static string NormalizeSort(string? value)
     {
         var normalized = value?.Trim().ToLowerInvariant();
         return SortOptions.Any(option => option.Value == normalized) ? normalized! : "featured";
     }
 
-    private string BuildUrl(string? category, int? brandId, string sort)
+    private string BuildUrl(string? category, int? brandId, string sort, int page = 1)
     {
         var values = new Dictionary<string, string?>();
         foreach (var query in ContextQuery)
@@ -86,6 +92,7 @@ public sealed class CatalogSectionViewModel
         values["category"] = category;
         values["brandId"] = brandId?.ToString(CultureInfo.InvariantCulture);
         values["sort"] = sort == "featured" ? null : sort;
+        values["page"] = page > 1 ? page.ToString(CultureInfo.InvariantCulture) : null;
 
         return QueryHelpers.AddQueryString(
             Route,

@@ -62,6 +62,7 @@
         <form method="post" action="/conta?handler=ReportProblem&amp;publicOrderNumber=@Uri.EscapeDataString(Model.PublicOrderNumber)#pedidos">
             <label for="problemReason">Motivo</label>
             <select id="problemReason" name="ProblemReason" required>
+                <option value="">Selecione</option>
                 <option value="Damaged">Item danificado</option>
                 <option value="Exchange">Quero trocar</option>
                 <option value="Other">Outro</option>

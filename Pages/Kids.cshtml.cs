@@ -42,7 +42,7 @@ public class KidsModel(ICatalogClient catalog) : PageModel
         BrandId = BrandId is > 0 ? BrandId : null;
         Sort = CatalogSectionViewModel.NormalizeSort(Sort);
         var products = catalog.GetCatalogAsync(
-            new CatalogQuery(null, null, null, BrandId, null, null, true, 1, Sort, Category: Category, Modality: Modality, Audience: PublicCatalogAudience.Kids),
+            new CatalogQuery(null, null, null, BrandId, null, null, true, CatalogSectionViewModel.RequestedPage(Request.Query), Sort, Category: Category, Modality: Modality, Audience: PublicCatalogAudience.Kids),
             cancellationToken);
         var filters = catalog.GetFiltersAsync(cancellationToken);
         await Task.WhenAll(products, filters);

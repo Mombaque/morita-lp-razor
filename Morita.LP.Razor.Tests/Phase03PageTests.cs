@@ -99,6 +99,22 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
+    public async Task Category_route_paginates_beyond_the_first_page()
+    {
+        using var factory = Create(
+            new CatalogPage([new Product { Slug = "kimono", Nome = "Kimono" }], 2, 24, 60, 3, CatalogLoadState.Success),
+            new CatalogFilters());
+        using var client = factory.CreateClient();
+
+        var html = await (await client.GetAsync("/muay-thai?sort=price-asc&page=2")).Content.ReadAsStringAsync();
+
+        Assert.Equal(2, Stub.LastCatalogQuery!.Page);
+        Assert.Contains("Página 2 de 3", html);
+        Assert.Contains("href=\"/muay-thai?sort=price-asc#catalog\">Anterior", html);
+        Assert.Contains("href=\"/muay-thai?sort=price-asc&amp;page=3#catalog\">Próxima", html);
+    }
+
+    [Fact]
     public async Task Kids_route_preserves_modality_when_combining_brand_and_sort()
     {
         using var factory = Create(

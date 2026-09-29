@@ -1552,7 +1552,8 @@ body {
   font-family: "IBM Plex Sans", sans-serif;
 }
 
-.visually-hidden {
+.visually-hidden,
+.sr-only {
   clip: rect(0 0 0 0);
   clip-path: inset(50%);
   height: 1px;
@@ -2369,6 +2370,18 @@ body {
 
 .product-variant-more-colors {
   padding-inline: .35rem;
+}
+
+a.product-variant-more {
+  position: relative;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  z-index: 2;
+}
+
+a.product-variant-more:hover,
+a.product-variant-more:focus-visible {
+  color: var(--fight-green);
 }
 
 .detail-variant-matrix {

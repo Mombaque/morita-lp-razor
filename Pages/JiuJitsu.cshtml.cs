@@ -37,7 +37,7 @@ public class JiuJitsuModel(ICatalogClient catalog) : PageModel
         BrandId = BrandId is > 0 ? BrandId : null;
         Sort = CatalogSectionViewModel.NormalizeSort(Sort);
         var products = catalog.GetCatalogAsync(
-            new CatalogQuery(null, null, null, BrandId, null, null, true, 1, Sort, Category: Category, Modality: "jiu-jitsu"),
+            new CatalogQuery(null, null, null, BrandId, null, null, true, CatalogSectionViewModel.RequestedPage(Request.Query), Sort, Category: Category, Modality: "jiu-jitsu"),
             cancellationToken);
         var filters = catalog.GetFiltersAsync(cancellationToken);
         await Task.WhenAll(products, filters);
