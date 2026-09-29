@@ -10,6 +10,7 @@ public class ProductService
         {
             Nome = "Faixas de Jiu-Jitsu",
             Slug = "faixas",
+            Highlights = new() { "Adulto e infantil", "Todas as graduações" },
             RequestProductType = "Faixa adulto",
             Alt = "Faixas de Jiu-Jitsu de todas as cores: branca, azul, roxa, marrom, preta. Modelos para adulto e infantil.",
             Descricao = "Faixas de Jiu-Jitsu branca, azul, roxa, marrom e preta, em tamanhos adulto e infantil. Modelos com costura reforçada das marcas In The Guard, Venum e Naja.",
@@ -19,6 +20,7 @@ public class ProductService
         {
             Nome = "Kimono Infantil",
             Slug = "kimono-infantil",
+            Highlights = new() { "M000 a M4", "Jiu-Jitsu e Judô" },
             RequestProductType = "Kimono Infantil / Judô",
             Alt = "Kimono Infantil In The Guard",
             Descricao = "Kimono infantil de Jiu-Jitsu leve, confortável e resistente para treinos do dia a dia. Disponível em diversas cores para crianças que estão começando ou evoluindo no tatame.",
@@ -33,6 +35,7 @@ public class ProductService
         {
             Nome = "Kimono Adulto",
             Slug = "kimono-adulto",
+            Highlights = new() { "A0 a A6 · F2 e F3", "ITG · South Team · Naja · Keiko" },
             RequestProductType = "Kimono Adulto",
             Alt = "Kimono Adulto In The Guard",
             Descricao = "Kimono adulto de Jiu-Jitsu das marcas In The Guard, South Team, Naja e Keiko. Modelos leves, resistentes, com tecido trançado e opções para treino ou competição em Sorocaba.",
@@ -50,6 +53,7 @@ public class ProductService
         {
             Nome = "Rashguard Masculina",
             Slug = "rashguard-masculina",
+            Highlights = new() { "PP a XGG", "ITG · Venum" },
             RequestProductType = "Rashguard",
             Alt = "Rashguard masculina In The Guard",
             Descricao = "Rashguard masculina para Jiu-Jitsu, grappling e no-gi, com tecido de compressão e liberdade de movimento. Modelos das marcas In The Guard, Venum e outras opções para treino.",
@@ -68,6 +72,7 @@ public class ProductService
         {
             Nome = "Rashguard Feminina",
             Slug = "rashguard-feminina",
+            Highlights = new() { "PP a XGG", "No-gi e treino" },
             RequestProductType = "Rashguard",
             Alt = "Rashguard feminina In The Guard",
             Descricao = "Rashguard feminina para Jiu-Jitsu sem kimono, no-gi e treinos de alta intensidade. Tecido confortável, com compressão e bom ajuste para movimentação no tatame.",
@@ -85,6 +90,7 @@ public class ProductService
         {
             Nome = "Luva de Muay Thai / Boxe",
             Slug = "luvas",
+            Highlights = new() { "12oz · 14oz · 16oz", "Treino e competição" },
             RequestProductType = "Luvas",
             Alt = "Luva de Boxe e Muay Thai",
             Descricao = "Luvas para Muay Thai e Boxe, indicadas para treinos e competições. Disponíveis em 12oz, 14oz e 16oz.",
@@ -99,6 +105,7 @@ public class ProductService
         {
             Nome = "Shorts de Muay Thai",
             Slug = "shorts",
+            Highlights = new() { "PP a XGG", "Estilo tailandês" },
             RequestProductType = "Bermuda / shorts",
             Alt = "Shorts de Muay Thai",
             Descricao = "Shorts de Muay Thai com design tailandês, tecido leve e liberdade de movimento para chutes e joelhadas. Modelos resistentes para treino em Sorocaba.",
@@ -111,6 +118,16 @@ public class ProductService
                 "/images/muay-thai/short-vermelho.webp",
                 "/images/muay-thai/shorts-dragao.webp"
             }
+        },
+        new Product
+        {
+            Nome = "Caneleiras e acessórios",
+            Slug = "caneleiras",
+            Highlights = new() { "Caneleiras P a GG", "Bandagens e protetor bucal" },
+            RequestProductType = "Caneleira",
+            Alt = "Caneleiras e acessórios de Muay Thai",
+            Descricao = "Caneleiras para Muay Thai e Boxe, bandagens e protetores bucais para completar o seu equipamento de treino. Consulte modelos e tamanhos disponíveis na loja.",
+            Imagens = new()
         }
     };
 

@@ -3,7 +3,7 @@ const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === 'local
   ? 'http://localhost:5001'
   : 'https://morita-api-1nnj.onrender.com');
 const USAGE_EVENT_ENDPOINT = `${API_BASE_URL.replace(/\/$/, '')}/v1/WebsiteUsageEvent`;
-const CONTACT_CONVERSION_EVENTS = new Set(['whatsapp_catalog_click', 'whatsapp_product_click']);
+const CONTACT_CONVERSION_EVENTS = new Set(['whatsapp_catalog_click', 'whatsapp_product_click', 'whatsapp_team_click']);
 const LEAD_EVENT = 'generate_lead';
 
 function getPageCategory() {
@@ -130,4 +130,35 @@ document.addEventListener('morita:lead', (event) => {
   sendGtagEvent(LEAD_EVENT, payload);
   sendWebsiteUsageEvent('customer_product_request_submit', payload);
   sendContactConversion();
+});
+
+document.addEventListener('morita:request-step', (event) => {
+  const detail = event.detail || {};
+  const payload = {
+    event_category: getPageCategory(),
+    page_path: window.location.pathname,
+    page_title: document.title,
+    destination_url: '',
+    selected_category: detail.stepName || undefined,
+    request_step: detail.step,
+  };
+
+  pushDataLayerEvent('request_step_view', payload);
+  sendGtagEvent('request_step_view', payload);
+  sendWebsiteUsageEvent('request_step_view', payload);
+});
+
+document.addEventListener('morita:request-error', (event) => {
+  const detail = event.detail || {};
+  const payload = {
+    event_category: getPageCategory(),
+    page_path: window.location.pathname,
+    page_title: document.title,
+    destination_url: '',
+    selected_category: detail.modality || undefined,
+    item_count: detail.itemCount || undefined,
+  };
+
+  pushDataLayerEvent('request_submit_error', payload);
+  sendGtagEvent('request_submit_error', payload);
 });

@@ -60,7 +60,7 @@
             <i class="fas fa-magnifying-glass"></i>
             Encontrar meu tamanho
           </button>
-          <a class="button instagram secondary-cta" href="https://www.instagram.com/morita.fight/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Morita" data-track-event="instagram_click" data-track-category="jiu-jitsu">
+          <a class="button instagram secondary-cta" href="@StoreInfo.InstagramUrl" target="_blank" rel="noopener noreferrer" aria-label="Instagram Morita" data-track-event="instagram_click" data-track-category="jiu-jitsu">
             <i class="fab fa-instagram"></i>
             Instagram
           </a>
@@ -83,6 +83,7 @@
       <a href="#rashguard-masculina">Rashguards</a>
       <a href="#faixas">Faixas</a>
       <a href="#kimono-infantil">Infantil</a>
+      <a href="#calculadora-kimono">Calculadora de tamanho</a>
     </nav>
 
     <section class="products-intro" aria-labelledby="products-title">
@@ -97,11 +98,12 @@
     <section id="products" class="products" data-track-category="jiu-jitsu">
         @for (var index = 0; index < Model.Products.Count; index++)
         {
-            @await Html.PartialAsync("_ProductCard", new ProductCardViewModel(Model.Products[index], index, "jiu-jitsu"))
+            @await Html.PartialAsync("_ProductCard", new ProductCardViewModel(Model.Products[index], "jiu-jitsu"))
         }
     </section>
+
+    @await Html.PartialAsync("_SizeCalculator", new SectionViewModel("jiu-jitsu"))
+    @await Html.PartialAsync("_TeamCta", new SectionViewModel("jiu-jitsu"))
+    @await Html.PartialAsync("_Faq")
 </main>
 
-@section Scripts {
-<script src="~/js/carousel.js" asp-append-version="true"></script>
-}

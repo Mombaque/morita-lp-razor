@@ -1,0 +1,24 @@
+@model SectionViewModel
+<section class="size-calculator" id="calculadora-kimono" aria-labelledby="size-calculator-title" data-size-calculator>
+    <div class="size-calculator-copy">
+        <p class="eyebrow">Calculadora de kimono</p>
+        <h2 id="size-calculator-title">Descubra o tamanho do seu kimono em segundos</h2>
+        <p>Informe altura e peso para ver o tamanho sugerido. Depois, a Morita confirma o tamanho ideal e a disponibilidade com você pelo WhatsApp.</p>
+    </div>
+    <form class="size-calculator-form" novalidate>
+        <fieldset class="size-calculator-toggle">
+            <legend class="sr-only">Para quem é o kimono?</legend>
+            <label><input type="radio" name="audience" value="adulto" checked><span>Adulto</span></label>
+            <label><input type="radio" name="audience" value="infantil"><span>Infantil</span></label>
+        </fieldset>
+        <div class="size-calculator-fields">
+            <label>Altura (cm)<input type="number" name="heightCm" inputmode="numeric" min="50" max="230" placeholder="175"></label>
+            <label>Peso (kg)<input type="number" name="weightKg" inputmode="decimal" min="10" max="250" step="0.1" placeholder="78"></label>
+        </div>
+        <div class="size-calculator-result" data-size-result aria-live="polite"></div>
+        <button class="size-calculator-cta" type="button" data-size-cta data-request-open data-request-product="Kimono Adulto" data-track-event="size_calculator_request_open" data-track-category="@Model.TrackCategory" disabled>
+            Consultar disponibilidade
+        </button>
+        <small>Sugestão aproximada: as medidas variam por marca. Tamanhos femininos (F2, F3) e medidas entre dois tamanhos a gente ajuda pelo WhatsApp.</small>
+    </form>
+</section>

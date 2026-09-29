@@ -1,15 +1,16 @@
 @model ProductCardViewModel
 @{
     var p = Model.Product;
-    var cleanName = System.Text.RegularExpressions.Regex.Replace(p.Nome.ToLower(), @"[^\w-]", "");
-    var carouselId = $"carousel-{cleanName}-{Model.Index}";
     var shuffledImagens = p.Imagens.OrderBy(_ => Random.Shared.Next()).ToList();
 }
 <article class="product" id="@p.Slug">
-    <div class="carousel" id="@carouselId">
+    <div class="carousel" data-carousel>
         @if (shuffledImagens.Count == 0)
         {
-            <img src="https://via.placeholder.com/300x300.png?text=Produto+sem+imagem" alt="@p.Alt" class="carousel-img active">
+            <div class="carousel-placeholder" role="img" aria-label="@p.Alt">
+                <i class="fas fa-shield-halved" aria-hidden="true"></i>
+                <span>Consulte modelos disponíveis</span>
+            </div>
         }
         else
         {
@@ -20,11 +21,20 @@
         }
         @if (shuffledImagens.Count > 1)
         {
-            <button class="prev" type="button" aria-label="Foto anterior de @p.Nome" onclick="getImage('@carouselId', false)">&#10094;</button>
-            <button class="next" type="button" aria-label="Próxima foto de @p.Nome" onclick="getImage('@carouselId', true)">&#10095;</button>
+            <button class="prev" type="button" aria-label="Foto anterior de @p.Nome" data-carousel-prev>&#10094;</button>
+            <button class="next" type="button" aria-label="Próxima foto de @p.Nome" data-carousel-next>&#10095;</button>
         }
     </div>
     <h3>@p.Nome</h3>
+    @if (p.Highlights.Count > 0)
+    {
+        <ul class="product-highlights" aria-label="Destaques de @p.Nome">
+            @foreach (var highlight in p.Highlights)
+            {
+                <li>@highlight</li>
+            }
+        </ul>
+    }
     <p>@p.Descricao</p>
     <div class="product-actions">
         <button class="product-cta" type="button" aria-label="Consultar tamanho e disponibilidade de @p.Nome" data-request-open data-request-product="@p.RequestProductType" data-track-event="customer_product_request_open" data-track-category="@Model.TrackCategory" data-track-selected-category="@p.Nome">

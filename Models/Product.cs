@@ -9,4 +9,6 @@ public class Product
     public string Alt { get; set; } = string.Empty;
     public string Descricao { get; set; } = string.Empty;
     public List<string> Imagens { get; set; } = new();
+    /// <summary>Short facts shown as chips on the product card (sizes, brands).</summary>
+    public List<string> Highlights { get; set; } = new();
 }

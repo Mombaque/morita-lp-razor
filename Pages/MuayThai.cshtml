@@ -60,7 +60,7 @@
             <i class="fas fa-magnifying-glass"></i>
             Encontrar meu tamanho
           </button>
-          <a class="button instagram secondary-cta" href="https://www.instagram.com/morita.fight/" target="_blank" rel="noopener noreferrer" aria-label="Instagram Morita" data-track-event="instagram_click" data-track-category="muay-thai">
+          <a class="button instagram secondary-cta" href="@StoreInfo.InstagramUrl" target="_blank" rel="noopener noreferrer" aria-label="Instagram Morita" data-track-event="instagram_click" data-track-category="muay-thai">
             <i class="fab fa-instagram"></i>
             Instagram
           </a>
@@ -81,8 +81,8 @@
     <nav class="quick-nav" aria-label="Categorias de Muay Thai">
       <a href="#luvas">Luvas</a>
       <a href="#shorts">Shorts</a>
-      <button type="button" data-request-open data-request-product="Caneleira" data-track-event="customer_product_request_open" data-track-category="muay-thai" data-track-selected-category="Caneleira">Caneleiras</button>
-      <button type="button" data-request-open data-track-event="customer_product_request_open" data-track-category="muay-thai" data-track-selected-category="Acessórios">Acessórios</button>
+      <a href="#caneleiras">Caneleiras</a>
+      <a href="#caneleiras">Acessórios</a>
     </nav>
 
     <section class="products-intro" aria-labelledby="products-title">
@@ -97,11 +97,12 @@
     <section id="products" class="products" data-track-category="muay-thai">
         @for (var index = 0; index < Model.Products.Count; index++)
         {
-            @await Html.PartialAsync("_ProductCard", new ProductCardViewModel(Model.Products[index], index, "muay-thai"))
+            @await Html.PartialAsync("_ProductCard", new ProductCardViewModel(Model.Products[index], "muay-thai"))
         }
     </section>
+
+    @await Html.PartialAsync("_TrustSection", new SectionViewModel("muay-thai"))
+    @await Html.PartialAsync("_TeamCta", new SectionViewModel("muay-thai"))
+    @await Html.PartialAsync("_Faq")
 </main>
 
-@section Scripts {
-<script src="~/js/carousel.js" asp-append-version="true"></script>
-}

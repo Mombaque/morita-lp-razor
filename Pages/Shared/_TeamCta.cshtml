@@ -1,0 +1,14 @@
+@model SectionViewModel
+<section class="team-cta" aria-labelledby="team-cta-title">
+    <div class="team-cta-copy">
+        <p class="eyebrow">Equipes e academias</p>
+        <h2 id="team-cta-title">Kimonos, faixas e rashguards para a sua equipe</h2>
+        <p>Pedidos em quantidade para graduação, uniforme de equipe e campeonatos. Envie a lista de tamanhos e montamos o orçamento para você.</p>
+    </div>
+    <div class="team-cta-actions">
+        <a class="button whatsapp primary-cta" href="@WhatsAppLink.Chat("Olá, Morita! Sou de uma equipe/academia e quero um orçamento para um pedido em quantidade.")" target="_blank" rel="noopener noreferrer" data-track-event="whatsapp_team_click" data-track-category="@Model.TrackCategory">
+            <i class="fab fa-whatsapp"></i>
+            Pedir orçamento para equipe
+        </a>
+    </div>
+</section>

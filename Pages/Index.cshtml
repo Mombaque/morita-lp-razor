@@ -54,15 +54,18 @@
             <i class="fas fa-magnifying-glass"></i>
             Encontrar meu tamanho
           </button>
-          <a class="button instagram secondary-cta" href="https://www.instagram.com/morita.fight/" target="_blank" rel="noopener noreferrer" aria-label="Abrir Instagram da Morita" data-track-event="instagram_click" data-track-category="home">
+          <a class="button instagram secondary-cta" href="@StoreInfo.InstagramUrl" target="_blank" rel="noopener noreferrer" aria-label="Abrir Instagram da Morita" data-track-event="instagram_click" data-track-category="home">
             <i class="fab fa-instagram"></i>
             Instagram
           </a>
         </div>
-        <a class="address home-address" href="https://maps.app.goo.gl/pNYYiMimWGa4actz7" data-track-event="store_location_click" data-track-category="home">
-          <i class="fas fa-location-dot"></i>
-          Rua Coronel Nogueira Padilha, 429 - Sorocaba, SP
-        </a>
+        <div class="home-location">
+          <a class="address home-address" href="@StoreInfo.MapsUrl" target="_blank" rel="noopener noreferrer" data-track-event="store_location_click" data-track-category="home">
+            <i class="fas fa-location-dot"></i>
+            @StoreInfo.AddressLine
+          </a>
+          <span class="open-status" data-open-status data-hours="@StoreInfo.HoursJson" data-time-zone="@StoreInfo.TimeZoneId" hidden></span>
+        </div>
         <ul class="trust-list" aria-label="Diferenciais da Morita">
           <li>Loja física em Sorocaba</li>
           <li>Ajuda para escolher tamanho</li>
@@ -98,12 +101,14 @@
         </a>
       </div>
     </section>
+
+    @await Html.PartialAsync("_SizeCalculator", new SectionViewModel("home"))
 </main>
 
 <section class="random-products-section" aria-labelledby="random-products-title">
   <p class="eyebrow">Produtos em destaque</p>
   <h2 id="random-products-title">Um giro pelo catálogo Morita</h2>
-  <div class="random-carousel">
+  <div class="random-carousel" data-carousel data-carousel-slide=".random-carousel-slide" data-carousel-autoplay>
     @for (var i = 0; i < Model.Slides.Count; i++)
     {
         var slide = Model.Slides[i];
@@ -115,24 +120,13 @@
           </span>
         </a>
     }
-    <button class="random-carousel-btn prev" type="button" onclick="navigateRandomCarousel(-1)" aria-label="Produto anterior">&#10094;</button>
-    <button class="random-carousel-btn next" type="button" onclick="navigateRandomCarousel(1)" aria-label="Próximo produto">&#10095;</button>
+    <button class="random-carousel-btn prev" type="button" data-carousel-prev aria-label="Produto anterior">&#10094;</button>
+    <button class="random-carousel-btn next" type="button" data-carousel-next aria-label="Próximo produto">&#10095;</button>
   </div>
 </section>
 
-@section Scripts {
-<script>
-  let currentRandomImageIndex = 0;
-
-  function navigateRandomCarousel(direction) {
-    const slides = document.querySelectorAll('.random-carousel-slide');
-    if (!slides.length) return;
-
-    slides[currentRandomImageIndex].classList.remove('active');
-    currentRandomImageIndex = (currentRandomImageIndex + direction + slides.length) % slides.length;
-    slides[currentRandomImageIndex].classList.add('active');
-  }
-
-  window.navigateRandomCarousel = navigateRandomCarousel;
-</script>
-}
+<div class="page-sections">
+  @await Html.PartialAsync("_TrustSection", new SectionViewModel("home"))
+  @await Html.PartialAsync("_TeamCta", new SectionViewModel("home"))
+  @await Html.PartialAsync("_Faq")
+</div>
