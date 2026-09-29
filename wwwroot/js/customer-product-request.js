@@ -2,7 +2,22 @@ const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === 'local
   ? 'http://localhost:5001'
   : 'https://morita-api-1nnj.onrender.com');
 
+const WHATSAPP_PHONE = window.MORITA_WHATSAPP_PHONE || '5515981079332';
+
 const TOTAL_STEPS = 3;
+
+const FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]):not(.request-honeypot), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const PAGE_CATEGORY = {
+  jiuJitsu: 'jiu-jitsu',
+  muayThai: 'muay-thai',
+};
+
+const WHATSAPP_FLOAT_MESSAGES = {
+  [PAGE_CATEGORY.jiuJitsu]: 'Olá, Morita! Vim pelo site e quero ajuda para escolher equipamentos de Jiu-Jitsu.',
+  [PAGE_CATEGORY.muayThai]: 'Olá, Morita! Vim pelo site e quero ajuda para escolher equipamentos de Muay Thai / Boxe.',
+  default: 'Olá, Morita! Vim pelo site e quero ajuda para escolher meu equipamento.',
+};
 
 const REQUEST_STATUS = {
   idle: 'idle',
@@ -18,7 +33,7 @@ const BUTTON_LABELS = {
 const ERROR_MESSAGES = {
   required: 'Preencha as informações obrigatórias para continuar.',
   privacy: 'Confirme o uso dos seus dados para enviar a consulta.',
-  submit: 'Não foi possível enviar agora. Tente pelo WhatsApp.',
+  submit: 'Não foi possível enviar agora. Envie a mesma consulta pelo WhatsApp:',
 };
 
 const FIELD = {
@@ -111,6 +126,7 @@ const state = {
   step: 1,
   data: {},
   status: REQUEST_STATUS.idle,
+  opener: null,
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -120,13 +136,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function injectRequestWidget() {
   document.body.insertAdjacentHTML('beforeend', `
-    <a class="request-float" href="https://wa.me/c/5515981079332" target="_blank" rel="noopener noreferrer" aria-label="Falar com a Morita no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="request-widget">
-      <i class="fas fa-phone"></i>
+    <a class="request-float" href="${buildWhatsAppUrl(WHATSAPP_FLOAT_MESSAGES[getPageCategory()] || WHATSAPP_FLOAT_MESSAGES.default)}" target="_blank" rel="noopener noreferrer" aria-label="Falar com a Morita no WhatsApp" data-track-event="whatsapp_catalog_click" data-track-category="request-widget">
+      <i class="fab fa-whatsapp"></i>
       Falar no WhatsApp
     </a>
     <div class="request-modal" id="customer-request-modal" aria-hidden="true">
       <div class="request-backdrop" data-request-close></div>
-      <section class="request-panel" role="dialog" aria-modal="true" aria-labelledby="request-title">
+      <section class="request-panel" role="dialog" aria-modal="true" aria-labelledby="request-title" tabindex="-1">
         <button class="request-close" type="button" aria-label="Fechar consulta" data-request-close>&times;</button>
         <p class="eyebrow">Guia rápido</p>
         <h2 id="request-title">Encontre seu tamanho e produto certo</h2>
@@ -152,23 +168,14 @@ function bindRequestEvents() {
     const openButton = event.target.closest('[data-request-open]');
     if (!openButton) return;
 
-    const selectedProduct = openButton.dataset.trackSelectedCategory;
-    
-    let pageCategory = null;
-    if (document.body.classList.contains('jiu-jitsu-page')) pageCategory = 'jiu-jitsu';
-    else if (document.body.classList.contains('muay-thai-page')) pageCategory = 'muay-thai';
-    else {
-      const path = window.location.pathname;
-      if (path.includes('/jiu-jitsu')) pageCategory = 'jiu-jitsu';
-      else if (path.includes('/muay-thai')) pageCategory = 'muay-thai';
-    }
-
-    openRequestModal(selectedProduct, pageCategory);
+    state.opener = openButton;
+    openRequestModal(openButton.dataset.requestProduct || null, getPageCategory());
   });
 
   document.querySelectorAll('[data-request-close]').forEach(button => {
     button.addEventListener('click', closeRequestModal);
   });
+  document.getElementById('customer-request-modal').addEventListener('keydown', handleModalKeydown);
   document.querySelector('[data-request-back]').addEventListener('click', goBack);
   document.querySelector('[data-request-next]').addEventListener('click', goNext);
   document.getElementById('customer-request-form').addEventListener('click', handleRequestFormClick);
@@ -184,37 +191,64 @@ function openRequestModal(selectedProduct = null, pageCategory = null) {
   document.querySelector('[data-request-next]').disabled = false;
   document.querySelector('.request-actions').style.display = 'flex';
 
-  if (selectedProduct) {
-    let mappedModality = null;
-    if (pageCategory === 'jiu-jitsu') mappedModality = MODALITY.jiuJitsu;
-    else if (pageCategory === 'muay-thai') mappedModality = MODALITY.muayThaiBoxe;
-    
-    if (!mappedModality) {
-      for (const [mod, list] of Object.entries(options.productTypes)) {
-        if (list.includes(selectedProduct)) {
-          mappedModality = mod;
-          break;
-        }
-      }
-    }
+  state.data[FIELD.productTypes] = state.data[FIELD.productTypes] || [];
 
-    if (mappedModality) {
-      const itemKey = `${mappedModality}::${selectedProduct}`;
-      state.data[FIELD.productTypes] = state.data[FIELD.productTypes] || [];
-      if (!state.data[FIELD.productTypes].includes(itemKey)) {
-        state.data[FIELD.productTypes].push(itemKey);
-      }
+  const mappedModality = selectedProduct ? findModalityForProduct(selectedProduct, pageCategory) : null;
+  if (mappedModality) {
+    const itemKey = `${mappedModality}${DETAIL_FIELD_SEPARATOR}${selectedProduct}`;
+    if (!state.data[FIELD.productTypes].includes(itemKey)) {
+      state.data[FIELD.productTypes].push(itemKey);
     }
-  } else if (state.data[FIELD.productTypes] === undefined) {
-    state.data[FIELD.productTypes] = [];
   }
 
   renderStep();
+  modal.querySelector('.request-panel').focus();
+}
+
+function findModalityForProduct(productType, pageCategory) {
+  const pageModality = {
+    [PAGE_CATEGORY.jiuJitsu]: MODALITY.jiuJitsu,
+    [PAGE_CATEGORY.muayThai]: MODALITY.muayThaiBoxe,
+  }[pageCategory];
+
+  if (pageModality && options.productTypes[pageModality].includes(productType)) {
+    return pageModality;
+  }
+
+  return Object.keys(options.productTypes).find(modality => options.productTypes[modality].includes(productType)) || null;
 }
 
 function closeRequestModal() {
   document.getElementById('customer-request-modal').setAttribute('aria-hidden', 'true');
   document.body.classList.remove('request-modal-open');
+  state.opener?.focus();
+  state.opener = null;
+}
+
+function handleModalKeydown(event) {
+  if (event.key === 'Escape') {
+    event.preventDefault();
+    closeRequestModal();
+    return;
+  }
+
+  if (event.key !== 'Tab') return;
+
+  const focusable = [...document.querySelectorAll(`#customer-request-modal .request-panel :is(${FOCUSABLE_SELECTOR})`)]
+    .filter(element => element.offsetParent !== null);
+  if (focusable.length === 0) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const panel = document.querySelector('#customer-request-modal .request-panel');
+
+  if (event.shiftKey && (document.activeElement === first || document.activeElement === panel)) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault();
+    first.focus();
+  }
 }
 
 function handleRequestFormClick(event) {
@@ -329,7 +363,6 @@ function renderStep() {
 
   const content = document.getElementById('request-step-content');
   content.innerHTML = getStepHtml();
-  updateSubmitButtonState();
 }
 
 function handleFormChange(event) {
@@ -337,24 +370,12 @@ function handleFormChange(event) {
   if (event.target.name !== FIELD.acceptedPrivacyPolicy) return;
 
   state.data[FIELD.acceptedPrivacyPolicy] = event.target.checked;
-  updateSubmitButtonState();
   document.querySelector('.request-error')?.remove();
-}
-
-function updateSubmitButtonState() {
-  const button = document.querySelector('[data-request-next]');
-
-  if (state.step !== TOTAL_STEPS || state.status === REQUEST_STATUS.success) {
-    button.disabled = false;
-    return;
-  }
-
-  button.disabled = state.data[FIELD.acceptedPrivacyPolicy] !== true;
 }
 
 function getStepHtml() {
   if (state.status === REQUEST_STATUS.success) {
-    return '<div class="request-success"><strong>Pedido recebido.</strong><span>Vamos confirmar disponibilidade pelo WhatsApp.</span></div>';
+    return renderSuccess();
   }
 
   if (state.step === 1) {
@@ -516,15 +537,7 @@ function renderSelectedProductsSummary() {
 
 function renderSelectedProductSummaryItem(key) {
   const [modality, productType] = key.split(DETAIL_FIELD_SEPARATOR);
-  const details = state.data[FIELD.productDetails]?.[key] || {};
-  const summary = [
-    ['Tamanho', details[FIELD.size]],
-    ['Cor', details[FIELD.color]],
-    ['Altura', details[FIELD.heightCm] ? `${details[FIELD.heightCm]} cm` : ''],
-    ['Peso', details[FIELD.weightKg] ? `${details[FIELD.weightKg]} kg` : ''],
-    ['Idade', details[FIELD.age]],
-    ['Detalhes', details[FIELD.productDetails]],
-  ].filter(([, value]) => value);
+  const summary = getItemSummary(key);
 
   return `
     <article class="request-selection-item">
@@ -532,6 +545,18 @@ function renderSelectedProductSummaryItem(key) {
       ${summary.length > 0 ? `<dl>${summary.map(([label, value]) => `<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl>` : '<span>Sem detalhes adicionais</span>'}
     </article>
   `;
+}
+
+function getItemSummary(key) {
+  const details = state.data[FIELD.productDetails]?.[key] || {};
+  return [
+    ['Tamanho', details[FIELD.size]],
+    ['Cor', details[FIELD.color]],
+    ['Altura', details[FIELD.heightCm] ? `${details[FIELD.heightCm]} cm` : ''],
+    ['Peso', details[FIELD.weightKg] ? `${details[FIELD.weightKg]} kg` : ''],
+    ['Idade', details[FIELD.age]],
+    ['Detalhes', details[FIELD.productDetails]],
+  ].filter(([, value]) => value);
 }
 
 function renderPrivacyConsent() {
@@ -550,10 +575,10 @@ async function submitRequest() {
   if (state.data[FIELD.acceptedPrivacyPolicy] !== true) {
     document.querySelector('.request-error')?.remove();
     document.getElementById('request-step-content').insertAdjacentHTML('beforeend', renderError(ERROR_MESSAGES.privacy));
-    updateSubmitButtonState();
     return;
   }
 
+  const whatsAppUrl = buildWhatsAppUrl(buildRequestWhatsAppMessage());
   button.disabled = true;
   button.textContent = BUTTON_LABELS.submitting;
 
@@ -567,13 +592,22 @@ async function submitRequest() {
 
     if (!response.ok) throw new Error('Request failed');
 
+    document.dispatchEvent(new CustomEvent('morita:lead', {
+      detail: {
+        modality: payload.modality,
+        itemCount: payload.items.length,
+        productTypes: payload.items.map(item => item.productType).join(', '),
+      },
+    }));
+
     state.status = REQUEST_STATUS.success;
+    state.successWhatsAppUrl = whatsAppUrl;
     state.data = {};
     document.querySelector('.request-actions').style.display = 'none';
     document.getElementById('request-step-content').innerHTML = getStepHtml();
   } catch {
     document.querySelector('.request-error')?.remove();
-    document.getElementById('request-step-content').insertAdjacentHTML('beforeend', renderError(ERROR_MESSAGES.submit));
+    document.getElementById('request-step-content').insertAdjacentHTML('beforeend', renderSubmitError(whatsAppUrl));
     button.disabled = false;
     button.textContent = BUTTON_LABELS.submit;
   }
@@ -581,6 +615,61 @@ async function submitRequest() {
 
 function renderError(message) {
   return `<p class="request-error">${message}</p>`;
+}
+
+function renderSubmitError(whatsAppUrl) {
+  return `
+    <div class="request-error">
+      <p>${ERROR_MESSAGES.submit}</p>
+      ${renderWhatsAppButton(whatsAppUrl, 'Enviar pelo WhatsApp', 'whatsapp_request_fallback_click')}
+    </div>
+  `;
+}
+
+function renderSuccess() {
+  return `
+    <div class="request-success">
+      <strong>Pedido recebido!</strong>
+      <span>Vamos confirmar tamanho e disponibilidade pelo WhatsApp. Quer agilizar? Envie o resumo agora e fale direto com a nossa equipe.</span>
+      ${renderWhatsAppButton(state.successWhatsAppUrl, 'Abrir conversa no WhatsApp', 'whatsapp_request_success_click')}
+    </div>
+  `;
+}
+
+function renderWhatsAppButton(url, label, trackEvent) {
+  return `
+    <a class="request-whatsapp" href="${url}" target="_blank" rel="noopener noreferrer" data-track-event="${trackEvent}" data-track-category="request-widget">
+      <i class="fab fa-whatsapp"></i>
+      ${label}
+    </a>
+  `;
+}
+
+function buildRequestWhatsAppMessage() {
+  const lines = ['Olá, Morita! Fiz uma consulta pelo site:'];
+  const name = state.data[FIELD.customerName]?.trim();
+  if (name) lines.push(`Nome: ${name}`);
+
+  getSelectedProductTypes().forEach(key => {
+    const [modality, productType] = key.split(DETAIL_FIELD_SEPARATOR);
+    const details = getItemSummary(key).map(([label, value]) => `${label}: ${value}`).join(', ');
+    lines.push(`- ${productType} (${modality})${details ? ` - ${details}` : ''}`);
+  });
+
+  const notes = state.data[FIELD.notes]?.trim();
+  if (notes) lines.push(`Observações: ${notes}`);
+
+  return lines.join('\n');
+}
+
+function buildWhatsAppUrl(message) {
+  return `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(message)}`;
+}
+
+function getPageCategory() {
+  if (document.body.classList.contains('jiu-jitsu-page')) return PAGE_CATEGORY.jiuJitsu;
+  if (document.body.classList.contains('muay-thai-page')) return PAGE_CATEGORY.muayThai;
+  return null;
 }
 
 function buildPayload() {

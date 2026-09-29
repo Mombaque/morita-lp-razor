@@ -77,8 +77,11 @@ body {
       border-radius: 24px;
       box-shadow: 0 24px 70px rgba(0, 0, 0, 0.38);
       color: white;
+      display: flex;
+      flex-direction: column;
       overflow: hidden;
       padding: 14px;
+      scroll-margin-top: 24px;
       text-align: left;
     }
     .product h3 {
@@ -628,13 +631,51 @@ body {
   margin: 4px 0 44px;
 }
 
-.quick-nav span {
+.quick-nav a,
+.quick-nav button {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 999px;
   color: rgba(255, 255, 255, 0.84);
+  cursor: pointer;
+  font: inherit;
   font-weight: 800;
   padding: 10px 16px;
+  text-decoration: none;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.quick-nav a:hover,
+.quick-nav a:focus-visible,
+.quick-nav button:hover,
+.quick-nav button:focus-visible {
+  background: rgba(60, 249, 174, 0.14);
+  border-color: #3CF9AE;
+  color: #3CF9AE;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+.catalog-link {
+  align-items: center;
+  color: #25d366;
+  display: inline-flex;
+  font-weight: 800;
+  gap: 8px;
+  margin-top: 14px;
+  text-decoration: none;
+}
+
+.catalog-link:hover {
+  text-decoration: underline;
 }
 
 .products-intro {
@@ -652,20 +693,44 @@ body {
   margin-bottom: 64px;
 }
 
-.product-cta {
+.product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: auto 8px 8px;
+}
+
+.product-cta,
+.product-whatsapp {
   align-items: center;
-  background: #25d366;
-  border: 0;
   border-radius: 999px;
-  color: white;
   cursor: pointer;
   display: inline-flex;
   font: inherit;
   font-weight: 800;
   gap: 8px;
-  margin: 0 8px 8px;
+  justify-content: center;
   padding: 12px 16px;
   text-decoration: none;
+  transition: transform 0.2s ease, filter 0.2s ease, background-color 0.2s ease;
+}
+
+.product-cta {
+  background: #3CF9AE;
+  border: 0;
+  color: #07110d;
+  flex: 1 1 auto;
+}
+
+.product-whatsapp {
+  background: transparent;
+  flex: 1 1 auto;
+  border: 1px solid rgba(37, 211, 102, 0.6);
+  color: #25d366;
+}
+
+.product-whatsapp:hover {
+  background: rgba(37, 211, 102, 0.12);
 }
 
 .product-cta:hover {
@@ -680,12 +745,12 @@ body {
 
 .request-float {
   align-items: center;
-  background: #3CF9AE;
+  background: #25d366;
   border: 0;
   border-radius: 999px;
   bottom: 18px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38), 0 0 28px rgba(60, 249, 174, 0.34);
-  color: #07110d;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38), 0 0 28px rgba(37, 211, 102, 0.34);
+  color: white;
   cursor: pointer;
   display: inline-flex;
   font-size: 0.96rem;
@@ -694,7 +759,12 @@ body {
   padding: 14px 18px;
   position: fixed;
   right: 18px;
+  text-decoration: none;
   z-index: 20;
+}
+
+.request-float i {
+  font-size: 1.25rem;
 }
 
 .request-modal[aria-hidden="true"] {
@@ -731,7 +801,7 @@ body {
 }
 
 .request-close {
-  background: #dc2626;
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 999px;
   color: white;
@@ -746,7 +816,7 @@ body {
 
 .request-close:hover,
 .request-close:focus-visible {
-  background: #ef4444;
+  background: rgba(255, 255, 255, 0.18);
   outline: 2px solid rgba(255, 255, 255, 0.45);
   outline-offset: 2px;
 }
@@ -979,6 +1049,11 @@ body {
   margin: 0;
 }
 
+.request-panel:focus {
+  outline: none;
+}
+
+.request-checkbox,
 .request-privacy-check {
   align-items: flex-start;
   color: rgba(255, 255, 255, 0.88);
@@ -988,6 +1063,7 @@ body {
   gap: 10px;
 }
 
+.request-checkbox input,
 .request-privacy-check input {
   accent-color: #3CF9AE;
   flex: 0 0 auto;
@@ -1066,6 +1142,34 @@ body {
 .request-success strong {
   color: #3CF9AE;
   font-size: 1.4rem;
+}
+
+.request-success span {
+  color: rgba(255, 255, 255, 0.82);
+  line-height: 1.45;
+}
+
+.request-error p {
+  margin: 0 0 10px;
+}
+
+.request-whatsapp {
+  align-items: center;
+  background: #25d366;
+  border-radius: 999px;
+  color: white;
+  display: inline-flex;
+  font-weight: 900;
+  gap: 8px;
+  justify-content: center;
+  justify-self: start;
+  margin-top: 8px;
+  padding: 13px 18px;
+  text-decoration: none;
+}
+
+.request-whatsapp:hover {
+  filter: brightness(1.08);
 }
 
 @media (max-width: 820px) {

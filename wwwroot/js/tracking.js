@@ -3,12 +3,13 @@ const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === 'local
   ? 'http://localhost:5001'
   : 'https://morita-api-1nnj.onrender.com');
 const USAGE_EVENT_ENDPOINT = `${API_BASE_URL.replace(/\/$/, '')}/v1/WebsiteUsageEvent`;
+const CONTACT_CONVERSION_EVENTS = new Set(['whatsapp_catalog_click', 'whatsapp_product_click']);
+const LEAD_EVENT = 'generate_lead';
 
 function getPageCategory() {
-  const path = window.location.pathname;
-
-  if (path.includes('/jiu-jitsu')) return 'jiu-jitsu';
-  if (path.includes('/muay-thai')) return 'muay-thai';
+  const body = document.body;
+  if (body?.classList.contains('jiu-jitsu-page')) return 'jiu-jitsu';
+  if (body?.classList.contains('muay-thai-page')) return 'muay-thai';
   return 'home';
 }
 
@@ -108,7 +109,25 @@ document.addEventListener('click', (event) => {
   sendGtagEvent(eventName, payload);
   sendWebsiteUsageEvent(eventName, payload);
 
-  if (eventName === 'whatsapp_catalog_click') {
+  if (CONTACT_CONVERSION_EVENTS.has(eventName)) {
     sendContactConversion();
   }
+});
+
+document.addEventListener('morita:lead', (event) => {
+  const detail = event.detail || {};
+  const payload = {
+    event_category: getPageCategory(),
+    page_path: window.location.pathname,
+    page_title: document.title,
+    destination_url: '',
+    selected_category: detail.productTypes || undefined,
+    modality: detail.modality || undefined,
+    item_count: detail.itemCount || undefined,
+  };
+
+  pushDataLayerEvent(LEAD_EVENT, payload);
+  sendGtagEvent(LEAD_EVENT, payload);
+  sendWebsiteUsageEvent('customer_product_request_submit', payload);
+  sendContactConversion();
 });

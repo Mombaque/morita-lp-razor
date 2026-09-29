@@ -1,0 +1,39 @@
+@model ProductCardViewModel
+@{
+    var p = Model.Product;
+    var cleanName = System.Text.RegularExpressions.Regex.Replace(p.Nome.ToLower(), @"[^\w-]", "");
+    var carouselId = $"carousel-{cleanName}-{Model.Index}";
+    var shuffledImagens = p.Imagens.OrderBy(_ => Random.Shared.Next()).ToList();
+}
+<article class="product" id="@p.Slug">
+    <div class="carousel" id="@carouselId">
+        @if (shuffledImagens.Count == 0)
+        {
+            <img src="https://via.placeholder.com/300x300.png?text=Produto+sem+imagem" alt="@p.Alt" class="carousel-img active">
+        }
+        else
+        {
+            @for (var i = 0; i < shuffledImagens.Count; i++)
+            {
+                <img src="@Url.Content("~" + shuffledImagens[i])" alt="@p.Alt" class="carousel-img @(i == 0 ? "active" : "")" data-index="@i" loading="lazy" decoding="async">
+            }
+        }
+        @if (shuffledImagens.Count > 1)
+        {
+            <button class="prev" type="button" aria-label="Foto anterior de @p.Nome" onclick="getImage('@carouselId', false)">&#10094;</button>
+            <button class="next" type="button" aria-label="Próxima foto de @p.Nome" onclick="getImage('@carouselId', true)">&#10095;</button>
+        }
+    </div>
+    <h3>@p.Nome</h3>
+    <p>@p.Descricao</p>
+    <div class="product-actions">
+        <button class="product-cta" type="button" aria-label="Consultar tamanho e disponibilidade de @p.Nome" data-request-open data-request-product="@p.RequestProductType" data-track-event="customer_product_request_open" data-track-category="@Model.TrackCategory" data-track-selected-category="@p.Nome">
+            <i class="fas fa-ruler"></i>
+            Consultar disponibilidade
+        </button>
+        <a class="product-whatsapp" href="@WhatsAppLink.ProductInterest(p.Nome)" target="_blank" rel="noopener noreferrer" aria-label="Perguntar sobre @p.Nome no WhatsApp" data-track-event="whatsapp_product_click" data-track-category="@Model.TrackCategory" data-track-selected-category="@p.Nome">
+            <i class="fab fa-whatsapp"></i>
+            WhatsApp
+        </a>
+    </div>
+</article>

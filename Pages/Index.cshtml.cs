@@ -18,7 +18,7 @@ public class IndexModel : PageModel
 
     public void OnGet()
     {
-        var fixedFirstImage = "/images/kimono/adulto/itg-azul.jpg";
+        var fixedFirstImage = "/images/kimono/adulto/itg-azul.webp";
 
         var jiuJitsuImages = _productService.GetJiuJitsuProducts()
             .SelectMany(p => p.Imagens)
