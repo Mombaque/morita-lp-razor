@@ -39,3 +39,21 @@ document.addEventListener('keydown', (event) => {
     item.querySelector('.nav-menu-toggle')?.setAttribute('aria-expanded', 'false');
   });
 });
+
+// Phone header: the main navigation stays collapsed behind the menu button.
+const siteMenuToggle = document.querySelector('[data-site-menu-toggle]');
+const siteNav = document.getElementById('site-nav');
+if (siteMenuToggle && siteNav) {
+  const setSiteMenu = (open) => {
+    siteMenuToggle.setAttribute('aria-expanded', String(open));
+    siteMenuToggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+    document.documentElement.classList.toggle('site-menu-open', open);
+  };
+  siteMenuToggle.addEventListener('click', () => setSiteMenu(siteMenuToggle.getAttribute('aria-expanded') !== 'true'));
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && siteMenuToggle.getAttribute('aria-expanded') === 'true') {
+      setSiteMenu(false);
+      siteMenuToggle.focus();
+    }
+  });
+}

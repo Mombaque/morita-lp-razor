@@ -5,15 +5,13 @@
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
     ViewData["Title"] = "Morita Fight | Equipamentos para artes marciais";
     ViewData["Description"] = "Kimonos, luvas, rashguards, shorts e acessórios para Jiu-Jitsu e Muay Thai, com retirada em Sorocaba.";
-    ViewData["OgTitle"] = "Morita Fight | Treino sério. Equipamento certo";
+    ViewData["OgTitle"] = "Morita Fight | Equipamentos certos para o seu treino";
     ViewData["OgDescription"] = "Equipamentos selecionados para Jiu-Jitsu, Muay Thai e jovens atletas.";
     ViewData["BodyClass"] = "home-page commerce-page";
     var heroImages = new[]
     {
         new HeroMediaImage("/images/kimono/adulto/itg-azul.jpg", "Kimono de Jiu-Jitsu azul", 896, 1217),
-        new HeroMediaImage("/images/rashguard/masculino/itg2.jpg", "Rashguard masculino para Jiu-Jitsu", 892, 976),
-        new HeroMediaImage("/images/muay-thai/luva-st.jpg", "Luvas de Muay Thai", 1200, 1600),
-        new HeroMediaImage("/images/muay-thai/shorts-varios.jpg", "Shorts de Muay Thai", 1600, 761)
+        new HeroMediaImage("/images/rashguard/masculino/itg2.jpg", "Rashguard masculino para Jiu-Jitsu", 892, 976)
     };
 }
 
@@ -39,55 +37,56 @@
 }
 
 <main class="commerce-shell home-storefront">
-  <section class="commerce-hero" aria-labelledby="home-title">
-    <div class="commerce-hero-copy">
-      <h1 id="home-title">Treino sério.<br><span>Equipamento certo.</span></h1>
-      <p class="hero-lead">Equipamento de luta escolhido com critério, preço confirmado no catálogo e ajuda humana quando você precisar.</p>
-      <div class="hero-actions">
-        <a class="commerce-button commerce-button-primary" href="/products">Explorar catálogo <span aria-hidden="true">→</span></a>
+  <section class="shop-hero" aria-labelledby="home-title">
+    <div class="shop-hero-copy">
+      <p class="fight-label">Loja de artes marciais em Sorocaba</p>
+      <h1 id="home-title">Equipamentos certos para o seu treino <span>em Sorocaba e todo o Brasil.</span></h1>
+      <p class="shop-hero-lead">Jiu-Jitsu e Muay Thai com estoque real no site e gente de verdade para ajudar a escolher tamanho e modelo, seja para começar, evoluir ou competir.</p>
+      <div class="shop-hero-actions">
+        <a class="shop-button shop-button-primary" href="/products">Explorar catálogo <span aria-hidden="true">→</span></a>
+        <button class="shop-button shop-button-secondary" type="button" data-request-open data-track-event="customer_product_request_open" data-track-category="home">Ajuda com o tamanho</button>
       </div>
+      <ul class="shop-chips" aria-label="Diferenciais da Morita">
+        <li>Loja física em Sorocaba</li>
+        <li>Estoque real no site</li>
+        <li>Retire ou receba em todo o Brasil</li>
+        <li>Ajuda para escolher tamanho</li>
+      </ul>
     </div>
-    <div class="commerce-hero-media">
-      <partial name="_HeroMedia" model="heroImages" />
-    </div>
-    <dl class="commerce-promises" aria-label="Benefícios da loja">
-      <div><dt>Estoque real</dt><dd>Veja o que está disponível antes de comprar.</dd></div>
-      <div><dt>Retire ou receba</dt><dd>Retirada em Sorocaba ou envio para todo o Brasil.</dd></div>
-      <div><dt>Ajuda para escolher</dt><dd>Fale com quem conhece os produtos e o treino.</dd></div>
-    </dl>
-  </section>
-
-  <section class="discipline-strip" aria-labelledby="shop-by-discipline">
-    <div class="section-heading"><p class="fight-label">Encontre o que procura</p><h2 id="shop-by-discipline">Explore nossos produtos</h2></div>
-    <div class="discipline-grid">
-      <a href="/jiu-jitsu">
-        <span class="discipline-card-content">
-          <strong>Jiu-Jitsu</strong>
-          <span class="discipline-card-description">Kimonos, rashguards, faixas e acessórios</span>
-          <span class="discipline-card-action">Ver produtos <span aria-hidden="true">→</span></span>
-        </span>
-      </a>
-      <a href="/muay-thai">
-        <span class="discipline-card-content">
-          <strong>Muay Thai</strong>
-          <span class="discipline-card-description">Luvas, shorts e proteções</span>
-          <span class="discipline-card-action">Ver produtos <span aria-hidden="true">→</span></span>
-        </span>
-      </a>
-      <a href="/kids">
-        <span class="discipline-card-content">
-          <strong>Infantil</strong>
-          <span class="discipline-card-description">Equipamentos de artes marciais para crianças</span>
-          <span class="discipline-card-action">Ver produtos <span aria-hidden="true">→</span></span>
-        </span>
-      </a>
+    <div class="shop-hero-collage">
+      <div class="commerce-hero-media shop-hero-main">
+        <partial name="_HeroMedia" model="heroImages" />
+      </div>
+      <img class="shop-hero-accent" src="~/images/muay-thai/luva-st.jpg" alt="" width="1200" height="1600" loading="lazy">
+      <p class="shop-hero-badge"><span>Envio para todo o Brasil</span><strong>ou retire em Sorocaba</strong></p>
     </div>
   </section>
 
-  <section class="featured-catalog" aria-labelledby="featured-title">
-    <div class="section-heading section-heading-row">
+  <section class="shop-section" aria-labelledby="shop-by-discipline">
+    <div class="shop-section-heading shop-section-heading-center">
+      <p class="fight-label">Escolha sua modalidade</p>
+      <h2 id="shop-by-discipline">Encontre o equipamento certo</h2>
+    </div>
+    <div class="shop-category-grid">
+      <a class="shop-category-card" href="/jiu-jitsu" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="jiu-jitsu">
+        <img src="~/images/kimono/adulto/itg-branco.jpeg" alt="" loading="lazy">
+        <span class="shop-category-content"><span class="shop-category-kicker">Jiu-Jitsu</span><strong>Kimonos, rashguards e faixas</strong><span class="shop-category-action">Ver produtos <span aria-hidden="true">→</span></span></span>
+      </a>
+      <a class="shop-category-card" href="/muay-thai" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="muay-thai">
+        <img src="~/images/muay-thai/shorts-varios.jpg" alt="" loading="lazy">
+        <span class="shop-category-content"><span class="shop-category-kicker">Muay Thai</span><strong>Luvas, shorts e caneleiras</strong><span class="shop-category-action">Ver produtos <span aria-hidden="true">→</span></span></span>
+      </a>
+      <a class="shop-category-card" href="/kids" data-track-event="category_navigation_click" data-track-category="home" data-track-selected-category="kids">
+        <img src="~/images/kimono/infantil/azul-card.jpg" alt="" loading="lazy">
+        <span class="shop-category-content"><span class="shop-category-kicker">Infantil</span><strong>Kimonos e proteções para crianças</strong><span class="shop-category-action">Ver produtos <span aria-hidden="true">→</span></span></span>
+      </a>
+    </div>
+  </section>
+
+  <section class="shop-section" aria-labelledby="featured-title">
+    <div class="shop-section-heading shop-section-heading-row">
       <div><p class="fight-label">Seleção Morita</p><h2 id="featured-title">Produtos em destaque</h2></div>
-      <a href="/products">Ver catálogo completo →</a>
+      <a href="/products">Ver catálogo completo <span aria-hidden="true">→</span></a>
     </div>
     @if (Model.Catalog.State == CatalogLoadState.Unavailable)
     {
@@ -101,7 +100,7 @@
     {
       @if (Model.Catalog.State == CatalogLoadState.Partial)
       { <div class="catalog-state catalog-partial" role="status"><p>Parte do catálogo está temporariamente indisponível. Os produtos carregados continuam disponíveis.</p></div> }
-      <div class="products storefront-products" data-track-category="home-featured">
+      <div class="products storefront-products shop-featured-products" data-track-category="home-featured">
         @for (var index = 0; index < Model.FeaturedProducts.Count; index++)
         {
           <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.FeaturedProducts[index], "home", index))" />
@@ -110,16 +109,24 @@
     }
   </section>
 
-  <section class="store-visit" aria-labelledby="visit-title">
-    <div class="store-visit-copy">
-      <p class="fight-label">Loja física em Sorocaba</p>
-      <h2 id="visit-title">Prefere ver de perto?</h2>
-      <p class="store-visit-description">Veja os produtos, confira o tamanho e tire suas dúvidas antes de comprar.</p>
-      <p class="store-visit-address">Rua Coronel Nogueira Padilha, 429</p>
+  <section class="shop-assist" aria-label="Atendimento Morita">
+    <div class="shop-assist-card shop-assist-card-accent">
+      <p class="fight-label">Ajuda para escolher</p>
+      <h2>Não sabe qual tamanho pedir?</h2>
+      <p>Conte sua altura, peso e modalidade. A equipe indica o tamanho e o modelo antes de você comprar.</p>
+      <div class="shop-hero-actions">
+        <button class="shop-button shop-button-primary" type="button" data-request-open data-track-event="customer_product_request_open" data-track-category="home-help">Encontrar meu tamanho</button>
+        <a class="shop-button shop-button-secondary" href="https://wa.me/5515981079332" target="_blank" rel="noopener noreferrer" data-track-event="whatsapp_catalog_click" data-track-category="home-help">Falar no WhatsApp</a>
+      </div>
     </div>
-    <div class="hero-actions store-visit-actions">
-      <a class="commerce-button commerce-button-primary" href="https://maps.app.goo.gl/pNYYiMimWGa4actz7">Como chegar</a>
-      <a class="commerce-button commerce-button-secondary" href="https://wa.me/5515981079332" target="_blank" rel="noopener noreferrer">Falar no WhatsApp</a>
+    <div class="shop-assist-card">
+      <p class="fight-label">Loja física em Sorocaba</p>
+      <h2>Prefere ver de perto?</h2>
+      <p>Experimente, confira o tamanho e tire suas dúvidas antes de comprar, ou compre no site e retire na loja.</p>
+      <p class="shop-assist-address"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"></path><circle cx="12" cy="9.5" r="2.5"></circle></svg>Rua Coronel Nogueira Padilha, 429 · Sorocaba, SP</p>
+      <div class="shop-hero-actions">
+        <a class="shop-button shop-button-secondary" href="https://maps.app.goo.gl/pNYYiMimWGa4actz7" data-track-event="store_location_click" data-track-category="home">Como chegar</a>
+      </div>
     </div>
   </section>
 </main>
