@@ -62,11 +62,11 @@ public sealed class LandingSectionsTests : IClassFixture<WebApplicationFactory<P
         using var hours = JsonDocument.Parse(StoreInfo.HoursJson);
 
         Assert.False(hours.RootElement.TryGetProperty("0", out _)); // closed on Sunday
-        Assert.Equal(9, hours.RootElement.GetProperty("6")[0].GetInt32());
-        Assert.Equal(13, hours.RootElement.GetProperty("6")[1].GetInt32());
+        Assert.Equal(10, hours.RootElement.GetProperty("6")[0].GetInt32());
+        Assert.Equal(14, hours.RootElement.GetProperty("6")[1].GetInt32());
 
         var html = await _factory.CreateClient().GetStringAsync("/");
-        Assert.Contains("data-hours=\"{&quot;1&quot;:[9,18]", html);
+        Assert.Contains("data-hours=\"{&quot;1&quot;:[10,18]", html);
     }
 
     [Fact]
