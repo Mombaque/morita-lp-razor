@@ -61,8 +61,8 @@
         </div>
         <div class="home-location">
           <a class="address home-address" href="@StoreInfo.MapsUrl" target="_blank" rel="noopener noreferrer" data-track-event="store_location_click" data-track-category="home">
-            <i class="fas fa-location-dot"></i>
-            @StoreInfo.AddressLine
+            <i class="fas fa-location-dot" aria-hidden="true"></i>
+            <span>@StoreInfo.AddressLine</span>
           </a>
           <span class="open-status" data-open-status data-hours="@StoreInfo.HoursJson" data-time-zone="@StoreInfo.TimeZoneId" hidden></span>
         </div>

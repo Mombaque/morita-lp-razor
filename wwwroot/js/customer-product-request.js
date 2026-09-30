@@ -587,9 +587,22 @@ function isCurrentStepValid() {
   return true;
 }
 
-function showError(message) {
+// Errors are placed next to the field they refer to (or at the end of the step)
+// and scrolled into view, since on mobile the end of the step is often off-screen.
+function showError(message, anchor = null) {
+  showErrorHtml(renderError(message), anchor);
+}
+
+function showErrorHtml(html, anchor = null) {
   document.querySelector('.request-error')?.remove();
-  document.getElementById('request-step-content').insertAdjacentHTML('beforeend', renderError(message));
+  if (anchor) anchor.insertAdjacentHTML('afterend', html);
+  else document.getElementById('request-step-content').insertAdjacentHTML('beforeend', html);
+  document.querySelector('.request-error')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+function clearPrivacyError() {
+  document.querySelector('.request-privacy')?.classList.remove('is-invalid');
+  document.querySelector('.request-error')?.remove();
 }
 
 function renderStep() {
@@ -626,7 +639,7 @@ function handleFormChange(event) {
 
   if (target.name === FIELD.acceptedPrivacyPolicy) {
     state.data[FIELD.acceptedPrivacyPolicy] = target.checked;
-    document.querySelector('.request-error')?.remove();
+    if (target.checked) clearPrivacyError();
     return;
   }
 
@@ -879,7 +892,7 @@ function renderReviewStep() {
     <label class="request-label">Seu nome<input name="${FIELD.customerName}" value="${escapeHtml(state.data[FIELD.customerName] || '')}" autocomplete="name" maxlength="120" required></label>
     <label class="request-label">WhatsApp<input name="${FIELD.customerPhone}" value="${escapeHtml(formatPhone(state.data[FIELD.customerPhone] || ''))}" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(15) 99999-9999" maxlength="16" required></label>
     ${renderChoiceGroup(FIELD.deliveryMethod, 'Como prefere receber?', Object.values(DELIVERY_METHOD), deliveryMethod, null, CHOICE_LAYOUT.compact)}
-    <label class="request-label" data-delivery-area ${deliveryMethod === DELIVERY_METHOD.delivery ? '' : 'hidden'}>Bairro e cidade<input name="${FIELD.deliveryArea}" value="${escapeHtml(state.data[FIELD.deliveryArea] || '')}" autocomplete="address-level3" maxlength="120" placeholder="Ex.: Centro, Sorocaba"></label>
+    <label class="request-label" data-delivery-area ${deliveryMethod === DELIVERY_METHOD.delivery ? '' : 'hidden'}>Endereço completo<input name="${FIELD.deliveryArea}" value="${escapeHtml(state.data[FIELD.deliveryArea] || '')}" autocomplete="street-address" maxlength="200" placeholder="Rua, número, bairro e cidade"></label>
     ${renderChoiceGroup(FIELD.deadline, 'Para quando você precisa?', DEADLINES, state.data[FIELD.deadline] || '', null, CHOICE_LAYOUT.compact)}
     <label class="request-checkbox request-notify">
       <input type="checkbox" name="${FIELD.notifyRestock}" value="true" ${state.data[FIELD.notifyRestock] === true ? 'checked' : ''}>
@@ -948,7 +961,10 @@ function renderPrivacyConsent() {
 async function submitRequest() {
   const button = document.querySelector('[data-request-next]');
   if (state.data[FIELD.acceptedPrivacyPolicy] !== true) {
-    showError(ERROR_MESSAGES.privacy);
+    const privacyBox = document.querySelector('.request-privacy');
+    privacyBox?.classList.add('is-invalid');
+    showError(ERROR_MESSAGES.privacy, privacyBox);
+    privacyBox?.querySelector('input')?.focus({ preventScroll: true });
     return;
   }
 
@@ -984,8 +1000,7 @@ async function submitRequest() {
     document.dispatchEvent(new CustomEvent('morita:request-error', {
       detail: { modality: payload.modality, itemCount: payload.items.length },
     }));
-    document.querySelector('.request-error')?.remove();
-    document.getElementById('request-step-content').insertAdjacentHTML('beforeend', renderSubmitError(whatsAppUrl));
+    showErrorHtml(renderSubmitError(whatsAppUrl));
     button.disabled = false;
     button.textContent = BUTTON_LABELS.submit;
   }
