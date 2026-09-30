@@ -13,7 +13,6 @@
   --color-accent-border: rgba(60, 249, 174, 0.38);
   --color-accent-ink: #07110d;
   --color-whatsapp: #25d366;
-  --color-whatsapp-soft: rgba(37, 211, 102, 0.12);
   --color-danger-text: #ffb7b7;
   --radius-sm: 12px;
   --radius-md: 18px;
@@ -743,7 +742,7 @@ html {
 
 .catalog-link {
   align-items: center;
-  color: var(--color-whatsapp);
+  color: var(--color-accent);
   display: inline-flex;
   font-weight: 800;
   gap: 8px;
@@ -802,12 +801,12 @@ html {
 .product-whatsapp {
   background: transparent;
   flex: 1 1 auto;
-  border: 1px solid rgba(37, 211, 102, 0.6);
-  color: var(--color-whatsapp);
+  border: 1px solid var(--color-accent-border);
+  color: var(--color-accent);
 }
 
 .product-whatsapp:hover {
-  background: rgba(37, 211, 102, 0.12);
+  background: var(--color-accent-soft);
 }
 
 .product-cta:hover {
@@ -822,12 +821,12 @@ html {
 
 .request-float {
   align-items: center;
-  background: var(--color-whatsapp);
+  background: var(--color-accent);
   border: 0;
   border-radius: var(--radius-pill);
   bottom: 18px;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38), 0 0 28px rgba(37, 211, 102, 0.34);
-  color: white;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.38), 0 0 28px rgba(60, 249, 174, 0.3);
+  color: var(--color-accent-ink);
   cursor: pointer;
   display: inline-flex;
   font-size: 0.96rem;
@@ -1224,9 +1223,9 @@ html {
 
 .request-whatsapp {
   align-items: center;
-  background: var(--color-whatsapp);
+  background: var(--color-accent);
   border-radius: var(--radius-pill);
-  color: white;
+  color: var(--color-accent-ink);
   display: inline-flex;
   font-weight: 900;
   gap: 8px;
@@ -1261,7 +1260,7 @@ html {
   }
 
   .home-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     min-height: auto;
     padding-top: 12px;
   }
@@ -1308,7 +1307,7 @@ html {
   }
 
   .category-hero {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     padding-top: 18px;
   }
 
@@ -2362,4 +2361,42 @@ html {
 
 .request-choice-grid-compact .request-choice span {
   min-height: 48px;
+}
+
+/* Call-to-action buttons (hero, team section): one size for every button and
+   a single filled button per group. WhatsApp is the filled primary action in the
+   brand mint; secondary actions are outlined. Scoped to landing pages so the
+   delivery page keeps its own button styles. */
+.site .hero-actions .button,
+.site .team-cta-actions .button {
+  border: 1px solid transparent;
+  box-sizing: border-box;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1.2;
+  min-height: 52px;
+  padding: 14px 22px;
+}
+
+.site .button.whatsapp {
+  background: var(--color-accent);
+  box-shadow: 0 0 28px rgba(60, 249, 174, 0.22);
+  color: var(--color-accent-ink);
+}
+
+.site .hero-actions .request-hero-cta {
+  background: transparent;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.site .hero-actions .request-hero-cta:hover {
+  background: var(--color-accent-soft);
+}
+
+.site .hero-actions .secondary-cta {
+  border-color: var(--color-border-strong);
+  color: var(--color-text);
 }
