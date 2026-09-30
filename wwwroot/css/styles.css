@@ -338,6 +338,7 @@ body {
   font-weight: 700;
   padding: 0.5rem 1rem;
   text-decoration: none;
+  white-space: nowrap;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
@@ -465,9 +466,24 @@ body {
 }
 
 .home-address {
+  align-items: flex-start;
   display: inline-flex;
   gap: 8px;
   margin-top: 18px;
+  text-align: left;
+  text-decoration: none;
+}
+
+.home-address i {
+  color: var(--color-accent);
+  flex: 0 0 auto;
+  margin-top: 0.2em;
+}
+
+.home-address span {
+  text-decoration: underline;
+  text-decoration-color: rgba(60, 249, 174, 0.5);
+  text-underline-offset: 4px;
 }
 
 .trust-list {
@@ -1259,6 +1275,20 @@ html {
     justify-content: center;
   }
 
+  .home-location {
+    align-items: center;
+    flex-direction: column;
+  }
+
+  .home-location .home-address {
+    display: block;
+    text-align: center;
+  }
+
+  .home-location .home-address i {
+    margin-right: 6px;
+  }
+
   .home-hero-media {
     min-height: 380px;
   }
@@ -1308,11 +1338,6 @@ html {
 
   .hero-actions .button {
     width: 100%;
-  }
-
-  .home-address {
-    align-items: center;
-    justify-content: center;
   }
 
   .home-hero-media {
@@ -1687,7 +1712,7 @@ html {
 
 .size-calculator {
   align-items: center;
-  background: radial-gradient(circle at 85% 20%, var(--color-accent-soft), transparent 55%), var(--color-surface);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   display: grid;
@@ -1824,7 +1849,7 @@ html {
 
 .team-cta {
   align-items: center;
-  background: linear-gradient(120deg, rgba(37, 211, 102, 0.12), transparent 60%), var(--color-surface);
+  background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   display: grid;
@@ -2288,6 +2313,34 @@ html {
   .size-calculator-result strong {
     font-size: 2.2rem;
   }
+
+  .main-nav {
+    gap: 6px;
+  }
+
+  .nav-brand img {
+    height: 30px;
+    width: 30px;
+  }
+
+  .nav-link {
+    font-size: 0.88rem;
+    padding: 0.4rem 0.6rem;
+  }
+
+  /* On phones the logo is the link to Home, which frees room for the two categories. */
+  .nav-link-home {
+    display: none;
+  }
+
+  .nav-cta {
+    padding: 0.45rem 0.7rem;
+  }
+}
+
+.request-privacy.is-invalid {
+  background: rgba(255, 80, 80, 0.08);
+  border-color: rgba(255, 80, 80, 0.6);
 }
 
 .request-notify {
