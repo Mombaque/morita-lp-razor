@@ -47,7 +47,7 @@
               <span class="visually-hidden">@colorLabel</span>
             </a>
           }
-          @if (hiddenVariantCount > 0) { <span class="product-variant-more product-variant-more-colors">+@hiddenVariantCount cores</span> }
+          @if (hiddenVariantCount > 0) { if (productUrl is null) { <span class="product-variant-more product-variant-more-colors">+@hiddenVariantCount cores</span> } else { <a class="product-variant-more product-variant-more-colors" href="@productUrl" aria-label="Ver mais @hiddenVariantCount cores de @p.Nome">+@hiddenVariantCount cores</a> } }
         </div>
         <div class="product-card-variant-rows" aria-label="Tamanhos disponíveis">
           @for (var variantIndex = 0; variantIndex < visibleVariantRows.Count; variantIndex++)
@@ -66,7 +66,7 @@
                   var sizeLabel = string.IsNullOrWhiteSpace(offer.SizeLabel) ? "Tamanho único" : offer.SizeLabel;
                   <a class="product-variant-size" href="@(productUrl is null ? "#" : $"{productUrl}?publicOfferId={offer.PublicOfferId}")" data-product-offer data-offer-id="@offer.PublicOfferId" data-variant-key="@key" data-price="@(offer.UnitPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture))" data-currency="@offer.Currency" data-image="@firstImage" aria-label="Selecionar @colorLabel / @sizeLabel" aria-pressed="false">@sizeLabel</a>
                 }
-                @if (hiddenOfferCount > 0) { <span class="product-variant-more">+@hiddenOfferCount tamanhos</span> }
+                @if (hiddenOfferCount > 0) { if (productUrl is null) { <span class="product-variant-more">+@hiddenOfferCount tamanhos</span> } else { <a class="product-variant-more" href="@productUrl" aria-label="Ver mais @hiddenOfferCount tamanhos de @p.Nome">+@hiddenOfferCount tamanhos</a> } }
               </div>
             </div>
           }

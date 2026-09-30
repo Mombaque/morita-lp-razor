@@ -3,6 +3,16 @@
 @{
     ViewData["Title"] = "Seu pedido | Morita Fight";
     ViewData["Robots"] = "noindex,nofollow";
+    var paymentStatus = Model.Order?.PaymentStatus.ToLowerInvariant();
+    var fulfillmentStatus = Model.Order?.FulfillmentStatus.ToLowerInvariant();
+    var heading = (paymentStatus, fulfillmentStatus) switch
+    {
+        (_, "delivered" or "pickedup") => "Pedido entregue",
+        ("refunded" or "refundpending", _) => "Pagamento estornado",
+        ("cancelled" or "failed" or "expired", _) or (_, "cancelled") => "Pedido cancelado",
+        ("converted" or "approved", _) => "Pedido confirmado",
+        _ => "Pedido recebido"
+    };
 }
 
 <main class="checkout-shell" data-order="page">
@@ -18,9 +28,14 @@
     {
         <header class="checkout-heading">
             <p class="fight-label">Pedido Morita</p>
-            <h1>Pedido confirmado</h1>
+            <h1>@heading</h1>
             <p class="order-number">Número do pedido: <strong>@Model.Order.PublicOrderNumber</strong></p>
+            <p>@AccountPresentation.PaymentStatus(Model.Order.PaymentStatus) · @AccountPresentation.FulfillmentStatus(Model.Order.FulfillmentStatus)</p>
         </header>
         <partial name="_AccountOrderDetail" model="Model.Order" />
+        <p class="checkout-status-actions">
+            <a class="commerce-button commerce-button-primary" href="/conta#pedidos">Ver em Minha conta</a>
+            <a class="commerce-button commerce-button-secondary" href="/products">Continuar comprando</a>
+        </p>
     }
 </main>

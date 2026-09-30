@@ -20,7 +20,7 @@
     var currentSlug = RouteData.Values["slug"]?.ToString() ?? "produto";
     var priceLabel = p?.FormattedPrice ?? "Consulte";
     if (selectedOfferIsAvailable && Model.SelectedOffer?.UnitPrice is decimal selectedPrice && p is not null)
-        priceLabel = $"{p.Currency ?? Model.SelectedOffer.Currency ?? "BRL"} {selectedPrice:0.00}";
+        priceLabel = CurrencyPresentation.Format(selectedPrice, p.Currency ?? Model.SelectedOffer.Currency);
     if (p is null) {
         ViewData["Title"] = "Produto temporariamente indisponível | Morita Fight";
         ViewData["Description"] = "O produto solicitado está temporariamente indisponível.";
@@ -59,10 +59,10 @@
                 </div>
             </section>
             <section class="detail-copy">
-                <p class="taxonomy">@(p.Modality?.Label ?? "Morita") / @(p.Category?.Label ?? "Equipamento") / @(p.Brand?.Label ?? "")</p>
+                <p class="taxonomy">@string.Join(" / ", new[] { p.Modality?.Label ?? "Morita", p.Category?.Label, p.Brand?.Label }.Where(label => !string.IsNullOrWhiteSpace(label)))</p>
                 <h1>@p.Nome</h1>
                 <div data-detail-price><partial name="_ProductPrice" model="priceLabel" /></div>
-                <p class="availability-text">@(p.Availability == "available" ? "Disponível para consulta" : "Produto temporariamente indisponível")</p>
+                <p class="availability-text">@(p.Availability == "available" ? "Em estoque" : "Produto temporariamente indisponível")</p>
                 <p>@p.Descricao</p>
                 @if (p.Details.Count > 0) { <div class="detail-specs"><h2>Ficha técnica</h2><ul>@foreach (var detail in p.Details) { <li>@detail</li> }</ul></div> }
                 <form class="offer-boundary" method="post" asp-page-handler="Add" data-offer-form novalidate>
@@ -91,8 +91,8 @@
                             }
                         </div>
                     </fieldset>
-                    <label class="quantity-label">Quantidade <input type="number" name="quantity" min="1" max="10" value="@Model.Quantity" aria-describedby="quantity-help"></label>
-                    <p id="quantity-help">Escolha de 1 a 10 unidades.</p>
+                    <label class="quantity-label">Quantidade <input type="number" name="quantity" min="1" max="@CartCookieStore.MaxUnitsPerLine" value="@Model.Quantity" aria-describedby="quantity-help"></label>
+                    <p id="quantity-help">Escolha de 1 a @CartCookieStore.MaxUnitsPerLine unidades.</p>
                     <p class="live-offer" aria-live="polite">@(!selectedOfferIsAvailable ? "Selecione uma oferta para ver preço e disponibilidade." : $"Oferta selecionada: {Model.SelectedOffer!.ColorLabel ?? "Cor única"} / {Model.SelectedOffer.SizeLabel ?? "Tamanho único"}.")</p>
                     <p id="offer-validation-message" class="offer-validation-message" role="alert" aria-live="assertive" hidden="@(string.IsNullOrWhiteSpace(offerError) ? "hidden" : null)">@offerError</p>
                     <button class="button primary-cta" type="submit" data-cart="add">Adicionar ao carrinho</button>

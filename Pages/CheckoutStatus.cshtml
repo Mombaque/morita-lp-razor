@@ -15,10 +15,10 @@
         "refunded" => "Pagamento estornado",
         _ => "Atualização da reserva"
     };
-    var statusTone = statusLabel switch
+    var statusTone = Model.Checkout?.Status switch
     {
-        "Pagamento pendente" => "payment-status-pending",
-        "Pagamento cancelado" => "payment-status-cancelled",
+        "active" or "paymentpending" or "conversionpending" => "payment-status-pending",
+        "cancelled" or "expired" => "payment-status-cancelled",
         _ => ""
     };
 }
@@ -66,9 +66,9 @@
                         <li>
                             <div>
                                 <strong>@line.Presentation</strong>
-                                <span>@line.Quantity × @CurrencyPresentation.Symbol(Model.Checkout.Currency) @line.UnitPrice.ToString("0.00")</span>
+                                <span>@line.Quantity × @CurrencyPresentation.Format(line.UnitPrice, Model.Checkout.Currency)</span>
                             </div>
-                            <strong>@CurrencyPresentation.Symbol(Model.Checkout.Currency) @line.LineTotal.ToString("0.00")</strong>
+                            <strong>@CurrencyPresentation.Format(line.LineTotal, Model.Checkout.Currency)</strong>
                         </li>
                     }
                 </ul>
@@ -76,24 +76,24 @@
                 <dl class="checkout-totals">
                     <div>
                         <dt>Produtos</dt>
-                        <dd>@CurrencyPresentation.Symbol(Model.Checkout.Currency) @Model.Checkout.MerchandiseTotal.ToString("0.00")</dd>
+                        <dd>@CurrencyPresentation.Format(Model.Checkout.MerchandiseTotal, Model.Checkout.Currency)</dd>
                     </div>
                     @if (Model.Checkout.FreightTotal > 0)
                     {
                         <div>
                             <dt>Frete</dt>
-                            <dd>@CurrencyPresentation.Symbol(Model.Checkout.Currency) @Model.Checkout.FreightTotal.ToString("0.00")</dd>
+                            <dd>@CurrencyPresentation.Format(Model.Checkout.FreightTotal, Model.Checkout.Currency)</dd>
                         </div>
                     }
                     <div class="checkout-total-row">
                         <dt>Total</dt>
-                        <dd>@CurrencyPresentation.Symbol(Model.Checkout.Currency) @Model.Checkout.Total.ToString("0.00")</dd>
+                        <dd>@CurrencyPresentation.Format(Model.Checkout.Total, Model.Checkout.Currency)</dd>
                     </div>
                 </dl>
 
                 <div class="checkout-expiry">
                     <span>Validade da reserva</span>
-                    <time datetime="@Model.Checkout.ExpiresAt.ToString("O")">@Model.Checkout.ExpiresAt.ToLocalTime().ToString("g")</time>
+                    <time datetime="@Model.Checkout.ExpiresAt.ToString("O")">@TimePresentation.ToStoreTime(Model.Checkout.ExpiresAt).ToString("dd/MM/yyyy HH:mm")</time>
                 </div>
             </section>
 

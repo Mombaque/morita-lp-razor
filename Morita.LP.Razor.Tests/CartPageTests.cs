@@ -50,7 +50,7 @@ public sealed class CartPageTests
         Assert.Contains("Azul / A1", body);
         Assert.Contains("Preta / M", body);
         Assert.Contains("Quantidade indispon", body);
-        Assert.Contains("R$ 12.00", body);
+        Assert.Contains("R$ 12,00", body);
         Assert.Contains("data-cart=\"continue-shopping\"", body);
         Assert.Contains("data-cart=\"quantity-stepper\"", body);
         Assert.Contains("data-cart=\"quantity-decrement\"", body);
@@ -210,6 +210,48 @@ public sealed class CartPageTests
             new KeyValuePair<string, string>("publicOfferId", offer.ToString()), new KeyValuePair<string, string>("quantity", "1"), new KeyValuePair<string, string>("__RequestVerificationToken", token)
         ]));
         Assert.Equal(HttpStatusCode.Redirect, added.StatusCode);
+    }
+
+    [Fact]
+    public async Task Sign_in_from_checkout_explains_why_and_keeps_the_cart_in_view()
+    {
+        var cart = new TestCart(new CartState(DateTimeOffset.UtcNow, [new(Guid.NewGuid(), 2), new(Guid.NewGuid(), 1)]));
+        using var factory = CreateFactory(cart, CatalogQuoteResult.Unavailable());
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var fromCheckout = await (await client.GetAsync("/conta?mode=signin&returnUrl=/checkout")).Content.ReadAsStringAsync();
+        var direct = await (await client.GetAsync("/conta?mode=signin")).Content.ReadAsStringAsync();
+
+        Assert.Contains("data-account=\"checkout-notice\"", fromCheckout);
+        Assert.Contains("Seus itens continuam no carrinho (3 itens)", fromCheckout);
+        Assert.DoesNotContain("data-account=\"checkout-notice\"", direct);
+    }
+
+    [Fact]
+    public async Task Product_add_ajax_success_returns_updated_cart_count()
+    {
+        var offer = Guid.NewGuid();
+        var existing = Guid.NewGuid();
+        var product = new Product { Slug = "kimono", Nome = "Kimono", Variants = [new ProductVariant { ColorLabel = "Azul", Offers = [new ProductOffer { PublicOfferId = offer, Availability = "available" }] }] };
+        var cart = new TestCart(new CartState(DateTimeOffset.UtcNow, [new(existing, 2)]));
+        using var factory = CreateFactory(cart, CatalogQuoteResult.Success("BRL", 10, [new CatalogQuoteLine { PublicOfferId = offer, Quantity = 3, Availability = "available", UnitPrice = 10, LinePrice = 30, Currency = "BRL" }]), product);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var productBody = await (await client.GetAsync($"/products/kimono?publicOfferId={offer}&quantity=1")).Content.ReadAsStringAsync();
+        Assert.Contains("data-mini-cart", productBody);
+        var token = Regex.Match(productBody, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+
+        using var ajax = new HttpRequestMessage(HttpMethod.Post, "/products/kimono?handler=Add");
+        ajax.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        ajax.Content = new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("publicOfferId", offer.ToString()),
+            new KeyValuePair<string, string>("quantity", "3"),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]);
+        var response = await client.SendAsync(ajax);
+        using var payload = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.True(payload.RootElement.GetProperty("ok").GetBoolean());
+        Assert.Equal(5, payload.RootElement.GetProperty("cartCount").GetInt32());
+        Assert.Equal("/cart", payload.RootElement.GetProperty("redirectUrl").GetString());
     }
 
     [Fact]

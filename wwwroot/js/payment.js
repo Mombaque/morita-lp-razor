@@ -1,5 +1,10 @@
 const terminalStatuses = new Set(['failed', 'cancelled', 'expired', 'refundpending', 'refunded']);
 const activePaymentStates = new Set(['pending', 'processing', 'approved', 'conversionpending', 'cancellationpending']);
+const FAST_POLL_MS = 5000;
+const SLOW_POLL_MS = 15000;
+const FAST_POLL_WINDOW_MS = 2 * 60 * 1000;
+// Without an expiry on the page, stop polling after this long; the shopper can still check manually.
+const FALLBACK_POLL_WINDOW_MS = 30 * 60 * 1000;
 let stopActivePolling = null;
 
 const setActionBusy = (form, busy) => {
@@ -113,7 +118,11 @@ const startPaymentPolling = (flow) => {
   const card = flow.querySelector('[data-payment-status]');
   if (!card || !activePaymentStates.has(card.dataset.paymentStatus)) return;
 
-  let attempts = 0;
+  const startedAt = Date.now();
+  const expiresAt = Date.parse(flow.querySelector('[data-expires-at]')?.dataset.expiresAt ?? '');
+  const pollUntil = Number.isFinite(expiresAt) ? expiresAt : startedAt + FALLBACK_POLL_WINDOW_MS;
+  const checkButton = flow.querySelector('[data-check-payment]');
+  const checkStatus = flow.querySelector('[data-check-payment-status]');
   let timer = null;
   let stopped = false;
 
@@ -126,15 +135,16 @@ const startPaymentPolling = (flow) => {
   };
 
   const schedule = () => {
-    if (!stopped && attempts < 20 && document.visibilityState === 'visible' && timer === null) {
-      timer = window.setTimeout(poll, 5000);
-    }
+    // Keep polling a little past the expiry so the server's "expired" status swaps in the "Gerar novo PIX" action.
+    if (stopped || document.visibilityState !== 'visible' || timer !== null || Date.now() > pollUntil + 60000) return;
+    const delay = Date.now() - startedAt < FAST_POLL_WINDOW_MS ? FAST_POLL_MS : SLOW_POLL_MS;
+    timer = window.setTimeout(poll, delay);
   };
 
   const poll = async () => {
+    if (timer !== null) window.clearTimeout(timer);
     timer = null;
-    if (stopped || document.visibilityState === 'hidden' || attempts >= 20) return;
-    attempts++;
+    if (stopped || document.visibilityState === 'hidden') return;
     try {
       const response = await fetch(`${window.location.pathname}?handler=Payment`, {
         credentials: 'same-origin',
@@ -167,6 +177,15 @@ const startPaymentPolling = (flow) => {
     if (document.visibilityState === 'visible' && timer === null) void poll();
   };
 
+  checkButton?.addEventListener('click', async () => {
+    checkButton.disabled = true;
+    if (checkStatus) checkStatus.textContent = 'Verificando pagamento...';
+    await poll();
+    if (stopped) return;
+    checkButton.disabled = false;
+    if (checkStatus) checkStatus.textContent = 'Ainda não recebemos a confirmação. Se você já pagou, aguarde alguns instantes.';
+  });
+
   stopActivePolling?.();
   stopActivePolling = stop;
   document.addEventListener('visibilitychange', onVisibilityChange);
@@ -175,6 +194,7 @@ const startPaymentPolling = (flow) => {
 
 const bindCopyButton = (flow) => {
   const copy = flow.querySelector('[data-copy-pix]');
+  const label = copy?.textContent ?? '';
   copy?.addEventListener('click', async () => {
     const value = flow.querySelector('#pix-copy')?.value;
     if (!value) return;
@@ -184,7 +204,30 @@ const bindCopyButton = (flow) => {
     } catch {
       copy.textContent = 'Selecione e copie o código';
     }
+    window.setTimeout(() => { copy.textContent = label; }, 3000);
   });
+};
+
+const formatRemaining = (milliseconds) => {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, '0');
+  return `Restam ${minutes}:${seconds}.`;
+};
+
+let countdownTimer = null;
+const startCountdown = (flow) => {
+  window.clearInterval(countdownTimer);
+  const output = flow.querySelector('[data-pix-countdown]');
+  const expiresAt = Date.parse(flow.querySelector('[data-expires-at]')?.dataset.expiresAt ?? '');
+  if (!output || !Number.isFinite(expiresAt)) return;
+  const tick = () => {
+    const remaining = expiresAt - Date.now();
+    output.textContent = remaining > 0 ? formatRemaining(remaining) : 'Código expirado.';
+    if (remaining <= 0) window.clearInterval(countdownTimer);
+  };
+  tick();
+  countdownTimer = window.setInterval(tick, 1000);
 };
 
 const initPaymentFlow = (flow) => {
@@ -198,11 +241,13 @@ const initPaymentFlow = (flow) => {
   flow.querySelectorAll('[data-payment-action]').forEach((form) => {
     form.addEventListener('submit', (event) => {
       event.preventDefault();
+      if (form.dataset.confirm && !window.confirm(form.dataset.confirm)) return;
       void submitPaymentAction(form, flow);
     });
   });
 
   bindCopyButton(flow);
+  startCountdown(flow);
   startPaymentPolling(flow);
 };
 

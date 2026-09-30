@@ -6,12 +6,12 @@
     <ul>
         @foreach (var line in Model.Lines)
         {
-            <li><strong>@line.Presentation</strong> — @line.Quantity × @CurrencyPresentation.Symbol(Model.Currency) @line.UnitPrice.ToString("N2") = @CurrencyPresentation.Symbol(Model.Currency) @line.Total.ToString("N2")</li>
+            <li><strong>@line.Presentation</strong> — @line.Quantity × @CurrencyPresentation.Format(line.UnitPrice, Model.Currency) = @CurrencyPresentation.Format(line.Total, Model.Currency)</li>
         }
     </ul>
     @if (Model.Shipping is { } shipping)
     {
-        <p>Frete: <strong>@CurrencyPresentation.Symbol(Model.Currency) @shipping.Price.ToString("N2")</strong></p>
+        <p>Frete: <strong>@CurrencyPresentation.Format(shipping.Price, Model.Currency)</strong></p>
         <h3>Endereço de entrega</h3>
         <p>@shipping.Address.Recipient<br>@shipping.Address.Street, @shipping.Address.Number @shipping.Address.Complement<br>@shipping.Address.Neighborhood · @shipping.Address.City/@shipping.Address.State · CEP @shipping.Address.PostalCode</p>
     }
@@ -33,28 +33,28 @@
         {
             <p>Rastreamento: <strong>@shipment.TrackingCode</strong></p>
         }
-        <p>Atualizado em <time datetime="@shipment.UpdatedAt.ToString("O")">@shipment.UpdatedAt.ToLocalTime().ToString("g")</time>.</p>
+        <p>Atualizado em <time datetime="@shipment.UpdatedAt.ToString("O")">@TimePresentation.ToStoreTime(shipment.UpdatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
         @if (shipment.ShippedAt is { } shippedAt)
         {
-            <p>Enviado em <time datetime="@shippedAt.ToString("O")">@shippedAt.ToLocalTime().ToString("g")</time>.</p>
+            <p>Enviado em <time datetime="@shippedAt.ToString("O")">@TimePresentation.ToStoreTime(shippedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
         }
         @if (shipment.DeliveredAt is { } deliveredAt)
         {
-            <p>Entregue em <time datetime="@deliveredAt.ToString("O")">@deliveredAt.ToLocalTime().ToString("g")</time>.</p>
+            <p>Entregue em <time datetime="@deliveredAt.ToString("O")">@TimePresentation.ToStoreTime(deliveredAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
         }
     }
-    <p>Pedido criado em <time datetime="@Model.CreatedAt.ToString("O")">@Model.CreatedAt.ToLocalTime().ToString("g")</time>.</p>
+    <p>Pedido criado em <time datetime="@Model.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(Model.CreatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
     @if (Model.FulfillmentUpdatedAt is { } updatedAt)
     {
-        <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@updatedAt.ToLocalTime().ToString("g")</time>.</p>
+        <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@TimePresentation.ToStoreTime(updatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
     }
-    <p><strong>Total: @CurrencyPresentation.Symbol(Model.Currency) @Model.Amount.ToString("N2")</strong></p>
+    <p><strong>Total: @CurrencyPresentation.Format(Model.Amount, Model.Currency)</strong></p>
     @if (Model.OpenProblem is { } problem)
     {
         <h3>Relato enviado</h3>
         <p><strong>@AccountPresentation.ProblemReason(problem.Reason)</strong></p>
         <p>@problem.Message</p>
-        <p>Enviado em <time datetime="@problem.CreatedAt.ToString("O")">@problem.CreatedAt.ToLocalTime().ToString("g")</time>.</p>
+        <p>Enviado em <time datetime="@problem.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(problem.CreatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
     }
     else if (Model.CanReportProblem)
     {
@@ -62,6 +62,7 @@
         <form method="post" action="/conta?handler=ReportProblem&amp;publicOrderNumber=@Uri.EscapeDataString(Model.PublicOrderNumber)#pedidos">
             <label for="problemReason">Motivo</label>
             <select id="problemReason" name="ProblemReason" required>
+                <option value="">Selecione</option>
                 <option value="Damaged">Item danificado</option>
                 <option value="Exchange">Quero trocar</option>
                 <option value="Other">Outro</option>

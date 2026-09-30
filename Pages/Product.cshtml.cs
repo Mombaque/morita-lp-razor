@@ -6,7 +6,7 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations) : PageModel
+public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations, ICartCookieStore cart) : PageModel
 {
     public Product? Product { get; private set; }
     public CatalogResult Related { get; private set; } = CatalogResult.Empty();
@@ -62,11 +62,12 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
             ModelState.AddModelError("quantity", $"A quantidade deve estar entre 1 e {CartCookieStore.MaxUnitsPerLine} unidades.");
         if (ModelState.IsValid)
         {
+            var unitsBefore = cart.Read().Lines.Sum(line => line.Quantity);
             var result = await cartMutations.AddAsync(publicOfferId, quantity, cancellationToken);
             if (result.Succeeded)
             {
                 if (WantsJsonResponse)
-                    return new JsonResult(new { ok = true, redirectUrl = Url.Page("/Cart") });
+                    return new JsonResult(new { ok = true, redirectUrl = Url.Page("/Cart"), cartCount = unitsBefore + quantity });
                 return RedirectToPage("/Cart");
             }
 

@@ -100,5 +100,19 @@
                 <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Catalog.Items[index], Model.CardCategory, index))" />
             }
         </div>
+        @if (Model.Catalog.TotalPages > 1)
+        {
+            <nav class="pagination" aria-label="Paginação">
+                @if (Model.Catalog.Page > 1)
+                {
+                    <a href="@Model.PageUrl(Model.Catalog.Page - 1)#catalog">Anterior</a>
+                }
+                <span>Página @Model.Catalog.Page de @Model.Catalog.TotalPages</span>
+                @if (Model.Catalog.Page < Model.Catalog.TotalPages)
+                {
+                    <a href="@Model.PageUrl(Model.Catalog.Page + 1)#catalog">Próxima</a>
+                }
+            </nav>
+        }
     }
 </section>

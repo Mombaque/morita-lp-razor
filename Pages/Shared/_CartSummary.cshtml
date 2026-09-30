@@ -2,8 +2,8 @@
 <h2>Resumo</h2>
 @if (Model.State == CatalogLoadState.Success)
 {
-    <p data-cart="total">Total estimado: <strong>@CurrencyPresentation.Symbol(Model.Currency) @Model.Total?.ToString("0.00")</strong></p>
-    <p class="cart-estimate-note">O frete é calculado pelo CEP no checkout. Preço e estoque serão reconfirmados.</p>
+    <p data-cart="total">Subtotal: <strong>@CurrencyPresentation.Format(Model.Total, Model.Currency)</strong></p>
+    <p class="cart-estimate-note">Frete calculado pelo CEP no checkout.</p>
 }
 else
 {
@@ -17,6 +17,6 @@ else
 {
     <button class="button cart-button-primary" type="button" disabled data-cart="checkout" aria-disabled="true">Ir para o checkout</button>
 }
-<form method="post" asp-page-handler="Clear">
+<form method="post" asp-page-handler="Clear" data-confirm="Remover todos os itens do carrinho?">
     <button class="button cart-button-secondary" type="submit" data-cart="clear">Limpar carrinho</button>
 </form>

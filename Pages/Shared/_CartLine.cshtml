@@ -14,7 +14,7 @@
 <article class="cart-line @(available ? "" : "cart-line-unavailable")" data-cart="line" data-offer-id="@Model.PublicOfferId">
     @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
     {
-        <img src="@Model.ImageUrl" alt="@(Model.Presentation ?? "Item do catálogo")" loading="lazy">
+        <img src="@Model.ImageUrl" alt="" loading="lazy">
     }
     <div class="cart-line-content">
         <h2>@(Model.Presentation ?? "Item do catálogo")</h2>
@@ -24,7 +24,7 @@
         }
         @if (available || status == "insufficient")
         {
-            <p class="cart-line-price">Preço atual estimado: <strong>@CurrencyPresentation.Symbol(Model.Currency) @Model.UnitPrice?.ToString("0.00")</strong> / unidade</p>
+            <p class="cart-line-price"><strong>@CurrencyPresentation.Format(Model.UnitPrice, Model.Currency)</strong> / unidade</p>
         }
         @if (!available)
         {
@@ -37,7 +37,7 @@
                 <label class="cart-quantity-label" for="quantity-@Model.PublicOfferId">Quantidade</label>
                 <div class="cart-quantity-stepper" data-cart="quantity-stepper">
                     <button class="cart-quantity-button" type="button" data-cart="quantity-decrement" aria-label="Diminuir quantidade" aria-controls="quantity-@Model.PublicOfferId">−</button>
-                    <input class="cart-quantity-input" id="quantity-@Model.PublicOfferId" type="number" name="quantity" min="1" max="10" value="@Model.Quantity" inputmode="numeric" data-cart="quantity-input">
+                    <input class="cart-quantity-input" id="quantity-@Model.PublicOfferId" type="number" name="quantity" min="1" max="@CartCookieStore.MaxUnitsPerLine" value="@Model.Quantity" inputmode="numeric" data-cart="quantity-input">
                     <button class="cart-quantity-button" type="button" data-cart="quantity-increment" aria-label="Aumentar quantidade" aria-controls="quantity-@Model.PublicOfferId">+</button>
                 </div>
                 <button class="button cart-button-primary" type="submit" data-cart="update">Atualizar</button>

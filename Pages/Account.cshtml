@@ -1,8 +1,11 @@
 @page "/conta"
 @model Morita.LP.Razor.Pages.AccountModel
+@inject ICartCookieStore CartCookies
 @{
     ViewData["Title"] = "Minha conta | Morita Fight";
     ViewData["BodyClass"] = "commerce-page account-page";
+    var cartUnits = CartCookies.Read().Lines.Sum(line => line.Quantity);
+    var fromCheckout = !Model.SignedIn && string.Equals(Model.ReturnUrl, "/checkout", StringComparison.OrdinalIgnoreCase);
 }
 
 <main class="account-shell">
@@ -32,6 +35,14 @@
         <p class="account-status" role="status">@Model.Message</p>
     }
 
+    @if (fromCheckout)
+    {
+        <aside class="account-checkout-notice" data-account="checkout-notice">
+            <p><strong>Entre ou crie sua conta para finalizar a compra.</strong> Seus itens continuam no carrinho@(cartUnits > 0 ? $" ({cartUnits} {(cartUnits == 1 ? "item" : "itens")})" : "").</p>
+            <a class="account-secondary-link" href="/cart">← Voltar ao carrinho</a>
+        </aside>
+    }
+
     @if (!Model.SignedIn)
     {
         <section class="account-panel account-access-panel" aria-labelledby="account-access-heading">
@@ -56,7 +67,7 @@
             else if (Model.EmailVerificationChallengeIssued)
             {
                 <h2 id="account-access-heading">Confirmar e-mail</h2>
-                <p>O código expira em @Model.ChallengeExpiresAt?.ToLocalTime().ToString("t").</p>
+                <p>O código expira em @(Model.ChallengeExpiresAt is { } challengeExpiry ? TimePresentation.ToStoreTime(challengeExpiry).ToString("HH:mm") : "").</p>
                 <form method="post" asp-page-handler="VerifyEmail">
                     <input type="hidden" asp-for="ChallengeId"><input type="hidden" asp-for="ChallengeExpiresAt"><input type="hidden" asp-for="ChallengeKind"><input type="hidden" asp-for="PrivacyPolicyVersion"><input type="hidden" asp-for="ReturnUrl">
                     <label asp-for="Verification.Code">Código enviado por e-mail</label>
@@ -217,7 +228,7 @@
                                     <span>@(pending.RepresentativeProductPresentation ?? "Checkout Morita")</span>
                                     <span>@AccountPresentation.FulfillmentMethod(pending.FulfillmentMethod) · Retome o pagamento</span>
                                 </span>
-                                <em><span class="@AccountPresentation.PaymentStatusClass(pending.Status)">@AccountPresentation.PaymentStatus(pending.Status)</span><br>@CurrencyPresentation.Symbol(pending.Currency) @pending.Amount.ToString("N2")<br><time datetime="@pending.CreatedAt.ToString("O")">@pending.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</time></em>
+                                <em><span class="@AccountPresentation.PaymentStatusClass(pending.Status)">@AccountPresentation.PaymentStatus(pending.Status)</span><br>@CurrencyPresentation.Format(pending.Amount, pending.Currency)<br><time datetime="@pending.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(pending.CreatedAt).ToString("dd/MM/yyyy")</time></em>
                             </a>
                         </li>
                     }
@@ -247,7 +258,7 @@
                                     <span>@(order.RepresentativeProductPresentation ?? "Pedido Morita")</span>
                                     <span>@AccountPresentation.FulfillmentMethod(order.FulfillmentMethod) · @AccountPresentation.FulfillmentStatus(order.FulfillmentStatus)</span>
                                 </span>
-                                <em><span class="@AccountPresentation.PaymentStatusClass(order.PaymentStatus)">@AccountPresentation.PaymentStatus(order.PaymentStatus)</span><br>@CurrencyPresentation.Symbol(order.Currency) @order.Amount.ToString("N2")<br><time datetime="@order.CreatedAt.ToString("O")">@order.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy")</time></em>
+                                <em><span class="@AccountPresentation.PaymentStatusClass(order.PaymentStatus)">@AccountPresentation.PaymentStatus(order.PaymentStatus)</span><br>@CurrencyPresentation.Format(order.Amount, order.Currency)<br><time datetime="@order.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(order.CreatedAt).ToString("dd/MM/yyyy")</time></em>
                             </a>
                         </li>
                     }

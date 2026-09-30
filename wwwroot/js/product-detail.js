@@ -61,8 +61,9 @@ if (offerForm) {
       return;
     }
 
-    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10) {
-      showValidationMessage('A quantidade deve estar entre 1 e 10 unidades.');
+    const maxQuantity = Number(quantityInput?.max) || 10;
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > maxQuantity) {
+      showValidationMessage(`A quantidade deve estar entre 1 e ${maxQuantity} unidades.`);
       quantityInput?.focus();
       return;
     }
@@ -87,6 +88,17 @@ if (offerForm) {
         }
       });
       const payload = await response.json().catch(() => null);
+      if (payload?.ok && window.moritaMiniCart) {
+        const price = selectedOffer.dataset.price;
+        window.moritaMiniCart.open({
+          name: document.querySelector('.detail-copy h1')?.textContent?.trim(),
+          variant: selectedOffer.closest('label')?.getAttribute('aria-label'),
+          image: detailImage?.getAttribute('src'),
+          price: price ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: selectedOffer.dataset.currency || 'BRL' }).format(Number(price) * quantity) : '',
+          quantity
+        }, payload.cartCount);
+        return;
+      }
       if (payload?.ok && payload.redirectUrl) {
         window.location.assign(payload.redirectUrl);
         return;
