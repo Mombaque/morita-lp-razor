@@ -407,6 +407,63 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public async Task Pickup_checkout_sends_the_billing_address_with_the_account_name()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout { CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()]) };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, new RecordingAccount(), new RecordingAccountCookie());
+
+        await page.OnPostAsync(CancellationToken.None);
+
+        var billing = Assert.Single(api.Requests).BillingAddress;
+        Assert.NotNull(billing);
+        Assert.Equal("Customer", billing!.Recipient);
+        Assert.Equal("Sorocaba", billing.City);
+        Assert.Equal("18010-000", billing.PostalCode);
+    }
+
+    [Fact]
+    public async Task Pickup_checkout_without_a_billing_address_stays_on_the_page()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout { CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()]) };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, new RecordingAccount(), new RecordingAccountCookie());
+        page.BillingAddress = new();
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Empty(api.Requests);
+        Assert.False(page.ModelState.IsValid);
+        Assert.True(page.ModelState.ContainsKey("BillingAddress.PostalCode"));
+    }
+
+    [Fact]
+    public async Task Profile_without_a_document_redirects_to_complete_the_account()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var account = new RecordingAccount { ProfileResult = new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999" }) };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/Account", redirect.PageName);
+        Assert.Equal("complete", redirect.RouteValues!["mode"]);
+        Assert.Empty(api.Requests);
+    }
+
+    [Fact]
     public async Task Missing_account_session_redirects_to_sign_in_instead_of_guest_checkout()
     {
         var offer = Guid.NewGuid();
@@ -697,13 +754,16 @@ public sealed class CheckoutPageTests
         return CatalogQuoteResult.Success("BRL", available ? 10 * quantity : 0, [new CatalogQuoteLine { PublicOfferId = offer, Quantity = quantity, Availability = availability, Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = available ? 10 * quantity : null }]);
     }
 
+    private static CheckoutModel.ShippingAddressInput ValidBillingAddress() => new() { Street = "Rua XV de Novembro", Number = "100", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18010-000" };
+
     private static CheckoutModel CreatePage(DefaultHttpContext context, TestCart cart, RecordingCheckout api, ICheckoutDraftCookieStore draft, Guid offer, ICustomerAccountClient? account = null, ICustomerAccountCookieStore? accountCookies = null, IOptions<StorefrontOptions>? storefrontOptions = null, ICatalogClient? catalog = null, IPaymentAttemptCookieStore? paymentAttempt = null, IReadOnlyList<OnlinePaymentMethod>? paymentMethods = null)
     {
         var config = new CheckoutConfigurationResult(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), Currency = "BRL", OnlinePaymentMethods = paymentMethods ?? [], Pickup = new() { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } } });
         var quote = Quote(offer, 1);
         var page = new CheckoutModel(cart, catalog ?? new StubCatalog(quote), api, draft, new NoopAccess(), new CheckoutRateLimiter(TimeProvider.System), account ?? new NoopAccount(), accountCookies ?? new NoopAccountCookie(), storefrontOptions, paymentAttempt)
         {
-            Contact = new CheckoutModel.ContactInput()
+            Contact = new CheckoutModel.ContactInput(),
+            BillingAddress = ValidBillingAddress()
         };
         api.Configuration = config;
         page.PageContext = new PageContext(new Microsoft.AspNetCore.Mvc.ActionContext(context, new RouteData(), new PageActionDescriptor()));
@@ -820,7 +880,7 @@ public sealed class CheckoutPageTests
         public AccountResult<CustomerAccountAddress> CreateAddressResult { get; set; } = AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable, "address unavailable");
         public AccountResult<bool> SetDefaultAddressResult { get; set; } = AccountResult<bool>.Failure(AccountLoadState.Unavailable, "default unavailable");
         public int CreateAddressCalls { get; private set; }
-        public override Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(ProfileResult ?? new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999" })); }
+        public override Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(ProfileResult ?? new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999", Document = "529.982.247-25" })); }
         public override Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) { AddressReads++; return Task.FromResult(AddressesResult ?? new AccountResult<IReadOnlyList<CustomerAccountAddress>>(AccountLoadState.Success, [address])); }
         public override Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress savedAddress, CancellationToken cancellationToken = default) { CreateAddressCalls++; return Task.FromResult(CreateAddressResult); }
         public override Task<AccountResult<bool>> SetDefaultAddressAsync(string token, Guid id, CancellationToken cancellationToken = default) => Task.FromResult(SetDefaultAddressResult);
@@ -834,8 +894,8 @@ public sealed class CheckoutPageTests
         public Task<AccountResult<AccountCodeChallenge>> RequestPasswordCodeAsync(string? token, string email, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<AccountCodeChallenge>.Failure(AccountLoadState.Unavailable));
         public Task<AccountResult<(CustomerAccountSession Session, CustomerAccountProfile Profile)>> ResetPasswordAsync(string? token, Guid challengeId, string code, string password, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<(CustomerAccountSession, CustomerAccountProfile)>.Failure(AccountLoadState.Unavailable));
         public virtual Task<AccountResult<bool>> CloseAsync(string token, string currentPassword, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
-        public virtual Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999" }));
-        public virtual Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        public virtual Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999", Document = "529.982.247-25" }));
+        public virtual Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, string? document, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public virtual Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<IReadOnlyList<CustomerAccountAddress>>(AccountLoadState.Success, []));
         public virtual Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress address, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable));
         public virtual Task<AccountResult<CustomerAccountAddress>> UpdateAddressAsync(string token, Guid id, CustomerAccountAddress address, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable));

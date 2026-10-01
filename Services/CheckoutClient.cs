@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -59,7 +60,8 @@ public sealed class CheckoutClient(
                 PublicPickupId = request.Fulfillment.PublicPickupId ?? Guid.Empty,
                 PublicShippingQuoteId = request.Fulfillment.PublicShippingQuoteId ?? Guid.Empty,
                 ShippingAddress = request.Fulfillment.ShippingAddress is null ? null : Map(request.Fulfillment.ShippingAddress)
-            }
+            },
+            BillingAddress = request.BillingAddress is null ? null : Map(request.BillingAddress)
         };
         var result = await SendAsync<ResponseDto>(HttpMethod.Post, "v1/storefront/checkout", body, ("Idempotency-Key", idempotencyKey), cancellationToken, accessToken, storefrontSession);
         return MapResult(result, request.Lines, request.Fulfillment);
@@ -269,7 +271,7 @@ public sealed class CheckoutClient(
         Digits(expected.PostalCode) == Digits(actual.PostalCode) &&
         string.Equals(expected.CountryCode.Trim(), actual.CountryCode?.Trim(), StringComparison.OrdinalIgnoreCase);
     private sealed record ReadResult<T>(HttpStatusCode? Status, CheckoutLoadState State, T? Value, string? Message);
-    private sealed class CreateDto { public List<LineRequestDto> Lines { get; set; } = []; public ContactDto Contact { get; set; } = new(); public FulfillmentDto Fulfillment { get; set; } = new(); }
+    private sealed class CreateDto { public List<LineRequestDto> Lines { get; set; } = []; public ContactDto Contact { get; set; } = new(); public FulfillmentDto Fulfillment { get; set; } = new(); [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] public AddressDto? BillingAddress { get; set; } }
     private sealed class LineRequestDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } }
     private sealed class ContactDto { public string? Name { get; set; } public string? Email { get; set; } public string? Phone { get; set; } }
     private sealed class FulfillmentDto { public string? Method { get; set; } public Guid PublicPickupId { get; set; } public Guid PublicShippingQuoteId { get; set; } public AddressDto? ShippingAddress { get; set; } }

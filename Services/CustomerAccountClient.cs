@@ -15,7 +15,7 @@ public interface ICustomerAccountClient
     Task<AccountResult<AccountCodeChallenge>> RequestPasswordCodeAsync(string? token, string email, CancellationToken cancellationToken = default);
     Task<AccountResult<(CustomerAccountSession Session, CustomerAccountProfile Profile)>> ResetPasswordAsync(string? token, Guid challengeId, string code, string password, CancellationToken cancellationToken = default);
     Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default);
-    Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, CancellationToken cancellationToken = default);
+    Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, string? document, CancellationToken cancellationToken = default);
     Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default);
     Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress address, CancellationToken cancellationToken = default);
     Task<AccountResult<CustomerAccountAddress>> UpdateAddressAsync(string token, Guid id, CustomerAccountAddress address, CancellationToken cancellationToken = default);
@@ -68,7 +68,7 @@ public sealed class CustomerAccountClient(
         var result = await SendAsync<ProfileDto>(HttpMethod.Get, "v1/storefront/account", null, token, ct);
         return result.State == AccountLoadState.Success && result.Value is not null ? new(result.State, Map(result.Value), result.Message) : AccountResult<CustomerAccountProfile>.Failure(result.State, result.Message);
     }
-    public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, CancellationToken ct = default) => NoContentAsync(HttpMethod.Put, "v1/storefront/account", new { name, phone }, token, ct);
+    public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, string? document, CancellationToken ct = default) => NoContentAsync(HttpMethod.Put, "v1/storefront/account", new { name, phone, document }, token, ct);
     public async Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken ct = default)
     {
         var result = await SendAsync<List<AddressDto>>(HttpMethod.Get, "v1/storefront/account/addresses", null, token, ct);
@@ -125,9 +125,9 @@ public sealed class CustomerAccountClient(
         var result = await SendAsync<AddressDto>(method, path, new { address.Label, address.Recipient, address.Street, address.Number, address.Complement, address.Neighborhood, address.City, address.State, address.PostalCode, address.CountryCode }, token, ct);
         return result.State == AccountLoadState.Success && result.Value is not null ? new(result.State, Map(result.Value), result.Message) : AccountResult<CustomerAccountAddress>.Failure(result.State, result.Message);
     }
-    private static CustomerAccountProfile Map(ProfileDto? x) => x is null ? new() : new() { AccountId = x.AccountId, Email = x.Email ?? "", Name = x.Name, Phone = x.Phone, HasPassword = x.HasPassword };
+    private static CustomerAccountProfile Map(ProfileDto? x) => x is null ? new() : new() { AccountId = x.AccountId, Email = x.Email ?? "", Name = x.Name, Phone = x.Phone, Document = x.Document, HasPassword = x.HasPassword };
     private static CustomerAccountAddress Map(AddressDto x) => new() { PublicAddressId = x.PublicAddressId, Label = x.Label, IsDefault = x.IsDefault, Recipient = x.Recipient, Street = x.Street, Number = x.Number, Complement = x.Complement, Neighborhood = x.Neighborhood, City = x.City, State = x.State, PostalCode = x.PostalCode, CountryCode = x.CountryCode };
     private sealed class SessionDto { public string SessionToken { get; set; } = ""; public DateTimeOffset ExpiresAt { get; set; } public ProfileDto Profile { get; set; } = new(); }
-    private sealed class ProfileDto { public Guid AccountId { get; set; } public string? Email { get; set; } public string? Name { get; set; } public string? Phone { get; set; } public bool HasPassword { get; set; } }
+    private sealed class ProfileDto { public Guid AccountId { get; set; } public string? Email { get; set; } public string? Name { get; set; } public string? Phone { get; set; } public string? Document { get; set; } public bool HasPassword { get; set; } }
     private sealed class AddressDto { public Guid PublicAddressId { get; set; } public string Label { get; set; } = ""; public bool IsDefault { get; set; } public string Recipient { get; set; } = ""; public string Street { get; set; } = ""; public string Number { get; set; } = ""; public string? Complement { get; set; } public string Neighborhood { get; set; } = ""; public string City { get; set; } = ""; public string State { get; set; } = ""; public string PostalCode { get; set; } = ""; public string CountryCode { get; set; } = "BR"; }
 }

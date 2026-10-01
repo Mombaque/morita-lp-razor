@@ -138,7 +138,7 @@ public sealed class AccountModel(
         ModelState.Clear(); TryValidateModel(ProfileForm, nameof(ProfileForm));
         if (!ModelState.IsValid) { await LoadAsync(ct); return Page(); }
         if (Session is not { } session) return RedirectToPage();
-        var result = await client.UpdateProfileAsync(session.Token, Clean(ProfileForm.Name), Clean(ProfileForm.Phone), ct);
+        var result = await client.UpdateProfileAsync(session.Token, Clean(ProfileForm.Name), Clean(ProfileForm.Phone), BuyerDocument.Normalize(ProfileForm.Document), ct);
         if (!result.Value) { ExpireIfNeeded(result.State); Error = result.Message ?? "Não foi possível salvar seus dados."; } else Message = "Dados salvos.";
         await LoadAsync(ct); return Page();
     }
@@ -255,7 +255,8 @@ public sealed class AccountModel(
     {
         [Required(ErrorMessage = "Informe seu nome.")][StringLength(120, ErrorMessage = "O nome deve ter no máximo 120 caracteres.")] public string Name { get; set; } = "";
         [Required(ErrorMessage = "Informe seu telefone.")][StringLength(40, ErrorMessage = "O telefone deve ter no máximo 40 caracteres.")] public string Phone { get; set; } = "";
-        public static ProfileInput From(CustomerAccountProfile p) => new() { Name = p.Name ?? "", Phone = p.Phone ?? "" };
+        [Required(ErrorMessage = "Informe seu CPF ou CNPJ.")][BuyerDocument] public string Document { get; set; } = "";
+        public static ProfileInput From(CustomerAccountProfile p) => new() { Name = p.Name ?? "", Phone = p.Phone ?? "", Document = p.Document ?? "" };
     }
     public sealed class AddressInput
     {
