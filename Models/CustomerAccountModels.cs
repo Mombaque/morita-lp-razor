@@ -6,6 +6,7 @@ public sealed class CustomerAccountProfile
     public string Email { get; init; } = "";
     public string? Name { get; init; }
     public string? Phone { get; init; }
+    public string? Document { get; init; }
     public bool HasPassword { get; init; }
 }
 
