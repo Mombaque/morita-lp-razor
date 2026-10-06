@@ -17,5 +17,7 @@ public sealed class CatalogApiOptions
     public const string SectionName = "CatalogApi";
     public string BaseUrl { get; set; } = "https://morita-api.fly.dev";
     public int TimeoutSeconds { get; set; } = 5;
+    // Seconds a successful catalog read is reused per storefront host; 0 disables the cache (Development, E2E).
+    public int CacheSeconds { get; set; }
     public string? ProxySecret { get; set; }
 }
