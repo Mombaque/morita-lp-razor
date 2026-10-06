@@ -27,7 +27,7 @@ const PAGE_CATEGORY = {
 const WHATSAPP_FLOAT_MESSAGES = {
   [PAGE_CATEGORY.jiuJitsu]: 'Olá, Morita! Vim pelo site e quero ajuda para escolher equipamentos de Jiu-Jitsu.',
   [PAGE_CATEGORY.muayThai]: 'Olá, Morita! Vim pelo site e quero ajuda para escolher equipamentos de Muay Thai / Boxe.',
-  default: 'Olá, Morita! Vim pelo site e quero ajuda para escolher meu equipamento.',
+  default: 'Olá! Vim do site da Morita e gostaria de falar com alguém sobre os produtos.',
 };
 
 const REQUEST_STATUS = {
