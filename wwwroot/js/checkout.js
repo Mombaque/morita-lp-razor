@@ -21,7 +21,7 @@ if (form) {
   const actionsTotal = form.querySelector('[data-actions-total]');
   const summaryAmounts = form.querySelector('[data-merchandise-amount]');
   const summaryDetails = form.querySelector('[data-summary-details]');
-  const postalInput = form.querySelector('[data-postal-code]');
+  const postalInput = form.querySelector('[data-cep-input]');
   const postalStatus = form.querySelector('[data-cep-status]');
   const quotePostal = form.querySelector('[data-quote-postal]');
   const checkoutReady = submit?.dataset.checkoutReady === 'true';
