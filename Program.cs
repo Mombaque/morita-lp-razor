@@ -4,6 +4,7 @@ using System.Net;
 using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.ResponseCompression;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,17 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
+// Fly's proxy does not compress, and it terminates TLS, so Kestrel sees plain HTTP behind it.
+// Antiforgery tokens are re-encrypted per response, which keeps BREACH-style guessing impractical.
+builder.Services.AddResponseCompression(options =>
+{
+    options.EnableForHttps = true;
+    options.Providers.Add<BrotliCompressionProvider>();
+    options.Providers.Add<GzipCompressionProvider>();
+    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["image/svg+xml"]);
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(options => options.Level = System.IO.Compression.CompressionLevel.Fastest);
+builder.Services.Configure<GzipCompressionProviderOptions>(options => options.Level = System.IO.Compression.CompressionLevel.Fastest);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddOptions<StorefrontOptions>()
@@ -83,6 +95,7 @@ builder.Services.AddScoped<IPublicAssistantCookieStore, PublicAssistantCookieSto
 builder.Services.AddSingleton<CheckoutRateLimiter>();
 builder.Services.AddTransient<StorefrontApiHeadersHandler>();
 builder.Services.AddScoped<CatalogService>();
+builder.Services.AddSingleton<CatalogResponseCache>();
 builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
@@ -179,7 +192,13 @@ if (!app.Environment.IsDevelopment())
 
 if (!app.Environment.IsEnvironment("E2E"))
     app.UseWhen(context => !context.Request.Path.Equals("/health"), branch => branch.UseHttpsRedirection());
-app.UseStaticFiles();
+app.UseResponseCompression();
+app.UseStaticFiles(new StaticFileOptions
+{
+    // asp-append-version adds ?v=<hash>, so versioned assets never change under the same URL.
+    OnPrepareResponse = context => context.Context.Response.Headers.CacheControl =
+        context.Context.Request.Query.ContainsKey("v") ? "public, max-age=31536000, immutable" : "public, max-age=3600"
+});
 
 app.UseRouting();
 app.UseAntiforgery();
@@ -190,14 +209,16 @@ app.UseAuthorization();
 app.MapGet("/JiuJitsu", (HttpContext context) => Results.Redirect("/jiu-jitsu" + context.Request.QueryString, permanent: true));
 app.MapGet("/MuayThai", (HttpContext context) => Results.Redirect("/muay-thai" + context.Request.QueryString, permanent: true));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
-app.MapGet("/v1/storefront/catalog/images/{imageId:guid}", async (Guid imageId, IHttpClientFactory clients, CancellationToken cancellationToken) =>
+app.MapGet("/v1/storefront/catalog/images/{imageId:guid}", async (Guid imageId, HttpContext context, IHttpClientFactory clients, CancellationToken cancellationToken) =>
 {
+    context.Response.Headers.CacheControl = "no-store";
     try
     {
-        using var response = await clients.CreateClient("catalog-image-proxy").GetAsync(
+        var response = await clients.CreateClient("catalog-image-proxy").GetAsync(
             $"v1/storefront/catalog/images/{imageId}",
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
+        context.Response.RegisterForDispose(response);
         if (response.StatusCode == HttpStatusCode.NotFound)
             return Results.NotFound();
         if (!response.IsSuccessStatusCode)
@@ -207,7 +228,10 @@ app.MapGet("/v1/storefront/catalog/images/{imageId:guid}", async (Guid imageId, 
         if (contentType is not ("image/jpeg" or "image/png" or "image/webp"))
             return Results.StatusCode(StatusCodes.Status502BadGateway);
 
-        return Results.File(await response.Content.ReadAsByteArrayAsync(cancellationToken), contentType);
+        // A new upload gets a new image id, so a published id keeps its bytes; 7 days lets unpublished images age out.
+        context.Response.Headers.CacheControl = "public, max-age=604800";
+        context.Response.ContentLength = response.Content.Headers.ContentLength;
+        return Results.Stream(await response.Content.ReadAsStreamAsync(cancellationToken), contentType);
     }
     catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
     {

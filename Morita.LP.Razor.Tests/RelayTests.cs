@@ -98,6 +98,59 @@ public sealed class RelayTests
     }
 
     [Fact]
+    public async Task ImageProxy_streams_published_images_with_browser_cache_headers()
+    {
+        using var factory = CreateFactory(new ImageResponse());
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/v1/storefront/catalog/images/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("image/png", response.Content.Headers.ContentType!.MediaType);
+        Assert.Equal(new byte[] { 0x89, 0x50, 0x4E, 0x47 }, await response.Content.ReadAsByteArrayAsync());
+        Assert.True(response.Headers.CacheControl!.Public);
+        Assert.Equal(TimeSpan.FromDays(7), response.Headers.CacheControl.MaxAge);
+    }
+
+    [Fact]
+    public async Task ImageProxy_failures_are_not_cached()
+    {
+        using var factory = CreateFactory(new StubResponse(HttpStatusCode.NotFound, ""));
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/v1/storefront/catalog/images/{Guid.NewGuid()}");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.True(response.Headers.CacheControl!.NoStore);
+    }
+
+    [Fact]
+    public async Task Static_files_are_cached_long_only_when_versioned()
+    {
+        using var factory = CreateFactory(new StubResponse(HttpStatusCode.OK, "{}"));
+        using var client = factory.CreateClient();
+
+        var versioned = await client.GetAsync("/css/styles.css?v=abc");
+        var unversioned = await client.GetAsync("/css/styles.css");
+
+        Assert.Equal("public, max-age=31536000, immutable", versioned.Headers.CacheControl!.ToString());
+        Assert.Equal(TimeSpan.FromHours(1), unversioned.Headers.CacheControl!.MaxAge);
+    }
+
+    [Fact]
+    public async Task Text_responses_are_compressed_when_the_browser_accepts_it()
+    {
+        using var factory = CreateFactory(new StubResponse(HttpStatusCode.OK, "{}"));
+        using var client = factory.CreateClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/css/styles.css");
+        request.Headers.AcceptEncoding.ParseAdd("br");
+
+        var response = await client.SendAsync(request);
+
+        Assert.Contains("br", response.Content.Headers.ContentEncoding);
+    }
+
+    [Fact]
     public async Task Relay_passthroughs_api_400_and_maps_unavailable_or_timeout()
     {
         using (var badFactory = CreateFactory(new StubResponse(HttpStatusCode.BadRequest, "")))

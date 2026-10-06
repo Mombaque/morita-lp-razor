@@ -11,7 +11,8 @@ namespace Morita.LP.Razor.Services;
 public sealed class CatalogClient(
     HttpClient httpClient,
     IOptions<CatalogApiOptions> options,
-    ILogger<CatalogClient> logger) : ICatalogClient
+    ILogger<CatalogClient> logger,
+    CatalogResponseCache? cache = null) : ICatalogClient
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private readonly CatalogApiOptions _options = options.Value;
@@ -114,6 +115,8 @@ public sealed class CatalogClient(
 
     private async Task<ReadResult<T>> ReadAsync<T>(string path, CancellationToken callerToken)
     {
+        if (cache?.TryGet(path, out var cached) == true)
+            return new(HttpStatusCode.OK, true, JsonSerializer.Deserialize<T>(cached, JsonOptions));
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(callerToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, 30)));
         try
@@ -121,8 +124,16 @@ public sealed class CatalogClient(
             using var request = new HttpRequestMessage(HttpMethod.Get, path);
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (!response.IsSuccessStatusCode) { logger.LogWarning("Catalog request returned status {StatusCode}", (int)response.StatusCode); return new(response.StatusCode, false, default); }
-            await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
-            return new(response.StatusCode, true, await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, timeout.Token));
+            if (cache?.Enabled != true)
+            {
+                await using var stream = await response.Content.ReadAsStreamAsync(timeout.Token);
+                return new(response.StatusCode, true, await JsonSerializer.DeserializeAsync<T>(stream, JsonOptions, timeout.Token));
+            }
+            var body = await response.Content.ReadAsByteArrayAsync(timeout.Token);
+            var value = JsonSerializer.Deserialize<T>(body, JsonOptions);
+            if (value is not null)
+                cache.Set(path, body);
+            return new(response.StatusCode, true, value);
         }
         catch (OperationCanceledException) when (!callerToken.IsCancellationRequested) { logger.LogWarning("Catalog request timed out"); return new(null, false, default); }
         catch (HttpRequestException ex) { logger.LogWarning(ex, "Catalog request unavailable"); return new(null, false, default); }

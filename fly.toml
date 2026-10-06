@@ -12,6 +12,7 @@ primary_region = 'gru'
   ASPNETCORE_ENVIRONMENT = "Production"
   Storefront__DataProtectionKeyDirectory = "/var/morita/data-protection-keys"
   Storefront__PublicAssistantEnabled = "false"
+  CatalogApi__CacheSeconds = "30"
 
 # Provision before deploying this mount:
 # fly volumes create data_protection --app morita-lp-razor --region gru --size 1
@@ -27,6 +28,13 @@ primary_region = 'gru'
   min_machines_running = 1
   processes = ['app']
 
+  # One Machine serves all traffic (Data Protection keys live on its volume), so lift the default
+  # 20/25 connection limits; "requests" counts in-flight HTTP requests, not keep-alive sockets.
+  [http_service.concurrency]
+    type = 'requests'
+    soft_limit = 150
+    hard_limit = 200
+
   [[http_service.checks]]
     grace_period = '10s'
     interval = '30s'
@@ -38,4 +46,3 @@ primary_region = 'gru'
   memory = '1gb'
   cpu_kind = 'shared'
   cpus = 1
-  memory_mb = 256

@@ -39,6 +39,87 @@ public sealed class CatalogClientTests
         Assert.Equal(CatalogLoadState.Unavailable, (await Create(HttpStatusCode.OK, "[null]").GetProductsAsync("muay-thai")).State);
     }
 
+    [Fact]
+    public async Task Catalog_reads_are_not_cached_by_default()
+    {
+        var handler = new CountingHandler(HttpStatusCode.OK, FiltersJson);
+        var client = CreateCached(handler, cacheSeconds: 0, "loja.example.com");
+
+        await client.GetFiltersAsync();
+        await client.GetFiltersAsync();
+
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Cached_catalog_reads_reuse_successful_responses_per_storefront_host()
+    {
+        var handler = new CountingHandler(HttpStatusCode.OK, FiltersJson);
+        var context = new DefaultHttpContext();
+        context.Request.Host = new HostString("loja.example.com");
+        var accessor = new HttpContextAccessor { HttpContext = context };
+        var cache = new CatalogResponseCache(accessor, Options.Create(new CatalogApiOptions { CacheSeconds = 30 }));
+        var client = new CatalogClient(new HttpClient(handler) { BaseAddress = new Uri("https://catalog.test/") }, Options.Create(new CatalogApiOptions { TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance, cache);
+
+        Assert.NotNull(await client.GetFiltersAsync());
+        Assert.NotNull(await client.GetFiltersAsync());
+        Assert.Equal(1, handler.Calls);
+
+        context.Request.Host = new HostString("outra.example.com");
+        Assert.NotNull(await client.GetFiltersAsync());
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Cached_catalog_reads_do_not_store_failures()
+    {
+        var handler = new CountingHandler(HttpStatusCode.InternalServerError, FiltersJson);
+        var client = CreateCached(handler, cacheSeconds: 30, "loja.example.com");
+
+        Assert.Null(await client.GetFiltersAsync());
+        handler.Status = HttpStatusCode.OK;
+        Assert.NotNull(await client.GetFiltersAsync());
+        Assert.NotNull(await client.GetFiltersAsync());
+
+        Assert.Equal(2, handler.Calls);
+    }
+
+    [Fact]
+    public async Task Quotes_are_never_cached()
+    {
+        var offer = Guid.NewGuid();
+        var handler = new CountingHandler(HttpStatusCode.OK, $$"""{"currency":"BRL","total":10,"lines":[{"publicOfferId":"{{offer}}","quantity":1,"unitPrice":10,"linePrice":10,"currency":"BRL","availability":"available"}]}""");
+        var client = CreateCached(handler, cacheSeconds: 30, "loja.example.com");
+        var request = new CatalogQuoteRequest([new CatalogQuoteItem(offer, 1)]);
+
+        Assert.Equal(CatalogLoadState.Success, (await client.QuoteAsync(request)).State);
+        Assert.Equal(CatalogLoadState.Success, (await client.QuoteAsync(request)).State);
+
+        Assert.Equal(2, handler.Calls);
+    }
+
+    private const string FiltersJson = "{}";
+
+    private static ICatalogClient CreateCached(HttpMessageHandler handler, int cacheSeconds, string host)
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Host = new HostString(host);
+        var cache = new CatalogResponseCache(new HttpContextAccessor { HttpContext = context }, Options.Create(new CatalogApiOptions { CacheSeconds = cacheSeconds }));
+        return new CatalogClient(new HttpClient(handler) { BaseAddress = new Uri("https://catalog.test/") }, Options.Create(new CatalogApiOptions { TimeoutSeconds = 1 }), NullLogger<CatalogClient>.Instance, cache);
+    }
+
+    private sealed class CountingHandler(HttpStatusCode status, string content) : HttpMessageHandler
+    {
+        public HttpStatusCode Status { get; set; } = status;
+        public int Calls { get; private set; }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult(new HttpResponseMessage(Status) { Content = new StringContent(content) });
+        }
+    }
+
     private static ICatalogClient Create(HttpStatusCode status, string content, bool delay = false)
     {
         var client = new HttpClient(new ControlledHandler(status, content, delay)) { BaseAddress = new Uri("https://catalog.test/") };
