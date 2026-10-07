@@ -18,6 +18,7 @@
     if (galleryItems.Count == 0 && p is not null)
         galleryItems = p.Imagens.Select(image => (Image: image, VariantKey: (string?)null)).ToList();
     var currentSlug = RouteData.Values["slug"]?.ToString() ?? "produto";
+    ViewData["BodyClass"] = "commerce-page product-page";
     var priceLabel = p?.FormattedPrice ?? "Consulte";
     if (selectedOfferIsAvailable && Model.SelectedOffer?.UnitPrice is decimal selectedPrice && p is not null)
         priceLabel = CurrencyPresentation.Format(selectedPrice, p.Currency ?? Model.SelectedOffer.Currency);

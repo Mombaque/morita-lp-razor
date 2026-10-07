@@ -215,6 +215,7 @@ public sealed class Phase03PageTests
         }
 
         var detailHtml = await (await client.GetAsync("/products/detail")).Content.ReadAsStringAsync();
+        Assert.Contains("<body class=\"commerce-page product-page\">", detailHtml);
         AssertCarouselScriptLoadedOnce(detailHtml);
         AssertProductCardScriptLoadedOnce(detailHtml);
         Assert.Contains("class=\"prev\" type=\"button\"", detailHtml);
