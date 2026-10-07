@@ -127,6 +127,23 @@ public sealed class CheckoutClientTests
     }
 
     [Fact]
+    public async Task Pickup_create_sends_the_billing_address_only_when_given()
+    {
+        var offer = Guid.NewGuid();
+        using var withBilling = new RecordingHandler("{}");
+        using var withoutBilling = new RecordingHandler("{}");
+        var contact = new CheckoutContact { Name = "Ana", Email = "ana@example.com", Phone = "11999999999" };
+        var billing = new CheckoutAddress { Recipient = "Ana", Street = "Rua XV de Novembro", Number = "100", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18010-000", CountryCode = "BR" };
+
+        await Create(withBilling).CreateAsync(new([new(offer, 1)], contact, new CheckoutFulfillment("pickup", Guid.NewGuid()), billing), new string('i', 32), new string('a', 32));
+        await Create(withoutBilling).CreateAsync(new([new(offer, 1)], contact, new CheckoutFulfillment("pickup", Guid.NewGuid())), new string('i', 32), new string('a', 32));
+
+        Assert.Contains("\"billingAddress\":{", withBilling.Body);
+        Assert.Contains("\"city\":\"Sorocaba\"", withBilling.Body);
+        Assert.DoesNotContain("billingAddress", withoutBilling.Body);
+    }
+
+    [Fact]
     public async Task Configuration_exposes_shipping_without_requiring_pickup()
     {
         var result = await Create(new RecordingHandler("{\"pickupEnabled\":false,\"shippingEnabled\":true,\"currency\":\"BRL\"}"))

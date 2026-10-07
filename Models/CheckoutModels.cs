@@ -168,7 +168,8 @@ public sealed class CheckoutContact
     public string Phone { get; init; } = "";
 }
 
-public sealed record CheckoutCreateRequest(IReadOnlyList<CartLine> Lines, CheckoutContact Contact, CheckoutFulfillment Fulfillment);
+// BillingAddress is the buyer address of the nota fiscal of a pickup order.
+public sealed record CheckoutCreateRequest(IReadOnlyList<CartLine> Lines, CheckoutContact Contact, CheckoutFulfillment Fulfillment, CheckoutAddress? BillingAddress = null);
 
 public sealed record CheckoutFulfillment(string Method, Guid? PublicPickupId = null, Guid? PublicShippingQuoteId = null, CheckoutAddress? ShippingAddress = null);
 

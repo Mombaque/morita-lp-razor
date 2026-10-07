@@ -51,6 +51,31 @@ public sealed class CustomerAccountTests
         Assert.False(page.TryValidateModel(page.ProfileForm, nameof(page.ProfileForm)));
         Assert.Equal("Informe seu nome.", page.ModelState["ProfileForm.Name"]!.Errors.Single().ErrorMessage);
         Assert.Equal("Informe seu telefone.", page.ModelState["ProfileForm.Phone"]!.Errors.Single().ErrorMessage);
+        Assert.Equal("Informe seu CPF ou CNPJ.", page.ModelState["ProfileForm.Document"]!.Errors.Single().ErrorMessage);
+    }
+
+    [Fact]
+    public void Profile_validation_rejects_an_invalid_document()
+    {
+        var page = new AccountModel(new AccountStub(), new SessionCookieStub()) { PageContext = PageContext() };
+        page.ProfileForm = new() { Name = "Ana", Phone = "15999999999", Document = "529.982.247-24" };
+
+        Assert.False(page.TryValidateModel(page.ProfileForm, nameof(page.ProfileForm)));
+        Assert.Equal("Informe um CPF ou CNPJ válido.", page.ModelState["ProfileForm.Document"]!.Errors.Single().ErrorMessage);
+    }
+
+    [Fact]
+    public async Task Profile_update_sends_the_document_with_name_and_phone()
+    {
+        var context = new DefaultHttpContext();
+        var cookie = Store(DataProtectionProvider.Create(Directory.CreateTempSubdirectory()), context, Now);
+        var handler = new StatusHandler(HttpStatusCode.NoContent);
+
+        var result = await CreateClient(handler, cookie).UpdateProfileAsync(new string('s', 32), "Ana", "15999999999", "52998224725");
+
+        Assert.True(result.Value);
+        Assert.Equal(HttpMethod.Put, handler.Request!.Method);
+        Assert.Contains("\"document\":\"52998224725\"", handler.RequestBody!, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -441,7 +466,7 @@ public sealed class CustomerAccountTests
         public Task<AccountResult<(CustomerAccountSession Session, CustomerAccountProfile Profile)>> ResetPasswordAsync(string? token, Guid challengeId, string code, string password, CancellationToken cancellationToken = default) => Task.FromResult(VerifyResult);
         public Task<AccountResult<bool>> CloseAsync(string token, string currentPassword, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com" })); }
-        public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, string? document, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(AddressesResult);
         public Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress address, CancellationToken cancellationToken = default) { CreateAddressCalls++; return Task.FromResult(CreateAddressResult); }
         public Task<AccountResult<CustomerAccountAddress>> UpdateAddressAsync(string token, Guid id, CustomerAccountAddress address, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable));

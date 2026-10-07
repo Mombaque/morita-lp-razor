@@ -93,6 +93,30 @@
                  </section>
                </div>
             }
+            @if (Model.Configuration.Configuration?.PickupEnabled == true)
+            {
+              <div class="fulfillment-panel pickup-panel" data-fulfillment-panel="pickup">
+                <section class="delivery-address-panel" aria-labelledby="billing-address-heading">
+                  <div class="delivery-panel-heading">
+                    <div><p class="fight-label">Nota fiscal</p><h3 id="billing-address-heading">Endereço de cobrança</h3></div>
+                    <p>Usado na nota fiscal do pedido retirado na loja.</p>
+                  </div>
+                  <div class="address-grid">
+                    <label class="checkout-field cep" asp-for="BillingAddress.PostalCode">CEP<input class="checkout-control" asp-for="BillingAddress.PostalCode" inputmode="numeric" autocomplete="billing postal-code" placeholder="00000-000" maxlength="9" data-billing-postal-code></label>
+                    <p class="cart-estimate-note cep-lookup-status" data-billing-cep-status role="status" aria-live="polite"></p>
+                    <span asp-validation-for="BillingAddress.PostalCode" class="validation-error full"></span>
+                    <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="BillingAddress.Street" autocomplete="billing address-line1"></label>
+                    <label class="checkout-field number">Número<input class="checkout-control" asp-for="BillingAddress.Number" inputmode="numeric"></label>
+                    <span asp-validation-for="BillingAddress.Street" class="validation-error"></span><span asp-validation-for="BillingAddress.Number" class="validation-error"></span>
+                    <label class="checkout-field full">Complemento <small>(opcional)</small><input class="checkout-control" asp-for="BillingAddress.Complement" autocomplete="billing address-line3"></label>
+                    <label class="checkout-field">Bairro<input class="checkout-control" asp-for="BillingAddress.Neighborhood" autocomplete="billing address-level3"></label>
+                    <label class="checkout-field">Cidade<input class="checkout-control" asp-for="BillingAddress.City" autocomplete="billing address-level2"></label>
+                    <label class="checkout-field">UF<select class="checkout-control" asp-for="BillingAddress.State" autocomplete="billing address-level1"><option value="">UF</option>@foreach (var state in AccountModel.BrazilianStates) { <option value="@state.Code" selected="@(string.Equals(Model.BillingAddress?.State, state.Code, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@state.Code</option> }</select></label>
+                    <span asp-validation-for="BillingAddress.Neighborhood" class="validation-error"></span><span asp-validation-for="BillingAddress.City" class="validation-error"></span><span asp-validation-for="BillingAddress.State" class="validation-error"></span>
+                  </div>
+                </section>
+              </div>
+            }
           </div>
         </section>
 

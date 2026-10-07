@@ -21,6 +21,7 @@ public sealed class CheckoutModel(
     IPaymentAttemptCookieStore? paymentAttempt = null,
     IOrderAccessCookieStore? orderAccess = null) : PageModel
 {
+    private const string IncompleteProfileMessage = "Complete seu nome, telefone e CPF ou CNPJ em Minha conta antes de continuar.";
     private bool CustomerAccountsEnabled => storefrontOptions?.Value.CustomerAccountsEnabled ?? true;
     public CartState Cart { get; private set; } = new(DateTimeOffset.UtcNow, []);
     public CatalogQuoteResult Quote { get; private set; } = CatalogQuoteResult.Unavailable();
@@ -38,6 +39,8 @@ public sealed class CheckoutModel(
     [BindProperty] public OnlinePaymentMethod PaymentMethod { get; set; } = OnlinePaymentMethod.Pix;
     [BindProperty] public Guid? PublicShippingQuoteId { get; set; }
     [BindProperty] public ShippingAddressInput ShippingAddress { get; set; } = new();
+    // Buyer address of the nota fiscal when the order is picked up; a shipping order uses its shipping address.
+    [BindProperty] public ShippingAddressInput BillingAddress { get; set; } = new();
     [BindProperty] public Guid? SelectedAddressId { get; set; }
     [BindProperty]
     [StringLength(80, ErrorMessage = "O rótulo deve ter no máximo 80 caracteres.")]
@@ -90,7 +93,7 @@ public sealed class CheckoutModel(
         if (!AccountLoadedSuccessfully())
         {
             if (AccountWasUnauthorized()) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
-            if (ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, "Complete seu nome e telefone em Minha conta antes de continuar.", StringComparison.Ordinal)) return RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" });
+            if (ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal)) return RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" });
             return Page();
         }
         if (!HasAvailableFulfillment)
@@ -156,7 +159,8 @@ public sealed class CheckoutModel(
             });
         var session = LoadedSession;
         if (session is null || LoadedProfile is null) return AccountFailureResult();
-        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = LoadedProfile.Name!.Trim(), Email = LoadedProfile.Email, Phone = LoadedProfile.Phone!.Trim() }, fulfillment), credentials.IdempotencyKey, credentials.AccessToken, session.Token, cancellationToken);
+        var billingAddress = FulfillmentMethod == "pickup" ? ToCheckoutAddress(BillingAddress) : null;
+        var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = LoadedProfile.Name!.Trim(), Email = LoadedProfile.Email, Phone = LoadedProfile.Phone!.Trim() }, fulfillment, billingAddress), credentials.IdempotencyKey, credentials.AccessToken, session.Token, cancellationToken);
         if (result.State == CheckoutLoadState.Unauthorized)
         {
             accountCookies.Clear();
@@ -227,9 +231,9 @@ public sealed class CheckoutModel(
             LoadedProfile = profile;
             AccountPrefilled = true;
             Contact.Name = profile.Name ?? ""; Contact.Email = profile.Email; Contact.Phone = profile.Phone ?? "";
-            if (string.IsNullOrWhiteSpace(profile.Name) || string.IsNullOrWhiteSpace(profile.Phone))
+            if (string.IsNullOrWhiteSpace(profile.Name) || string.IsNullOrWhiteSpace(profile.Phone) || string.IsNullOrWhiteSpace(profile.Document))
             {
-                AccountMessage = "Complete seu nome e telefone em Minha conta antes de continuar.";
+                AccountMessage = IncompleteProfileMessage;
                 ErrorState = CheckoutLoadState.Validation;
                 ErrorMessage = AccountMessage;
                 return false;
@@ -242,6 +246,7 @@ public sealed class CheckoutModel(
         SavedAddresses = addresses.Value;
         var defaultAddress = SavedAddresses.FirstOrDefault(x => x.IsDefault);
         if (selectDefaultAddress && defaultAddress is not null && string.IsNullOrWhiteSpace(ShippingAddress.Street)) { SelectedAddressId = defaultAddress.PublicAddressId; ApplySelectedAddress(); }
+        if (selectDefaultAddress && defaultAddress is not null && string.IsNullOrWhiteSpace(BillingAddress.Street)) BillingAddress = new() { Street = defaultAddress.Street, Number = defaultAddress.Number, Complement = defaultAddress.Complement ?? "", Neighborhood = defaultAddress.Neighborhood, City = defaultAddress.City, State = defaultAddress.State, PostalCode = defaultAddress.PostalCode };
         return true;
     }
     private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
@@ -249,7 +254,7 @@ public sealed class CheckoutModel(
     private bool AccountWasUnauthorized() => ErrorState == CheckoutLoadState.Unauthorized;
     private IActionResult AccountFailureResult() => AccountWasUnauthorized()
         ? RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" })
-        : ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, "Complete seu nome e telefone em Minha conta antes de continuar.", StringComparison.Ordinal)
+        : ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal)
             ? RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" })
             : Page();
     private static CheckoutLoadState ToCheckoutState(AccountLoadState state) => state switch
@@ -325,6 +330,7 @@ public sealed class CheckoutModel(
         {
             if (Configuration.Configuration?.PickupEnabled != true || Configuration.Configuration.PublicPickupId is null)
                 ModelState.AddModelError(nameof(FulfillmentMethod), "A retirada na loja está temporariamente indisponível.");
+            ValidateAddress(BillingAddress, nameof(BillingAddress), "Informe o endereço de cobrança.");
             return;
         }
         if (FulfillmentMethod != "shipping" || Configuration.Configuration?.ShippingEnabled != true)
@@ -333,14 +339,25 @@ public sealed class CheckoutModel(
             return;
         }
         Required(ShippingAddress.Recipient, "ShippingAddress.Recipient", "Informe o nome de quem receberá o pedido.");
-        Required(ShippingAddress.Street, "ShippingAddress.Street", "Informe o endereço de entrega.");
-        Required(ShippingAddress.Number, "ShippingAddress.Number", "Informe o número do endereço.");
-        Required(ShippingAddress.Neighborhood, "ShippingAddress.Neighborhood", "Informe o bairro.");
-        Required(ShippingAddress.City, "ShippingAddress.City", "Informe a cidade.");
-        if (!BrazilianStates.Contains(Clean(ShippingAddress.State).ToUpperInvariant())) ModelState.AddModelError("ShippingAddress.State", "Informe uma UF brasileira válida.");
-        if (!ValidPostalCode(ShippingAddress.PostalCode)) ModelState.AddModelError("ShippingAddress.PostalCode", "Informe um CEP brasileiro válido.");
+        ValidateAddress(ShippingAddress, nameof(ShippingAddress), "Informe o endereço de entrega.");
         if (!PublicShippingQuoteId.HasValue || PublicShippingQuoteId == Guid.Empty) ModelState.AddModelError(nameof(PublicShippingQuoteId), "Calcule o frete e escolha uma opção de entrega.");
     }
+    private void ValidateAddress(ShippingAddressInput address, string prefix, string streetMessage)
+    {
+        Required(address.Street, $"{prefix}.Street", streetMessage);
+        Required(address.Number, $"{prefix}.Number", "Informe o número do endereço.");
+        Required(address.Neighborhood, $"{prefix}.Neighborhood", "Informe o bairro.");
+        Required(address.City, $"{prefix}.City", "Informe a cidade.");
+        if (!BrazilianStates.Contains(Clean(address.State).ToUpperInvariant())) ModelState.AddModelError($"{prefix}.State", "Informe uma UF brasileira válida.");
+        if (!ValidPostalCode(address.PostalCode)) ModelState.AddModelError($"{prefix}.PostalCode", "Informe um CEP brasileiro válido.");
+    }
+    // The billing address carries the buyer's name, so its recipient comes from the account profile.
+    private CheckoutAddress ToCheckoutAddress(ShippingAddressInput address) => new()
+    {
+        Recipient = LoadedProfile?.Name?.Trim() ?? "", Street = Clean(address.Street), Number = Clean(address.Number),
+        Complement = string.IsNullOrWhiteSpace(address.Complement) ? null : address.Complement.Trim(), Neighborhood = Clean(address.Neighborhood),
+        City = Clean(address.City), State = Clean(address.State).ToUpperInvariant(), PostalCode = Clean(address.PostalCode), CountryCode = "BR"
+    };
     private void Required(string value, string key, string message) { if (string.IsNullOrWhiteSpace(value)) ModelState.AddModelError(key, message); }
     private static bool ValidPostalCode(string? value) => value is not null && value.Count(char.IsAsciiDigit) == 8 && value.All(character => char.IsAsciiDigit(character) || character is '-' or ' ' or '.');
     private static string Clean(string? value) => value?.Trim() ?? "";

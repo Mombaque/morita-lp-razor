@@ -150,6 +150,10 @@
                 <label asp-for="ProfileForm.Phone">Telefone</label>
                 <input asp-for="ProfileForm.Phone" autocomplete="tel">
                 <span asp-validation-for="ProfileForm.Phone" class="validation-error"></span>
+                <label asp-for="ProfileForm.Document">CPF ou CNPJ</label>
+                <input asp-for="ProfileForm.Document" autocomplete="off" inputmode="numeric" placeholder="000.000.000-00">
+                <p class="cart-estimate-note">Usado na nota fiscal das suas compras.</p>
+                <span asp-validation-for="ProfileForm.Document" class="validation-error"></span>
                 <button class="commerce-button commerce-button-primary" type="submit">Salvar perfil</button>
             </form>
         </section>

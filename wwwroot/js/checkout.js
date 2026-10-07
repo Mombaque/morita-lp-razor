@@ -249,6 +249,38 @@ if (form) {
     // A quote rendered by the server already matches the current CEP.
     if (form.querySelector('input[name="PublicShippingQuoteId"]')) quotedPostal = postalDigits();
   }
+  // Pickup orders ask for a billing address for the nota fiscal; the CEP fills it like the shipping address.
+  const billingPostal = form.querySelector('[data-billing-postal-code]');
+  const billingStatus = form.querySelector('[data-billing-cep-status]');
+  let lastBillingLookup = '';
+  const lookupBillingPostalCode = async () => {
+    const digits = (billingPostal?.value ?? '').replace(/\D/g, '').slice(0, 8);
+    if (digits.length !== 8 || digits === lastBillingLookup) return;
+    lastBillingLookup = digits;
+    if (billingStatus) billingStatus.textContent = 'Buscando endereço...';
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { headers: { Accept: 'application/json' } });
+      const address = response.ok ? await response.json() : null;
+      if (!address || address.erro) {
+        if (billingStatus) billingStatus.textContent = 'CEP não encontrado. Confira o número ou preencha o endereço.';
+        return;
+      }
+      setField('BillingAddress.Street', address.logradouro);
+      setField('BillingAddress.Neighborhood', address.bairro);
+      setField('BillingAddress.City', address.localidade);
+      setField('BillingAddress.State', address.uf);
+      if (billingStatus) billingStatus.textContent = `${address.localidade}/${address.uf}`;
+    } catch {
+      if (billingStatus) billingStatus.textContent = '';
+    }
+  };
+  if (billingPostal) {
+    billingPostal.addEventListener('input', () => {
+      const digits = billingPostal.value.replace(/\D/g, '').slice(0, 8);
+      billingPostal.value = formatPostal(digits);
+      lookupBillingPostalCode();
+    });
+  }
   update();
   if (methodInputs.find((input) => input.checked)?.value === 'shipping') scheduleQuote();
 }
