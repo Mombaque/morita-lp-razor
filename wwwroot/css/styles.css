@@ -2151,8 +2151,9 @@ body {
   font-size: 1.55rem;
   letter-spacing: -.02em;
   display: -webkit-box;
+  line-height: 1.05;
   margin: .4rem 0;
-  min-height: 2em;
+  min-height: 2.1em;
   overflow: hidden;
   text-transform: uppercase;
   -webkit-box-orient: vertical;
@@ -2168,6 +2169,9 @@ body {
   font-size: .65rem;
   letter-spacing: .1em;
   margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .commerce-page .product .product-description {
