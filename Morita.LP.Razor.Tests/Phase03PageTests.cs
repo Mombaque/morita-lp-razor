@@ -277,6 +277,25 @@ public sealed class Phase03PageTests
         Assert.Contains("aria-label=\"Próxima imagem\"", html);
         Assert.Contains("aria-pressed=\"true\"", html);
         Assert.Contains("aria-pressed=\"false\"", html);
+        Assert.Contains("data-lightbox-open", html);
+        Assert.Contains("aria-label=\"Ampliar imagem\"", html);
+        Assert.Contains("<dialog class=\"image-lightbox\" data-lightbox", html);
+        Assert.Contains("data-lightbox-prev", html);
+        Assert.Contains("data-lightbox-next", html);
+    }
+
+    [Fact]
+    public async Task Detail_renders_lightbox_without_navigation_for_single_image()
+    {
+        var product = new Product { Slug = "single", Nome = "Single product", Imagens = ["/images/one.jpg"] };
+        using var factory = CreateDetail(product);
+
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products/single")).Content.ReadAsStringAsync());
+
+        Assert.Contains("data-lightbox-open", html);
+        Assert.Contains("data-lightbox-image", html);
+        Assert.DoesNotContain("data-lightbox-prev", html);
+        Assert.DoesNotContain("data-lightbox-next", html);
     }
 
     [Fact]
