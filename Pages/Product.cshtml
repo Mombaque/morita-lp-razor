@@ -49,7 +49,7 @@
                 <div class="detail-main-image" data-gallery>
                     @if (galleryItems.Count > 0) {
                         @if (galleryItems.Count > 1) { <button type="button" class="detail-gallery-control detail-gallery-previous" data-gallery-prev aria-label="Imagem anterior"><span aria-hidden="true">‹</span></button> }
-                        <img id="detail-image" src="@(galleryItems[0].Image)" alt="@p.Nome">
+                        <button type="button" class="detail-zoom-trigger" data-lightbox-open aria-label="Ampliar imagem" aria-haspopup="dialog"><img id="detail-image" src="@(galleryItems[0].Image)" alt="@p.Nome"></button>
                         @if (galleryItems.Count > 1) { <button type="button" class="detail-gallery-control detail-gallery-next" data-gallery-next aria-label="Próxima imagem"><span aria-hidden="true">›</span></button> }
                     } else { <span>Imagem indisponível</span> }
                 </div>
@@ -58,6 +58,22 @@
                         <button type="button" class="detail-thumb @(i == 0 ? "selected" : "")" data-image="@galleryItems[i].Image" data-variant-key="@galleryItems[i].VariantKey" aria-label="Ver imagem @(i + 1)" aria-pressed="@(i == 0 ? "true" : "false")"><img src="@galleryItems[i].Image" alt=""></button>
                     }
                 </div>
+                @if (galleryItems.Count > 0) {
+                    <dialog class="image-lightbox" data-lightbox aria-label="Imagens de @p.Nome">
+                        <button type="button" class="image-lightbox-close" data-lightbox-close aria-label="Fechar">×</button>
+                        <div class="image-lightbox-stage" data-lightbox-stage>
+                            <img src="@(galleryItems[0].Image)" alt="@p.Nome" data-lightbox-image draggable="false">
+                        </div>
+                        @if (galleryItems.Count > 1) {
+                            <button type="button" class="detail-gallery-control detail-gallery-previous image-lightbox-control" data-lightbox-prev aria-label="Imagem anterior"><span aria-hidden="true">‹</span></button>
+                            <button type="button" class="detail-gallery-control detail-gallery-next image-lightbox-control" data-lightbox-next aria-label="Próxima imagem"><span aria-hidden="true">›</span></button>
+                        }
+                        <div class="image-lightbox-footer">
+                            <p class="image-lightbox-counter" data-lightbox-counter aria-live="polite"></p>
+                            <div class="detail-thumbs image-lightbox-thumbs" data-lightbox-thumbs></div>
+                        </div>
+                    </dialog>
+                }
             </section>
             <section class="detail-copy">
                 <p class="taxonomy">@string.Join(" / ", new[] { p.Modality?.Label ?? "Morita", p.Category?.Label, p.Brand?.Label }.Where(label => !string.IsNullOrWhiteSpace(label)))</p>
