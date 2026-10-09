@@ -1,0 +1,18 @@
+@model Morita.LP.Razor.Pages.CheckoutStatusModel
+@using System.Globalization
+@{
+    var client = Model.PaymentClient!;
+    var checkout = Model.Checkout!;
+}
+<div class="embedded-card-panel" data-payment-panel data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()"
+     data-card-form
+     data-provider="@client.ProviderKey"
+     data-public-key="@client.PublicKey"
+     data-amount="@checkout.Total.ToString("0.00", CultureInfo.InvariantCulture)"
+     data-max-installments="@client.MaxInstallments"
+     data-payer-email="@checkout.Contact.Email"
+     data-submit-url="@ViewData["EmbeddedCardUrl"]">
+    <div class="embedded-card-mount" data-card-mount id="embedded-card-mount-@Guid.NewGuid().ToString("N")"></div>
+    <p class="cart-estimate-note" data-card-loading>Carregando o formulário seguro do cartão...</p>
+    <p class="cart-estimate-note">Os dados do cartão são enviados direto ao provedor de pagamento. A Morita recebe apenas uma autorização de uso único.</p>
+</div>

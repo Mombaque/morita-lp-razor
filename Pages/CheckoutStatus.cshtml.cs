@@ -19,6 +19,10 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public bool PixAvailable => OnlinePaymentMethods.Contains(OnlinePaymentMethod.Pix);
     public bool CardAvailable => OnlinePaymentMethods.Contains(OnlinePaymentMethod.Card);
     public bool HasOnlinePaymentMethods => OnlinePaymentMethods.Count > 0;
+    public PaymentClientConfiguration? PaymentClient { get; private set; }
+    public bool EmbeddedPayments => PaymentClient is not null;
+    public bool CanEnterCard => EmbeddedPayments && CardAvailable && Checkout?.Status is ("active" or "paymentpending")
+        && (Payment is null || Payment.IsCard && Payment.Status is ("failed" or "cancelled" or "expired"));
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
     [BindProperty(SupportsGet = true)] public OnlinePaymentMethod PaymentMethod { get; set; } = OnlinePaymentMethod.Pix;
 
@@ -44,6 +48,38 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         var credential = access.Read(PublicCheckoutId);
         if (credential is null) return Inaccessible();
         return await InitiateCardAsync(credential.Token, paymentAttempt.Ensure(PublicCheckoutId).IdempotencyKey, cancellationToken);
+    }
+
+    public async Task<IActionResult> OnPostPayEmbeddedCardAsync([FromBody] EmbeddedCardRequest? request, CancellationToken cancellationToken)
+    {
+        var credential = access.Read(PublicCheckoutId);
+        if (credential is null) return Inaccessible();
+        if (request is null || !request.TryToPayment(out var card))
+        {
+            await LoadOwnedAsync(cancellationToken);
+            Message = "Confira os dados do cartão e tente novamente.";
+            return PaymentFlowFragment();
+        }
+
+        var current = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
+        string idempotencyKey;
+        if (current.State == PaymentLoadState.NotFound)
+        {
+            idempotencyKey = paymentAttempt.Ensure(PublicCheckoutId).IdempotencyKey;
+        }
+        else if (current.State == PaymentLoadState.Success && current.Payment is { Status: "failed" or "cancelled" or "expired" })
+        {
+            idempotencyKey = paymentAttempt.Rotate(PublicCheckoutId).IdempotencyKey;
+        }
+        else
+        {
+            await LoadOwnedAsync(cancellationToken);
+            Message ??= "Já existe um pagamento em andamento para esta reserva.";
+            return PaymentFlowFragment();
+        }
+
+        var result = await client.InitiateEmbeddedCardAsync(PublicCheckoutId, credential.Token, idempotencyKey, card!, cancellationToken);
+        return await CompleteInitiationAsync(result, OnlinePaymentMethod.Card, credential.Token, cancellationToken);
     }
 
     public async Task<IActionResult> OnPostRetryPixAsync(CancellationToken cancellationToken)
@@ -153,9 +189,9 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
 
         await LoadOwnedAsync(cancellationToken);
         PaymentState = result.State;
-        Payment = result.Payment;
+        Payment = result.Payment ?? Payment;
         PaymentMethod = method;
-        Message = result.Message ?? (result.State == PaymentLoadState.Success ? null : PaymentMessage(result.State, method));
+        Message = result.Message ?? (result.State == PaymentLoadState.Success ? FailureMessage(result.Payment) : PaymentMessage(result.State, method));
         return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
     }
 
@@ -275,7 +311,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             {
                 PaymentMethod = AvailableOrDefault(PaymentMethod);
             }
-            Message = PaymentLifecycleMessage(Payment);
+            Message = PaymentLifecycleMessage(Payment) ?? FailureMessage(Payment);
             if (Payment is { PublicOrderNumber: { } number } && Payment.Status == "converted" && orderAccess.Write(number, credential.Token))
             {
                 return RedirectToPage("/Order", new { publicOrderNumber = number });
@@ -290,6 +326,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         OnlinePaymentMethods = configuration.State == CheckoutLoadState.Success
             ? StorefrontOnlinePayments.Normalize(configuration.Configuration?.OnlinePaymentMethods)
             : [OnlinePaymentMethod.Pix];
+        PaymentClient = configuration.Configuration is { EmbeddedPayments: true } loaded ? loaded.PaymentClient : null;
     }
 
     private OnlinePaymentMethod AvailableOrDefault(OnlinePaymentMethod method)
@@ -315,6 +352,8 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
 
     private IActionResult PaymentFlowFragment() => Partial("_CheckoutPaymentFlow", this);
     private IActionResult Inaccessible() { State = CheckoutLoadState.NotFound; Checkout = null; Message = "Esta reserva não está disponível neste dispositivo."; return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page(); }
+    private static string? FailureMessage(PixPayment? payment) =>
+        payment is { Embedded: true, IsCard: true, Status: "failed" } ? EmbeddedCardFailureMessages.For(payment.FailureReason) : null;
     private static string? PaymentLifecycleMessage(PixPayment? payment) => payment?.Status == "cancellationpending" ? "Estamos confirmando o cancelamento do pagamento. Aguarde a atualização; não é necessário tentar cancelar novamente." : null;
     private static string PaymentMessage(PaymentLoadState state, OnlinePaymentMethod? method = null) => state switch
     {

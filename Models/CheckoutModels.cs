@@ -26,9 +26,31 @@ public sealed class PixPayment
     public string QrCodePngDataUri { get; init; } = "";
     public string? CheckoutUrl { get; init; }
     public string? PublicOrderNumber { get; init; }
+    public bool Embedded { get; init; }
+    public PaymentChallenge? Challenge { get; init; }
+    public int? Installments { get; init; }
+    public string? FailureReason { get; init; }
 
     public bool IsPix => Method == OnlinePaymentMethod.Pix;
     public bool IsCard => Method == OnlinePaymentMethod.Card;
+}
+
+public sealed record PaymentChallenge(string Url, string Creq);
+
+public sealed record EmbeddedCardPayment(
+    string Token,
+    string PaymentMethodId,
+    string? IssuerId,
+    int Installments,
+    string PayerEmail,
+    string IdentificationType,
+    string IdentificationNumber);
+
+public sealed class PaymentClientConfiguration
+{
+    public string ProviderKey { get; init; } = "";
+    public string? PublicKey { get; init; }
+    public int MaxInstallments { get; init; } = 1;
 }
 
 public enum OrderLoadState { Success, NotFound, Unauthorized, Unavailable, Timeout, Malformed }
@@ -88,6 +110,8 @@ public sealed class CheckoutConfiguration
     public string Currency { get; init; } = "BRL";
     public PickupSnapshot? Pickup { get; init; }
     public IReadOnlyList<OnlinePaymentMethod> OnlinePaymentMethods { get; init; } = [];
+    public bool EmbeddedPayments { get; init; }
+    public PaymentClientConfiguration? PaymentClient { get; init; }
 }
 
 public sealed class CheckoutResponse

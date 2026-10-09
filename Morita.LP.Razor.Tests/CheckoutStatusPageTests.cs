@@ -529,6 +529,86 @@ public sealed class CheckoutStatusPageTests
         Assert.Equal(1, api.PaymentCancelCount);
     }
 
+    private static EmbeddedCardRequest ValidCardRequest() => new() { Token = "fake_tok_approve_1", PaymentMethodId = "visa", Installments = 2, PayerEmail = "a@a.com", IdentificationType = "cpf", IdentificationNumber = "529.982.247-25" };
+
+    private static CheckoutConfigurationResult EmbeddedConfiguration() => new(CheckoutLoadState.Success, new CheckoutConfiguration { OnlinePaymentMethods = [OnlinePaymentMethod.Pix, OnlinePaymentMethod.Card], EmbeddedPayments = true, PaymentClient = new PaymentClientConfiguration { ProviderKey = "fake", MaxInstallments = 6 } });
+
+    [Fact]
+    public async Task Embedded_card_converted_returns_order_redirect_json()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "active"),
+            Configuration = EmbeddedConfiguration(),
+            EmbeddedCardInitiation = new(PaymentLoadState.Success, new PixPayment { Status = "converted", Method = OnlinePaymentMethod.Card, Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5), Embedded = true, PublicOrderNumber = "MF-ABC123" })
+        };
+        var order = new FakeOrderAccess();
+        var page = Create(id, api, order, ajax: true);
+
+        var result = await page.OnPostPayEmbeddedCardAsync(ValidCardRequest(), CancellationToken.None);
+
+        Assert.IsType<JsonResult>(result);
+        Assert.Equal("MF-ABC123", order.Number);
+        Assert.Equal(new string('i', 32), api.LastInitiationKey);
+        Assert.Equal("CPF", api.LastEmbeddedCard!.IdentificationType);
+        Assert.Equal("52998224725", api.LastEmbeddedCard.IdentificationNumber);
+    }
+
+    [Fact]
+    public async Task Embedded_card_after_failed_payment_rotates_attempt_key()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Configuration = EmbeddedConfiguration(),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "failed", Method = OnlinePaymentMethod.Card, Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5), Embedded = true, FailureReason = "insufficient_funds" }),
+            EmbeddedCardInitiation = new(PaymentLoadState.Success, new PixPayment { Status = "failed", Method = OnlinePaymentMethod.Card, Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5), Embedded = true, FailureReason = "card_rejected" })
+        };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnPostPayEmbeddedCardAsync(ValidCardRequest(), CancellationToken.None);
+
+        Assert.IsType<PartialViewResult>(result);
+        Assert.Equal(new string('r', 32), api.LastInitiationKey);
+        Assert.Equal(EmbeddedCardFailureMessages.For("card_rejected"), page.Message);
+        Assert.True(page.CanEnterCard);
+    }
+
+    [Fact]
+    public async Task Embedded_card_is_not_submitted_while_a_payment_is_pending()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Configuration = EmbeddedConfiguration(),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "pending", Method = OnlinePaymentMethod.Card, Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5), Embedded = true })
+        };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnPostPayEmbeddedCardAsync(ValidCardRequest(), CancellationToken.None);
+
+        Assert.IsType<PartialViewResult>(result);
+        Assert.Equal(0, api.CardInitiationCount);
+        Assert.False(page.CanEnterCard);
+    }
+
+    [Fact]
+    public async Task Embedded_card_with_invalid_payload_is_not_submitted()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout { Checkout = Checkout(id, "active"), Configuration = EmbeddedConfiguration() };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnPostPayEmbeddedCardAsync(new EmbeddedCardRequest { Token = "x", Installments = 1 }, CancellationToken.None);
+
+        Assert.IsType<PartialViewResult>(result);
+        Assert.Equal(0, api.CardInitiationCount);
+        Assert.Equal("Confira os dados do cartão e tente novamente.", page.Message);
+    }
+
     private static CheckoutStatusModel Create(Guid id, FakeCheckout api, FakeOrderAccess order, FakeCart? cart = null, FakeAttempt? attempt = null, bool ajax = false)
     {
         var context = new DefaultHttpContext
@@ -563,6 +643,9 @@ public sealed class CheckoutStatusPageTests
         public Task<CheckoutResult> CancelAsync(Guid i, string a, CancellationToken c = default) { CheckoutCancelCount++; return Task.FromResult(new CheckoutResult(CheckoutLoadState.Success, null)); }
         public Task<PaymentResult> InitiatePixAsync(Guid i, string a, string k, CancellationToken c = default) { InitiationCount++; LastInitiationKey = k; return Task.FromResult(Initiation); }
         public Task<PaymentResult> InitiateCardAsync(Guid i, string a, string k, CancellationToken c = default) { CardInitiationCount++; LastInitiationKey = k; return Task.FromResult(CardInitiation); }
+        public PaymentResult EmbeddedCardInitiation = PaymentResult.Failure(PaymentLoadState.Unavailable);
+        public EmbeddedCardPayment? LastEmbeddedCard;
+        public Task<PaymentResult> InitiateEmbeddedCardAsync(Guid i, string a, string k, EmbeddedCardPayment card, CancellationToken c = default) { CardInitiationCount++; LastInitiationKey = k; LastEmbeddedCard = card; return Task.FromResult(EmbeddedCardInitiation); }
         public Task<PaymentResult> GetPaymentAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(Payment);
         public Task<PaymentResult> CancelPaymentAsync(Guid i, string a, CancellationToken c = default) { PaymentCancelCount++; return Task.FromResult(PaymentResult.Failure(PaymentLoadState.Success)); }
     }

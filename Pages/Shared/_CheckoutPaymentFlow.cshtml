@@ -1,4 +1,7 @@
 @model Morita.LP.Razor.Pages.CheckoutStatusModel
+@{
+    var embeddedCardUrl = Url.Page("/CheckoutStatus", "PayEmbeddedCard", new { publicCheckoutId = Model.PublicCheckoutId });
+}
 
 <div data-payment-flow>
     @if (Model.Checkout is null)
@@ -30,7 +33,7 @@
                     }
                     else if (Model.CardAvailable)
                     {
-                        <p>Faça o pagamento com cartão para concluir o pedido. O número do cartão não é enviado à Morita.</p>
+                        <p>@(Model.EmbeddedPayments ? "Informe os dados do cartão abaixo para concluir o pedido." : "Faça o pagamento com cartão para concluir o pedido. O número do cartão não é enviado à Morita.")</p>
                     }
                     else
                     {
@@ -48,7 +51,7 @@
                             </label>
                             <label class="fulfillment-choice">
                                 <input type="radio" name="paymentMethod" value="@OnlinePaymentMethod.Card.ToWireValue()" checked="@(Model.PaymentMethod == OnlinePaymentMethod.Card ? "checked" : null)" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
-                                <span><strong>Cartão</strong><small>Pague na página da operadora</small></span>
+                                <span><strong>Cartão</strong><small>@(Model.EmbeddedPayments ? "Crédito, aqui mesmo na loja" : "Pague na página da operadora")</small></span>
                             </label>
                         </fieldset>
                     }
@@ -58,7 +61,11 @@
                             <button class="commerce-button commerce-button-primary" type="submit">Pagar com PIX</button>
                         </form>
                     }
-                    @if (Model.CardAvailable)
+                    @if (Model.CardAvailable && Model.CanEnterCard)
+                    {
+                        <partial name="_EmbeddedCardPanel" model="Model" view-data='@(new ViewDataDictionary(ViewData) { ["EmbeddedCardUrl"] = embeddedCardUrl })' />
+                    }
+                    else if (Model.CardAvailable)
                     {
                         <form method="post" asp-page-handler="PayCard" data-payment-action="pay" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
                             <p class="cart-estimate-note">Você será enviado para a página de pagamento. O cartão é informado lá, não nesta loja.</p>
@@ -116,11 +123,26 @@
                         </div>
                     </div>
                 }
-                @if (!terminal && payment.IsCard && payment.Status is ("pending" or "processing" or "approved" or "conversionpending"))
+                @if (!terminal && payment.IsCard && payment.Challenge is { } challenge)
+                {
+                    <div class="card-payment-challenge" data-card-challenge data-challenge-url="@challenge.Url" data-challenge-creq="@challenge.Creq">
+                        <p class="pix-instructions-title">Confirme a compra com o seu banco</p>
+                        <p class="cart-estimate-note">O banco emissor pediu uma verificação. Conclua abaixo; esta tela confirma o pedido automaticamente.</p>
+                    </div>
+                }
+                else if (!terminal && payment.IsCard && payment.Status is ("pending" or "processing" or "approved" or "conversionpending"))
                 {
                     <div class="card-payment-pending">
-                        <p class="pix-instructions-title">Aguardando a operadora</p>
+                        <p class="pix-instructions-title">@(payment.Embedded ? "Processando o pagamento" : "Aguardando a operadora")</p>
+                        @if (payment.Embedded)
+                        {
+                            <p class="cart-estimate-note" role="status">Estamos confirmando o pagamento com o emissor do cartão. Esta tela atualiza sozinha.</p>
+                        }
                     </div>
+                }
+                @if (payment.IsCard && payment.Installments is > 1 && payment.Status is not ("failed" or "cancelled" or "expired"))
+                {
+                    <p class="cart-estimate-note" data-card-installments>Parcelado em @(payment.Installments)x no cartão.</p>
                 }
                 @if (canCancelPayment)
                 {
@@ -138,7 +160,11 @@
                         </form>
                     </div>
                 }
-                @if (canRetryPayment && payment.IsCard)
+                @if (canRetryPayment && payment.IsCard && Model.CanEnterCard)
+                {
+                    <partial name="_EmbeddedCardPanel" model="Model" view-data='@(new ViewDataDictionary(ViewData) { ["EmbeddedCardUrl"] = embeddedCardUrl })' />
+                }
+                else if (canRetryPayment && payment.IsCard)
                 {
                     <div class="checkout-status-actions">
                         <form method="post" asp-page-handler="RetryCard" data-payment-action="retry" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">

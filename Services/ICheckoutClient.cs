@@ -13,6 +13,7 @@ public interface ICheckoutClient
     Task<CheckoutResult> CancelAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default);
     Task<PaymentResult> InitiatePixAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, CancellationToken cancellationToken = default) => Task.FromResult(PaymentResult.Failure(PaymentLoadState.Unavailable));
     Task<PaymentResult> InitiateCardAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, CancellationToken cancellationToken = default) => Task.FromResult(PaymentResult.Failure(PaymentLoadState.Unavailable));
+    Task<PaymentResult> InitiateEmbeddedCardAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, EmbeddedCardPayment card, CancellationToken cancellationToken = default) => Task.FromResult(PaymentResult.Failure(PaymentLoadState.Unavailable));
     Task<PaymentResult> GetPaymentAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(PaymentResult.Failure(PaymentLoadState.NotFound));
     Task<PaymentResult> CancelPaymentAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default) => Task.FromResult(PaymentResult.Failure(PaymentLoadState.Unavailable));
 }

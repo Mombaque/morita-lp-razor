@@ -20,6 +20,8 @@ public sealed class CheckoutClient(
     {
         var result = await SendAsync<ConfigurationDto>(HttpMethod.Get, "v1/storefront/checkout/configuration", null, null, cancellationToken);
         if (result.State != CheckoutLoadState.Success || result.Value is null || !ValidConfiguration(result.Value)) return CheckoutConfigurationResult.Failure(result.State == CheckoutLoadState.Success ? CheckoutLoadState.Malformed : result.State);
+        var paymentClient = MapPaymentClient(result.Value.OnlinePaymentClient);
+        var embedded = string.Equals(result.Value.OnlinePaymentCheckoutMode, "embedded", StringComparison.OrdinalIgnoreCase) && paymentClient is not null;
         return new(CheckoutLoadState.Success, new()
         {
             PickupEnabled = result.Value.PickupEnabled,
@@ -27,7 +29,9 @@ public sealed class CheckoutClient(
             PublicPickupId = result.Value.PublicPickupId,
             Currency = result.Value.Currency!,
             Pickup = result.Value.Pickup is null ? null : Map(result.Value.Pickup),
-            OnlinePaymentMethods = StorefrontOnlinePayments.Normalize(result.Value.OnlinePaymentMethods)
+            OnlinePaymentMethods = StorefrontOnlinePayments.Normalize(result.Value.OnlinePaymentMethods),
+            EmbeddedPayments = embedded,
+            PaymentClient = embedded ? paymentClient : null
         });
     }
 
@@ -97,6 +101,32 @@ public sealed class CheckoutClient(
         return MapInitiation(result, OnlinePaymentMethod.Card);
     }
 
+    public async Task<PaymentResult> InitiateEmbeddedCardAsync(Guid publicCheckoutId, string accessToken, string idempotencyKey, EmbeddedCardPayment card, CancellationToken cancellationToken = default)
+    {
+        var body = new
+        {
+            method = OnlinePaymentMethod.Card,
+            card = new
+            {
+                token = card.Token,
+                paymentMethodId = card.PaymentMethodId,
+                issuerId = card.IssuerId,
+                installments = card.Installments,
+                payerEmail = card.PayerEmail,
+                identificationType = card.IdentificationType,
+                identificationNumber = card.IdentificationNumber
+            }
+        };
+        var result = await SendAsync<PaymentDto>(
+            HttpMethod.Post,
+            $"v1/storefront/checkouts/{publicCheckoutId:D}/payments/card",
+            body,
+            ("Idempotency-Key", idempotencyKey),
+            cancellationToken,
+            accessToken);
+        return MapInitiation(result, OnlinePaymentMethod.Card);
+    }
+
     public async Task<PaymentResult> GetPaymentAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken = default)
     {
         var result = await SendAsync<PaymentDto>(HttpMethod.Get, $"v1/storefront/checkouts/{publicCheckoutId:D}/payment", null, null, cancellationToken, accessToken);
@@ -151,14 +181,24 @@ public sealed class CheckoutClient(
         var status = x.Status?.Trim().ToLowerInvariant();
         var method = x.Method ?? OnlinePaymentMethod.Pix;
         var isCard = method == OnlinePaymentMethod.Card;
+        var embedded = string.Equals(x.CheckoutMode, "embedded", StringComparison.OrdinalIgnoreCase);
         var checkoutUrl = string.IsNullOrWhiteSpace(x.CheckoutUrl) ? null : x.CheckoutUrl.Trim();
         var hosted = checkoutUrl is not null;
-        if (hosted && !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
+        if (hosted && (embedded || !StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl)))
+            return false;
+        PaymentChallenge? challenge = null;
+        if (x.Challenge is not null)
+        {
+            if (!embedded || !isCard || status != "pending" || !EmbeddedCardChallenge.IsAllowed(x.Challenge.Url, x.Challenge.Creq))
+                return false;
+            challenge = new PaymentChallenge(x.Challenge.Url!.Trim(), x.Challenge.Creq!.Trim());
+        }
+        if (x.Installments is < 1 or > 24 || x.FailureReason is { Length: > 64 })
             return false;
         if (!isCard && !hosted)
             checkoutUrl = null;
         var needsPix = status == "pending" && !isCard && checkoutUrl is null;
-        var needsCheckoutUrl = status == "pending" && (isCard || checkoutUrl is not null);
+        var needsCheckoutUrl = status == "pending" && !embedded && (isCard || checkoutUrl is not null);
         var terminal = status is "converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded";
         byte[] bytes = [];
         var validQr = string.IsNullOrWhiteSpace(x.QrCodePngBase64) || TryPng(x.QrCodePngBase64, out bytes) && bytes.Length <= 2 * 1024 * 1024;
@@ -178,7 +218,11 @@ public sealed class CheckoutClient(
             PixCopyPaste = isCard || hosted ? "" : x.PixCopyPaste?.Trim() ?? "",
             QrCodePngDataUri = isCard || hosted || qr.Length == 0 ? "" : "data:image/png;base64," + qr,
             CheckoutUrl = checkoutUrl,
-            PublicOrderNumber = x.PublicOrderNumber?.Trim().ToUpperInvariant()
+            PublicOrderNumber = x.PublicOrderNumber?.Trim().ToUpperInvariant(),
+            Embedded = embedded,
+            Challenge = challenge,
+            Installments = x.Installments,
+            FailureReason = status == "failed" ? x.FailureReason?.Trim() : null
         };
         return true;
     }
@@ -217,6 +261,15 @@ public sealed class CheckoutClient(
         catch (OperationCanceledException) when (!callerToken.IsCancellationRequested) { logger.LogWarning("Checkout API request timed out"); return new(null, CheckoutLoadState.Timeout, default, "A confirmação demorou. Seus dados foram preservados; tente novamente."); }
         catch (HttpRequestException exception) { logger.LogWarning(exception, "Checkout API unavailable"); return new(null, CheckoutLoadState.Unavailable, default, "Não foi possível acessar o serviço. Tente novamente."); }
         catch (JsonException exception) { logger.LogWarning(exception, "Checkout API response malformed"); return new(null, CheckoutLoadState.Malformed, default, "A resposta do serviço não pôde ser validada."); }
+    }
+
+    private static PaymentClientConfiguration? MapPaymentClient(PaymentClientDto? x)
+    {
+        var providerKey = x?.ProviderKey?.Trim().ToLowerInvariant();
+        if (x is null || providerKey is not ("mercadopago" or "fake") || x.MaxInstallments is < 1 or > 24) return null;
+        var publicKey = x.PublicKey?.Trim();
+        if (providerKey == "mercadopago" && (string.IsNullOrWhiteSpace(publicKey) || publicKey.Length > 200 || !publicKey.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))) return null;
+        return new() { ProviderKey = providerKey, PublicKey = providerKey == "mercadopago" ? publicKey : null, MaxInstallments = x.MaxInstallments };
     }
 
     private static bool ValidConfiguration(ConfigurationDto x) => Currency(x.Currency) && (!x.PickupEnabled || x.PublicPickupId is not null && x.PublicPickupId != Guid.Empty && x.Pickup is not null && ValidPickup(x.Pickup));
@@ -275,13 +328,15 @@ public sealed class CheckoutClient(
     private sealed class LineRequestDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } }
     private sealed class ContactDto { public string? Name { get; set; } public string? Email { get; set; } public string? Phone { get; set; } }
     private sealed class FulfillmentDto { public string? Method { get; set; } public Guid PublicPickupId { get; set; } public Guid PublicShippingQuoteId { get; set; } public AddressDto? ShippingAddress { get; set; } }
-    private sealed class ConfigurationDto { public bool PickupEnabled { get; set; } public bool ShippingEnabled { get; set; } public Guid? PublicPickupId { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } public List<string>? OnlinePaymentMethods { get; set; } }
+    private sealed class ConfigurationDto { public bool PickupEnabled { get; set; } public bool ShippingEnabled { get; set; } public Guid? PublicPickupId { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } public List<string>? OnlinePaymentMethods { get; set; } public string? OnlinePaymentCheckoutMode { get; set; } public PaymentClientDto? OnlinePaymentClient { get; set; } }
+    private sealed class PaymentClientDto { public string? ProviderKey { get; set; } public string? PublicKey { get; set; } public int MaxInstallments { get; set; } }
+    private sealed class ChallengeDto { public string? Url { get; set; } public string? Creq { get; set; } }
     private sealed class PickupDto { public Guid PublicPickupId { get; set; } public string? DisplayName { get; set; } public AddressDto? Address { get; set; } public string? Hours { get; set; } public string? Instructions { get; set; } }
     private sealed class AddressDto { public string? Recipient { get; set; } public string? Street { get; set; } public string? Number { get; set; } public string? Complement { get; set; } public string? Neighborhood { get; set; } public string? City { get; set; } public string? State { get; set; } public string? PostalCode { get; set; } public string? CountryCode { get; set; } }
     private sealed class ShippingDto { public string? CarrierName { get; set; } public string? ServiceName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } public AddressDto? Address { get; set; } }
     private sealed class ResponseDto { public Guid PublicCheckoutId { get; set; } public string? Status { get; set; } public DateTimeOffset ExpiresAt { get; set; } public DateTimeOffset AccessExpiresAt { get; set; } public List<LineDto>? Lines { get; set; } public decimal MerchandiseTotal { get; set; } public decimal DiscountTotal { get; set; } public decimal FreightTotal { get; set; } public decimal Total { get; set; } public string? Currency { get; set; } public string? FulfillmentMethod { get; set; } public PickupDto? Pickup { get; set; } public ShippingDto? Shipping { get; set; } public ContactDto? Contact { get; set; } }
     private sealed class LineDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } public string? Presentation { get; set; } public string? ImageUrl { get; set; } public decimal UnitPrice { get; set; } public decimal LineTotal { get; set; } }
-    private sealed class PaymentDto { public string? Status { get; set; } public OnlinePaymentMethod? Method { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? CheckoutUrl { get; set; } public string? PublicOrderNumber { get; set; } }
+    private sealed class PaymentDto { public string? Status { get; set; } public OnlinePaymentMethod? Method { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? CheckoutUrl { get; set; } public string? PublicOrderNumber { get; set; } public string? CheckoutMode { get; set; } public ChallengeDto? Challenge { get; set; } public int? Installments { get; set; } public string? FailureReason { get; set; } }
     private sealed class ShippingQuoteRequestDto { public List<LineRequestDto> Lines { get; set; } = []; public string DestinationPostalCode { get; set; } = ""; }
     private sealed class ShippingQuoteDto { public DateTimeOffset ExpiresAt { get; set; } public string? Currency { get; set; } public List<ShippingQuoteOptionDto>? Options { get; set; } }
     private sealed class ShippingQuoteOptionDto { public Guid PublicShippingQuoteId { get; set; } public string? ServiceName { get; set; } public string? CarrierName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } }

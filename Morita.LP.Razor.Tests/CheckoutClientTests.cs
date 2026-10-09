@@ -166,6 +166,70 @@ public sealed class CheckoutClientTests
     }
 
     [Fact]
+    public async Task Configuration_maps_embedded_mode_and_payment_client()
+    {
+        var result = await Create(new RecordingHandler("{\"pickupEnabled\":false,\"shippingEnabled\":true,\"currency\":\"BRL\",\"onlinePaymentMethods\":[\"pix\",\"card\"],\"onlinePaymentCheckoutMode\":\"Embedded\",\"onlinePaymentClient\":{\"providerKey\":\"mercadopago\",\"publicKey\":\"TEST-abc-123\",\"maxInstallments\":6}}"))
+            .GetConfigurationAsync();
+
+        Assert.True(result.Configuration!.EmbeddedPayments);
+        Assert.Equal("mercadopago", result.Configuration.PaymentClient!.ProviderKey);
+        Assert.Equal("TEST-abc-123", result.Configuration.PaymentClient.PublicKey);
+        Assert.Equal(6, result.Configuration.PaymentClient.MaxInstallments);
+    }
+
+    [Theory]
+    [InlineData("{\"providerKey\":\"unknown\",\"maxInstallments\":6}")]
+    [InlineData("{\"providerKey\":\"mercadopago\",\"maxInstallments\":6}")]
+    [InlineData("{\"providerKey\":\"mercadopago\",\"publicKey\":\"<script>\",\"maxInstallments\":6}")]
+    [InlineData("{\"providerKey\":\"fake\",\"maxInstallments\":30}")]
+    public async Task Configuration_falls_back_to_hosted_when_payment_client_is_invalid(string client)
+    {
+        var result = await Create(new RecordingHandler("{\"pickupEnabled\":false,\"shippingEnabled\":true,\"currency\":\"BRL\",\"onlinePaymentMethods\":[\"card\"],\"onlinePaymentCheckoutMode\":\"Embedded\",\"onlinePaymentClient\":" + client + "}"))
+            .GetConfigurationAsync();
+
+        Assert.False(result.Configuration!.EmbeddedPayments);
+        Assert.Null(result.Configuration.PaymentClient);
+    }
+
+    [Fact]
+    public async Task Embedded_card_initiation_sends_only_the_token_payload_and_maps_pending_without_url()
+    {
+        var id = Guid.NewGuid();
+        var handler = new RecordingHandler(JsonSerializer.Serialize(new { status = "pending", method = "card", amount = 10.00m, currency = "BRL", expiresAt = DateTimeOffset.UtcNow.AddMinutes(10), checkoutMode = "Embedded", installments = 3 }));
+        var card = new EmbeddedCardPayment("tok_123456789", "visa", "25", 3, "buyer@example.com", "CPF", "52998224725");
+
+        var result = await Create(handler).InitiateEmbeddedCardAsync(id, new string('a', 32), new string('i', 32), card);
+
+        Assert.Equal(PaymentLoadState.Success, result.State);
+        Assert.True(result.Payment!.Embedded);
+        Assert.Null(result.Payment.CheckoutUrl);
+        Assert.Equal(3, result.Payment.Installments);
+        Assert.Equal($"https://api.test/v1/storefront/checkouts/{id:D}/payments/card", handler.Request!.RequestUri!.ToString());
+        Assert.Contains("\"token\":\"tok_123456789\"", handler.Body);
+        Assert.Contains("\"installments\":3", handler.Body);
+        Assert.Contains("\"identificationNumber\":\"52998224725\"", handler.Body);
+    }
+
+    [Fact]
+    public async Task Embedded_payment_rejects_hosted_url_and_maps_failure_and_challenge()
+    {
+        var expires = DateTimeOffset.UtcNow.AddMinutes(10);
+        var withUrl = await Create(new RecordingHandler(JsonSerializer.Serialize(new { status = "pending", method = "card", amount = 10.00m, currency = "BRL", expiresAt = expires, checkoutMode = "Embedded", checkoutUrl = HostedCheckoutUrl })))
+            .GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        var failed = await Create(new RecordingHandler(JsonSerializer.Serialize(new { status = "failed", method = "card", amount = 10.00m, currency = "BRL", expiresAt = expires, checkoutMode = "Embedded", failureReason = "insufficient_funds" })))
+            .GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        var challenge = await Create(new RecordingHandler(JsonSerializer.Serialize(new { status = "pending", method = "card", amount = 10.00m, currency = "BRL", expiresAt = expires, checkoutMode = "Embedded", challenge = new { url = "https://acs.example/challenge", creq = "creq" } })))
+            .GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        var insecureChallenge = await Create(new RecordingHandler(JsonSerializer.Serialize(new { status = "pending", method = "card", amount = 10.00m, currency = "BRL", expiresAt = expires, checkoutMode = "Embedded", challenge = new { url = "http://acs.example/challenge", creq = "creq" } })))
+            .GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+
+        Assert.Equal(PaymentLoadState.Malformed, withUrl.State);
+        Assert.Equal("insufficient_funds", failed.Payment!.FailureReason);
+        Assert.Equal(new PaymentChallenge("https://acs.example/challenge", "creq"), challenge.Payment!.Challenge);
+        Assert.Equal(PaymentLoadState.Malformed, insecureChallenge.State);
+    }
+
+    [Fact]
     public async Task Cancel_maps_no_content_to_success()
     {
         var result = await Create(new RecordingHandler(HttpStatusCode.NoContent))
