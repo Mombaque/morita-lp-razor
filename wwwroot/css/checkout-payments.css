@@ -34,6 +34,45 @@
   margin: .6rem 0 0;
 }
 
+.embedded-card-panel {
+  display: grid;
+  gap: .75rem;
+  width: 100%;
+  min-width: 0;
+}
+
+.embedded-card-panel[hidden] {
+  display: none;
+}
+
+.embedded-card-mount {
+  min-height: 4rem;
+  min-width: 0;
+}
+
+.fake-card-form {
+  display: grid;
+  gap: .75rem;
+}
+
+.card-payment-challenge {
+  margin: 1.25rem 0 0;
+}
+
+.card-payment-challenge p {
+  color: var(--fight-muted);
+  line-height: 1.55;
+}
+
+.card-challenge-frame {
+  background: #fff;
+  border: 0;
+  height: 520px;
+  margin-top: .75rem;
+  max-width: 100%;
+  width: 100%;
+}
+
 @media (max-width: 520px) {
   .payment-method-switch {
     grid-template-columns: 1fr;

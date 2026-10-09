@@ -155,7 +155,7 @@
                     <input asp-for="PaymentMethod" type="radio" value="@OnlinePaymentMethod.Card.ToWireValue()" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
                     <span>
                       <strong>Cartão</strong>
-                      <small>Você paga na página da operadora. O número do cartão não é enviado à Morita.</small>
+                      <small>@(Model.EmbeddedPayments ? $"Crédito em até {Model.MaxInstallments}x, aqui mesmo na loja. Os dados do cartão são protegidos pelo provedor de pagamento." : "Você paga na página da operadora. O número do cartão não é enviado à Morita.")</small>
                       @if (Environment.IsDevelopment()) { <em>Ambiente de teste</em> }
                     </span>
                   </label>

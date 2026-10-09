@@ -52,6 +52,8 @@ public sealed class CheckoutModel(
     public bool PixAvailable => AvailablePaymentMethods.Contains(OnlinePaymentMethod.Pix);
     public bool CardAvailable => AvailablePaymentMethods.Contains(OnlinePaymentMethod.Card);
     public bool HasOnlinePaymentMethods => AvailablePaymentMethods.Count > 0;
+    public bool EmbeddedPayments => Configuration.Configuration?.EmbeddedPayments == true;
+    public int MaxInstallments => Configuration.Configuration?.PaymentClient?.MaxInstallments ?? 1;
     public string ContinueLabel => StorefrontOnlinePayments.ContinueLabel(PaymentMethod);
     public bool Empty => Cart.Lines.Count == 0;
     public bool HasAvailableFulfillment => Configuration.State == CheckoutLoadState.Success &&
@@ -302,6 +304,7 @@ public sealed class CheckoutModel(
     private async Task<IActionResult?> StartPaymentAsync(Guid publicCheckoutId, string accessToken, CancellationToken cancellationToken)
     {
         if (paymentAttempt is null || !HasOnlinePaymentMethods) return null;
+        if (EmbeddedPayments && SelectedPaymentMethod() == OnlinePaymentMethod.Card) return null;
         var idempotencyKey = paymentAttempt.Ensure(publicCheckoutId).IdempotencyKey;
         var result = SelectedPaymentMethod() == OnlinePaymentMethod.Card
             ? await checkout.InitiateCardAsync(publicCheckoutId, accessToken, idempotencyKey, cancellationToken)
