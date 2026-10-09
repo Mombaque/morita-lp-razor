@@ -138,6 +138,7 @@ public sealed class CheckoutModel(
         if (accountCookies.Read() is null) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         await LoadConfigurationAsync(cancellationToken);
         if (!await LoadAccountAsync(cancellationToken)) return AccountFailureResult();
+        if (ProfileNeedsCompletion()) return RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" });
         if (FulfillmentMethod == "shipping" && Configuration.Configuration?.ShippingEnabled != true)
         {
             ErrorState = CheckoutLoadState.Unavailable;
@@ -233,12 +234,11 @@ public sealed class CheckoutModel(
             LoadedProfile = profile;
             AccountPrefilled = true;
             Contact.Name = profile.Name ?? ""; Contact.Email = profile.Email; Contact.Phone = profile.Phone ?? "";
-            if (string.IsNullOrWhiteSpace(profile.Name) || string.IsNullOrWhiteSpace(profile.Phone) || string.IsNullOrWhiteSpace(profile.Document))
+            if (ProfileNeedsCompletion())
             {
                 AccountMessage = IncompleteProfileMessage;
                 ErrorState = CheckoutLoadState.Validation;
                 ErrorMessage = AccountMessage;
-                return false;
             }
         }
         else { ErrorState = ToCheckoutState(result.State); if (result.State == AccountLoadState.Unauthorized) accountCookies.Clear(); AccountMessage = result.Message ?? "Não foi possível validar sua conta. Tente novamente."; ErrorMessage = AccountMessage; return false; }
@@ -252,6 +252,10 @@ public sealed class CheckoutModel(
         return true;
     }
     private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
+    private bool ProfileNeedsCompletion() =>
+        string.IsNullOrWhiteSpace(LoadedProfile?.Name)
+        || string.IsNullOrWhiteSpace(LoadedProfile?.Phone)
+        || string.IsNullOrWhiteSpace(LoadedProfile?.Document);
     private IActionResult QuoteShippingResult() => IsQuoteFragmentRequest ? Partial("_CheckoutShippingQuote", this) : Page();
     private bool AccountWasUnauthorized() => ErrorState == CheckoutLoadState.Unauthorized;
     private IActionResult AccountFailureResult() => AccountWasUnauthorized()

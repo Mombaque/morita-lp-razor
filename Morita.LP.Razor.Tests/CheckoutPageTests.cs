@@ -464,6 +464,65 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public async Task Checkout_shows_saved_addresses_when_the_profile_has_no_document()
+    {
+        var offer = Guid.NewGuid();
+        var homeId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var account = new RecordingAccount
+        {
+            ProfileResult = new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999" }),
+            AddressesResult = new AccountResult<IReadOnlyList<CustomerAccountAddress>>(AccountLoadState.Success, [
+                new() { PublicAddressId = homeId, Label = "Casa", Recipient = "Customer", Street = "Rua Amorita", Number = "69", Neighborhood = "Vila Samora", City = "Sorocaba", State = "SP", PostalCode = "18000000", IsDefault = true },
+                new() { PublicAddressId = workId, Label = "Trabalho", Recipient = "Customer", Street = "Rua Periquito", Number = "12", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18120001" }
+            ])
+        };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, ShippingEnabled = true, PublicPickupId = Guid.NewGuid(), Currency = "BRL" });
+
+        var result = await page.OnGetAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal([homeId, workId], page.SavedAddresses.Select(address => address.PublicAddressId));
+        Assert.Equal(homeId, page.SelectedAddressId);
+        Assert.Equal("Rua Amorita", page.ShippingAddress.Street);
+        Assert.Equal("Complete seu nome, telefone e CPF ou CNPJ em Minha conta antes de continuar.", page.AccountMessage);
+    }
+
+    [Fact]
+    public async Task Shipping_quote_still_runs_when_the_profile_has_no_document()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            ShippingQuote = new(CheckoutLoadState.Success, new ShippingQuote
+            {
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+                Options = [new() { PublicShippingQuoteId = Guid.NewGuid(), ServiceName = "PAC", CarrierName = "Correios", Price = 18, MinimumDeliveryDays = 4, MaximumDeliveryDays = 7 }]
+            })
+        };
+        var account = new RecordingAccount
+        {
+            ProfileResult = new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999" })
+        };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" });
+        page.ShippingAddress.PostalCode = "18000000";
+
+        var result = await page.OnPostQuoteShippingAsync(CancellationToken.None);
+
+        Assert.IsType<PageResult>(result);
+        Assert.Equal("18000000", api.LastShippingQuoteRequest!.DestinationPostalCode);
+    }
+
+    [Fact]
     public async Task Missing_account_session_redirects_to_sign_in_instead_of_guest_checkout()
     {
         var offer = Guid.NewGuid();
