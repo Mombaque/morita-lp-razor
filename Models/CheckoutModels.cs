@@ -33,6 +33,12 @@ public sealed class PixPayment
 
     public bool IsPix => Method == OnlinePaymentMethod.Pix;
     public bool IsCard => Method == OnlinePaymentMethod.Card;
+
+    public bool NeedsPixPresentation(string? checkoutStatus) =>
+        IsPix
+        && Status == "failed"
+        && checkoutStatus is "active" or "paymentpending"
+        && FailureReason is "invalid_payment_data" or "payment_not_created" or "provider_unauthorized";
 }
 
 public sealed record PaymentChallenge(string Url, string Creq);

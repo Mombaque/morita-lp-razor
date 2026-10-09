@@ -84,8 +84,9 @@
             var terminal = payment.Status is ("converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded");
             var canCancelPayment = (Model.Checkout.Status is ("active" or "paymentpending" or "conversionpending")) && (payment.Status is ("pending" or "processing" or "approved" or "conversionpending"));
             var canRetryPayment = (Model.Checkout.Status is ("active" or "paymentpending")) && (payment.Status is ("expired" or "failed" or "cancelled"));
-            var paymentStateLabel = payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" };
-            var paymentStateClass = payment.Status switch { "pending" or "processing" or "conversionpending" or "cancellationpending" => "payment-status-pending", "failed" or "cancelled" or "expired" => "payment-status-cancelled", _ => "" };
+            var pixNotPresented = payment.NeedsPixPresentation(Model.Checkout.Status);
+            var paymentStateLabel = pixNotPresented ? "Aguardando o PIX" : payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" };
+            var paymentStateClass = pixNotPresented || payment.Status is ("pending" or "processing" or "conversionpending" or "cancellationpending") ? "payment-status-pending" : payment.Status is ("failed" or "cancelled" or "expired") ? "payment-status-cancelled" : "";
             <section class="pix-corner-card checkout-payment-card" aria-labelledby="payment-heading" data-payment-status="@payment.Status" data-payment-method="@payment.Method.ToWireValue()">
                 <div class="checkout-payment-heading">
                     <div>
@@ -155,8 +156,12 @@
                 @if (canRetryPayment && payment.IsPix)
                 {
                     <div class="checkout-status-actions">
+                        @if (pixNotPresented)
+                        {
+                            <p>A reserva continua aguardando pagamento. Gere o PIX para concluir o pedido.</p>
+                        }
                         <form method="post" asp-page-handler="RetryPix" data-payment-action="retry" data-payment-method="@OnlinePaymentMethod.Pix.ToWireValue()">
-                            <button class="commerce-button commerce-button-primary" type="submit">Gerar novo PIX</button>
+                            <button class="commerce-button commerce-button-primary" type="submit">@(pixNotPresented ? "Gerar PIX" : "Gerar novo PIX")</button>
                         </form>
                     </div>
                 }

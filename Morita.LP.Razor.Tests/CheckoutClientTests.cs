@@ -367,6 +367,19 @@ public sealed class CheckoutClientTests
         Assert.Equal(CheckoutLoadState.Malformed, (await Create(new RecordingHandler(CheckoutJson("Unknown"))).GetAsync(Guid.NewGuid(), new string('a', 32))).State);
     }
 
+    [Fact]
+    public void Open_checkout_still_awaits_pix_when_the_charge_was_not_created()
+    {
+        var missing = new PixPayment { Status = "failed", FailureReason = "invalid_payment_data" };
+        var declined = new PixPayment { Status = "failed", FailureReason = "card_rejected" };
+
+        Assert.True(missing.NeedsPixPresentation("paymentpending"));
+        Assert.True(new PixPayment { Status = "failed", FailureReason = "provider_unauthorized" }.NeedsPixPresentation("active"));
+        Assert.False(declined.NeedsPixPresentation("paymentpending"));
+        Assert.False(missing.NeedsPixPresentation("completed"));
+        Assert.False(new PixPayment { Status = "failed", Method = OnlinePaymentMethod.Card, FailureReason = "invalid_payment_data" }.NeedsPixPresentation("paymentpending"));
+    }
+
     private const string HostedCheckoutUrl = "http://127.0.0.1/v1/testing/online-payments/hosted/ref";
     private static string PaymentJson(string status, DateTimeOffset expires, string? order = null, string? qr = null, bool includePix = true, string? method = null, string? checkoutUrl = null) => JsonSerializer.Serialize(new { status, method, amount = 10.00m, currency = "BRL", expiresAt = expires, pixCopyPaste = includePix ? "000201010212" : null, qrCodePngBase64 = includePix ? qr ?? PngBase64 : null, checkoutUrl, publicOrderNumber = order });
     private static string CheckoutJson(string status) => JsonSerializer.Serialize(new { publicCheckoutId = Guid.Parse("11111111-1111-1111-1111-111111111111"), status, expiresAt = DateTimeOffset.UtcNow.AddHours(1), accessExpiresAt = DateTimeOffset.UtcNow.AddDays(30), lines = new[] { new { publicOfferId = Guid.Parse("22222222-2222-2222-2222-222222222222"), quantity = 1, presentation = "Item", unitPrice = 10m, lineTotal = 10m } }, merchandiseTotal = 10m, discountTotal = 0m, freightTotal = 0m, total = 10m, currency = "BRL", fulfillmentMethod = "pickup", pickup = new { publicPickupId = Guid.Parse("33333333-3333-3333-3333-333333333333"), displayName = "Loja", address = new { street = "Rua", number = "1", neighborhood = "Centro", city = "Sorocaba", state = "SP", postalCode = "18000-000" }, hours = "09:00", instructions = "" }, contact = new { name = "Ana", email = "ana@example.com", phone = "1" } });
