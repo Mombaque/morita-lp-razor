@@ -233,12 +233,11 @@ public sealed class CheckoutModel(
             LoadedSession = session;
             LoadedProfile = profile;
             AccountPrefilled = true;
-            Contact.Name = profile.Name ?? ""; Contact.Email = profile.Email; Contact.Phone = profile.Phone ?? "";
+            Contact.Name = profile.Name ?? ""; Contact.Email = profile.Email; Contact.Phone = BrazilianPhone.Format(profile.Phone);
             if (ProfileNeedsCompletion())
             {
                 AccountMessage = IncompleteProfileMessage;
                 ErrorState = CheckoutLoadState.Validation;
-                ErrorMessage = AccountMessage;
             }
         }
         else { ErrorState = ToCheckoutState(result.State); if (result.State == AccountLoadState.Unauthorized) accountCookies.Clear(); AccountMessage = result.Message ?? "Não foi possível validar sua conta. Tente novamente."; ErrorMessage = AccountMessage; return false; }
@@ -251,6 +250,7 @@ public sealed class CheckoutModel(
         if (selectDefaultAddress && defaultAddress is not null && string.IsNullOrWhiteSpace(BillingAddress.Street)) BillingAddress = new() { Street = defaultAddress.Street, Number = defaultAddress.Number, Complement = defaultAddress.Complement ?? "", Neighborhood = defaultAddress.Neighborhood, City = defaultAddress.City, State = defaultAddress.State, PostalCode = defaultAddress.PostalCode };
         return true;
     }
+    public bool ProfileIncomplete => string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal);
     private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
     private bool ProfileNeedsCompletion() =>
         string.IsNullOrWhiteSpace(LoadedProfile?.Name)
@@ -333,6 +333,7 @@ public sealed class CheckoutModel(
     }
     private void ValidateFulfillment()
     {
+        DiscardImplicitAddressErrors();
         if (FulfillmentMethod == "pickup")
         {
             if (Configuration.Configuration?.PickupEnabled != true || Configuration.Configuration.PublicPickupId is null)
@@ -348,6 +349,16 @@ public sealed class CheckoutModel(
         Required(ShippingAddress.Recipient, "ShippingAddress.Recipient", "Informe o nome de quem receberá o pedido.");
         ValidateAddress(ShippingAddress, nameof(ShippingAddress), "Informe o endereço de entrega.");
         if (!PublicShippingQuoteId.HasValue || PublicShippingQuoteId == Guid.Empty) ModelState.AddModelError(nameof(PublicShippingQuoteId), "Calcule o frete e escolha uma opção de entrega.");
+    }
+    private void DiscardImplicitAddressErrors()
+    {
+        var inactivePrefix = FulfillmentMethod == "pickup" ? $"{nameof(ShippingAddress)}." : $"{nameof(BillingAddress)}.";
+        var addressKeys = ModelState
+            .Where(entry => entry.Key.StartsWith($"{nameof(ShippingAddress)}.", StringComparison.Ordinal) || entry.Key.StartsWith($"{nameof(BillingAddress)}.", StringComparison.Ordinal))
+            .Where(entry => entry.Key.StartsWith(inactivePrefix, StringComparison.Ordinal) || string.IsNullOrWhiteSpace(entry.Value?.AttemptedValue))
+            .Select(entry => entry.Key)
+            .ToList();
+        foreach (var key in addressKeys) ModelState.Remove(key);
     }
     private void ValidateAddress(ShippingAddressInput address, string prefix, string streetMessage)
     {

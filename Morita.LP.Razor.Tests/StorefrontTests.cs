@@ -19,8 +19,11 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
 {
     private readonly HttpClient _client;
 
+    private readonly WebApplicationFactory<Program> _factory;
+
     public StorefrontTests(WebApplicationFactory<Program> factory)
     {
+        _factory = factory;
         _client = factory.WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment("E2E");
@@ -43,13 +46,44 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         Assert.Contains("Nenhum produto encontrado", body);
         Assert.Contains("href=\"/muay-thai\"", body);
         Assert.Contains("https://moritafight.com.br/jiu-jitsu", body);
-        Assert.Contains("GTM-TK3DKRF9", body);
         Assert.Contains("<a href=\"/jiu-jitsu\"", body);
         Assert.Contains("class=\"nav-link active\"", body);
         Assert.Contains("aria-current=\"page\"", body);
         Assert.DoesNotContain("href=\"/muay-thai\" class=\"nav-link active\"", body);
         Assert.Contains("class=\"commerce-site-header\"", body);
         Assert.DoesNotContain("class=\"commerce-utility\"", body);
+    }
+
+    [Fact]
+    public async Task Analytics_tags_are_not_rendered_without_configured_ids()
+    {
+        var body = await (await _client.GetAsync("/jiu-jitsu")).Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain("googletagmanager.com", body);
+    }
+
+    [Fact]
+    public async Task Analytics_tags_render_the_configured_ids()
+    {
+        using var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("E2E");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<ICatalogClient>();
+                services.AddScoped<ICatalogClient>(_ => new StubCatalogClient(CatalogResult.Empty(), CatalogResult.Empty()));
+            });
+            builder.UseSetting("Storefront:ProductSource", "Api");
+            builder.UseSetting("Analytics:GoogleTagManagerId", "GTM-TEST1");
+            builder.UseSetting("Analytics:GoogleAdsId", "AW-123");
+        }).CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var body = await (await client.GetAsync("/jiu-jitsu")).Content.ReadAsStringAsync();
+
+        Assert.Contains("'dataLayer',\"GTM-TEST1\")", body);
+        Assert.Contains("ns.html?id=GTM-TEST1", body);
+        Assert.Contains("gtag/js?id=AW-123", body);
+        Assert.Contains("gtag('config', \"AW-123\")", body);
     }
 
     [Theory]

@@ -10,6 +10,8 @@ primary_region = 'gru'
 
 [env]
   ASPNETCORE_ENVIRONMENT = "Production"
+  Analytics__GoogleTagManagerId = "GTM-TK3DKRF9"
+  Analytics__GoogleAdsId = "AW-17391563568"
   Storefront__DataProtectionKeyDirectory = "/var/morita/data-protection-keys"
   Storefront__PublicAssistantEnabled = "false"
   CatalogApi__CacheSeconds = "30"

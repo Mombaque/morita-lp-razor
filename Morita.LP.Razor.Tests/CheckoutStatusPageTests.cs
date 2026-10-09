@@ -267,6 +267,38 @@ public sealed class CheckoutStatusPageTests
     }
 
     [Fact]
+    public async Task Pix_that_could_not_be_created_tells_the_buyer_and_offers_a_retry()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "failed", FailureReason = "invalid_payment_data", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30) }),
+            Configuration = new(CheckoutLoadState.Success, new CheckoutConfiguration { Currency = "BRL", PickupEnabled = true, OnlinePaymentMethods = [OnlinePaymentMethod.Pix] })
+        };
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ICheckoutClient>();
+            services.RemoveAll<ICheckoutAccessCookieStore>();
+            services.RemoveAll<IPaymentAttemptCookieStore>();
+            services.RemoveAll<IOrderAccessCookieStore>();
+            services.RemoveAll<ICartCookieStore>();
+            services.AddSingleton<ICheckoutClient>(api);
+            services.AddSingleton<ICheckoutAccessCookieStore>(new FakeAccess(id));
+            services.AddSingleton<IPaymentAttemptCookieStore>(new FakeAttempt());
+            services.AddSingleton<IOrderAccessCookieStore>(new FakeOrderAccess());
+            services.AddSingleton<ICartCookieStore>(new FakeCart());
+        }));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var body = System.Net.WebUtility.HtmlDecode(await (await client.GetAsync($"/checkout/{id}")).Content.ReadAsStringAsync());
+
+        Assert.Contains("data-pix-not-created", body, StringComparison.Ordinal);
+        Assert.Contains("Não foi possível gerar o PIX agora.", body, StringComparison.Ordinal);
+        Assert.Contains("Tentar gerar o PIX novamente", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Card_initiation_does_not_redirect_to_a_disallowed_checkout_url()
     {
         var id = Guid.NewGuid();

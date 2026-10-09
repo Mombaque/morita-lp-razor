@@ -88,7 +88,7 @@ public sealed class AccountModel(
     public async Task<IActionResult> OnPostLoginAsync(CancellationToken ct)
     {
         if (!AccountEnabled) return NotFound();
-        ModelState.Clear(); ReturnUrl = SafeReturnUrl(ReturnUrl); TryValidateModel(Login, nameof(Login));
+        ModelState.Clear(); Mode = "signin"; ReturnUrl = SafeReturnUrl(ReturnUrl); TryValidateModel(Login, nameof(Login));
         if (!ModelState.IsValid) return Page();
         var result = await client.LoginAsync(Clean(Login.Email), Login.Password, ct);
         if (result.State != AccountLoadState.Success || result.Value.Session.Token.Length == 0) { Error = result.Message ?? "E-mail ou senha inválidos."; return Page(); }
@@ -103,9 +103,15 @@ public sealed class AccountModel(
         if (!ModelState.IsValid) return Page();
         var result = await client.VerifyEmailAsync(ChallengeId, Clean(Verification.Code), true, PrivacyPolicyVersion ?? storefrontOptions?.Value.PrivacyPolicyVersion ?? "customer-account-v1", ct);
         if (result.State != AccountLoadState.Success || result.Value.Session.Token.Length == 0) { Error = result.Message ?? "Código inválido ou expirado."; return Page(); }
+        await SaveRegistrationDocumentAsync(result.Value.Session, result.Value.Profile, ct);
         return EstablishSession(result.Value.Session, result.Value.Profile);
     }
 
+    private async Task SaveRegistrationDocumentAsync(CustomerAccountSession session, CustomerAccountProfile profile, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(Registration.Document) || !BuyerDocument.IsValid(Registration.Document) || !string.IsNullOrWhiteSpace(profile.Document)) return;
+        await client.UpdateProfileAsync(session.Token, profile.Name ?? "", profile.Phone ?? "", BuyerDocument.Normalize(Registration.Document), ct);
+    }
 
     public async Task<IActionResult> OnPostRequestPasswordCodeAsync(CancellationToken ct)
     {
@@ -135,11 +141,14 @@ public sealed class AccountModel(
     public async Task<IActionResult> OnPostSaveProfileAsync(CancellationToken ct)
     {
         if (!AccountEnabled) return NotFound();
-        ModelState.Clear(); TryValidateModel(ProfileForm, nameof(ProfileForm));
-        if (!ModelState.IsValid) { await LoadAsync(ct); return Page(); }
+        ModelState.Clear(); ReturnUrl = SafeReturnUrl(ReturnUrl); TryValidateModel(ProfileForm, nameof(ProfileForm));
+        var posted = ProfileForm;
+        if (!ModelState.IsValid) { await LoadAsync(ct); ProfileForm = posted; return Page(); }
         if (Session is not { } session) return RedirectToPage();
         var result = await client.UpdateProfileAsync(session.Token, Clean(ProfileForm.Name), Clean(ProfileForm.Phone), BuyerDocument.Normalize(ProfileForm.Document), ct);
-        if (!result.Value) { ExpireIfNeeded(result.State); Error = result.Message ?? "Não foi possível salvar seus dados."; } else Message = "Dados salvos.";
+        if (!result.Value) { ExpireIfNeeded(result.State); Error = result.Message ?? "Não foi possível salvar seus dados."; await LoadAsync(ct); ProfileForm = posted; return Page(); }
+        if (ReturnUrl is { } returnUrl) return LocalRedirect(returnUrl);
+        Message = "Dados salvos.";
         await LoadAsync(ct); return Page();
     }
 
@@ -231,6 +240,7 @@ public sealed class AccountModel(
         [Required(ErrorMessage = "Informe seu telefone.")][StringLength(40, ErrorMessage = "O telefone deve ter no máximo 40 caracteres.")] public string Phone { get; set; } = "";
         [Required(ErrorMessage = "Informe uma senha.")][StringLength(72, MinimumLength = 8, ErrorMessage = "A senha deve ter entre 8 e 72 caracteres.")] public string Password { get; set; } = "";
         [Compare(nameof(Password), ErrorMessage = "As senhas não coincidem.")] public string Confirmation { get; set; } = "";
+        [BuyerDocument] public string? Document { get; set; } = "";
         public bool AcceptedPrivacyPolicy { get; set; }
     }
     public sealed class LoginInput
@@ -256,7 +266,7 @@ public sealed class AccountModel(
         [Required(ErrorMessage = "Informe seu nome.")][StringLength(120, ErrorMessage = "O nome deve ter no máximo 120 caracteres.")] public string Name { get; set; } = "";
         [Required(ErrorMessage = "Informe seu telefone.")][StringLength(40, ErrorMessage = "O telefone deve ter no máximo 40 caracteres.")] public string Phone { get; set; } = "";
         [Required(ErrorMessage = "Informe seu CPF ou CNPJ.")][BuyerDocument] public string Document { get; set; } = "";
-        public static ProfileInput From(CustomerAccountProfile p) => new() { Name = p.Name ?? "", Phone = p.Phone ?? "", Document = p.Document ?? "" };
+        public static ProfileInput From(CustomerAccountProfile p) => new() { Name = p.Name ?? "", Phone = BrazilianPhone.Format(p.Phone), Document = BuyerDocument.Format(p.Document) };
     }
     public sealed class AddressInput
     {
