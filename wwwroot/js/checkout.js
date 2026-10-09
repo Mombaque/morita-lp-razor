@@ -165,7 +165,9 @@ if (form) {
       feedback.hidden = !disabled;
     }
     if (summaryShippingValue && summaryShippingDetail) {
-      summaryShippingValue.textContent = selectedShippingOption?.dataset.shippingPrice ?? 'Calcule pelo CEP';
+      summaryShippingValue.textContent = method === 'pickup'
+        ? 'Grátis (retirada)'
+        : selectedShippingOption?.dataset.shippingPrice ?? 'Calcule pelo CEP';
       summaryShippingDetail.textContent = selectedShippingOption
         ? `${selectedShippingOption.dataset.shippingService} · ${selectedShippingOption.dataset.shippingDetail}`
         : '';
@@ -281,6 +283,11 @@ if (form) {
       lookupBillingPostalCode();
     });
   }
+  form.addEventListener('input', (event) => {
+    const name = event.target?.name;
+    if (!name) return;
+    form.querySelectorAll(`[data-valmsg-for="${CSS.escape(name)}"]`).forEach((message) => { message.textContent = ''; });
+  });
   update();
   if (methodInputs.find((input) => input.checked)?.value === 'shipping') scheduleQuote();
 }

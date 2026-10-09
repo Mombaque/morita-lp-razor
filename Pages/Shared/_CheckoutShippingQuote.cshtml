@@ -13,7 +13,7 @@
         <label><input asp-for="PublicShippingQuoteId" type="radio" value="@option.PublicShippingQuoteId" data-shipping-service="@option.ServiceName" data-shipping-detail="@option.CarrierName · @option.MinimumDeliveryDays a @option.MaximumDeliveryDays dias úteis" data-shipping-price="@CurrencyPresentation.Format(option.Price, shippingQuote.Currency)" data-shipping-amount="@option.Price.ToString(System.Globalization.CultureInfo.InvariantCulture)"><span><strong>@option.ServiceName</strong><small>@option.CarrierName · @option.MinimumDeliveryDays a @option.MaximumDeliveryDays dias úteis</small></span><em>@CurrencyPresentation.Format(option.Price, shippingQuote.Currency)</em></label>
       }
     </fieldset>
-    <p class="cart-estimate-note">Cotação válida até <time datetime="@shippingQuote.ExpiresAt.ToString("O")" data-local-time="time">@shippingQuote.ExpiresAt.ToString("HH:mm") UTC</time>. Se expirar, calcule novamente.</p>
+    <p class="cart-estimate-note">Cotação válida até <time datetime="@shippingQuote.ExpiresAt.ToString("O")" data-local-time="time">@TimePresentation.ToStoreTime(shippingQuote.ExpiresAt).ToString("HH:mm")</time>. Se expirar, calcule novamente.</p>
   }
   <span asp-validation-for="PublicShippingQuoteId" class="validation-error"></span>
 </div>

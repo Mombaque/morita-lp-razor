@@ -223,6 +223,18 @@ public sealed class Phase03PageTests
     }
 
     [Fact]
+    public async Task Detail_preselects_the_only_available_offer()
+    {
+        var only = Guid.NewGuid();
+        var product = new Product { Slug = "bucal", Nome = "Bucal", Variants = [new ProductVariant { ColorLabel = "Cor única", Offers = [new ProductOffer { PublicOfferId = only, UnitPrice = 50m, Availability = "available" }, new ProductOffer { PublicOfferId = Guid.NewGuid(), SizeLabel = "G", Availability = "unavailable" }] }] };
+        using var factory = CreateDetail(product);
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products/bucal")).Content.ReadAsStringAsync());
+
+        Assert.Matches($"value=\"{only}\"[^>]*checked=\"checked\"", html);
+        Assert.DoesNotContain("Selecione uma oferta para ver preço e disponibilidade.", html);
+    }
+
+    [Fact]
     public async Task Detail_renders_opaque_offer_matrix_and_disabled_unavailable_offer()
     {
         var available = Guid.NewGuid();

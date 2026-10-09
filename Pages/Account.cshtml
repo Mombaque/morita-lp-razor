@@ -69,7 +69,7 @@
                 <h2 id="account-access-heading">Confirmar e-mail</h2>
                 <p>O código expira em @(Model.ChallengeExpiresAt is { } challengeExpiry ? TimePresentation.ToStoreTime(challengeExpiry).ToString("HH:mm") : "").</p>
                 <form method="post" asp-page-handler="VerifyEmail">
-                    <input type="hidden" asp-for="ChallengeId"><input type="hidden" asp-for="ChallengeExpiresAt"><input type="hidden" asp-for="ChallengeKind"><input type="hidden" asp-for="PrivacyPolicyVersion"><input type="hidden" asp-for="ReturnUrl">
+                    <input type="hidden" asp-for="ChallengeId"><input type="hidden" asp-for="ChallengeExpiresAt"><input type="hidden" asp-for="ChallengeKind"><input type="hidden" asp-for="PrivacyPolicyVersion"><input type="hidden" asp-for="ReturnUrl"><input type="hidden" asp-for="Registration.Document">
                     <label asp-for="Verification.Code">Código enviado por e-mail</label>
                     <input asp-for="Verification.Code" inputmode="numeric" autocomplete="one-time-code">
                     <span asp-validation-for="Verification.Code" class="validation-error"></span>
@@ -89,6 +89,7 @@
                 <nav class="account-access-links" aria-label="Opções de acesso">
                     <p><a class="account-secondary-link" href="/conta?mode=forgot&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Esqueci minha senha</a></p>
                     <p>Ainda não tem uma conta? <a class="account-secondary-link" href="/conta?mode=create&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Criar conta</a></p>
+                    <p class="cart-estimate-note">Não confirmou o e-mail? <a class="account-secondary-link" href="/conta?mode=create&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Cadastre-se de novo com o mesmo e-mail</a> para receber um novo código.</p>
                 </nav>
             }
             else if (Model.Mode == "forgot")
@@ -113,6 +114,7 @@
                     <label asp-for="Registration.Name">Nome</label><input asp-for="Registration.Name" autocomplete="name"><span asp-validation-for="Registration.Name" class="validation-error"></span>
                     <label asp-for="Registration.Phone">Telefone</label><input asp-for="Registration.Phone" autocomplete="tel"><span asp-validation-for="Registration.Phone" class="validation-error"></span>
                     <label asp-for="Registration.Email">E-mail</label><input asp-for="Registration.Email" type="email" autocomplete="email"><span asp-validation-for="Registration.Email" class="validation-error"></span>
+                    <label asp-for="Registration.Document">CPF ou CNPJ (opcional)</label><input asp-for="Registration.Document" autocomplete="off" inputmode="numeric" placeholder="000.000.000-00"><span asp-validation-for="Registration.Document" class="validation-error"></span>
                     <label asp-for="Registration.Password">Senha</label><input asp-for="Registration.Password" type="password" autocomplete="new-password"><span asp-validation-for="Registration.Password" class="validation-error"></span>
                     <label asp-for="Registration.Confirmation">Confirme a senha</label><input asp-for="Registration.Confirmation" type="password" autocomplete="new-password"><span asp-validation-for="Registration.Confirmation" class="validation-error"></span>
                     <label class="account-check" asp-for="Registration.AcceptedPrivacyPolicy"><input asp-for="Registration.AcceptedPrivacyPolicy"><span>Aceito a política de privacidade @if (Model.PrivacyPolicyUrl is not null) { <text>(<a class="account-secondary-link" href="@Model.PrivacyPolicyUrl">ler a política</a>)</text> }.</span></label>
@@ -144,6 +146,7 @@
             <h2 id="profile-heading">Perfil</h2>
             <p class="account-email">@Model.Profile!.Email</p>
             <form method="post" asp-page-handler="SaveProfile">
+                <input type="hidden" asp-for="ReturnUrl">
                 <label asp-for="ProfileForm.Name">Nome</label>
                 <input asp-for="ProfileForm.Name" autocomplete="name">
                 <span asp-validation-for="ProfileForm.Name" class="validation-error"></span>

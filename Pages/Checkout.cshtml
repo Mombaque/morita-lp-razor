@@ -19,7 +19,7 @@
   }
   else
   {
-     @if (Model.ErrorMessage is not null) { <p class="validation-error" data-checkout="error" role="alert">@Model.ErrorMessage</p> } @if (Model.AccountMessage is not null) { <p class="account-status" role="status">@Model.AccountMessage</p> }
+     @if (Model.ErrorMessage is not null) { <p class="validation-error" data-checkout="error" role="alert">@Model.ErrorMessage</p> } @if (Model.ProfileIncomplete) { <p class="validation-error" data-checkout="profile-incomplete" role="alert">Complete seu nome, telefone e CPF ou CNPJ em <a href="/conta?mode=complete&amp;returnUrl=%2Fcheckout#perfil">Minha conta</a> antes de continuar.</p> } else if (Model.AccountMessage is not null) { <p class="account-status" role="status">@Model.AccountMessage</p> }
     <form method="post" class="checkout-layout" data-fulfillment-form>
       <div class="checkout-form-column">
         <div asp-validation-summary="All" class="validation-error" role="alert"></div>
@@ -189,7 +189,7 @@
         </details>
         @if (Model.Quote.Total is not null)
         {
-          <dl data-merchandise-amount="@Model.Quote.Total.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-currency="@Model.Quote.Currency"><div><dt>Produtos</dt><dd>@CurrencyPresentation.Format(Model.Quote.Total.Value, Model.Quote.Currency)</dd></div><div data-summary-shipping><dt>Frete</dt><dd data-summary-shipping-value>Calcule pelo CEP</dd><small data-summary-shipping-detail hidden></small></div><div class="summary-total"><dt>Total</dt><dd data-summary-total>Calcule o frete</dd></div></dl>
+          <dl data-merchandise-amount="@Model.Quote.Total.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)" data-currency="@Model.Quote.Currency"><div><dt>Produtos</dt><dd>@CurrencyPresentation.Format(Model.Quote.Total.Value, Model.Quote.Currency)</dd></div><div data-summary-shipping><dt>Frete</dt><dd data-summary-shipping-value>@(Model.FulfillmentMethod == "pickup" ? "Grátis (retirada)" : "Calcule pelo CEP")</dd><small data-summary-shipping-detail hidden></small></div><div class="summary-total"><dt>Total</dt><dd data-summary-total>Calcule o frete</dd></div></dl>
         }
       </aside>
     </form>

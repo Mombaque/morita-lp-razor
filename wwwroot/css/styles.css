@@ -2255,6 +2255,10 @@ body {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.product-variant-row[hidden] {
+  display: none;
+}
+
 .product-variant-color,
 .detail-variant-heading {
   align-items: center;

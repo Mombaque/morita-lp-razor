@@ -158,10 +158,10 @@
                     <div class="checkout-status-actions">
                         @if (pixNotPresented)
                         {
-                            <p>A reserva continua aguardando pagamento. Gere o PIX para concluir o pedido.</p>
+                            <p class="validation-error" role="alert" data-pix-not-created>Não foi possível gerar o PIX agora. Sua reserva continua válida: tente novamente ou fale com a Morita pelo <a href="https://wa.me/5515981079332" target="_blank" rel="noopener noreferrer">WhatsApp</a>.</p>
                         }
                         <form method="post" asp-page-handler="RetryPix" data-payment-action="retry" data-payment-method="@OnlinePaymentMethod.Pix.ToWireValue()">
-                            <button class="commerce-button commerce-button-primary" type="submit">@(pixNotPresented ? "Gerar PIX" : "Gerar novo PIX")</button>
+                            <button class="commerce-button commerce-button-primary" type="submit">@(pixNotPresented ? "Tentar gerar o PIX novamente" : "Gerar novo PIX")</button>
                         </form>
                     </div>
                 }

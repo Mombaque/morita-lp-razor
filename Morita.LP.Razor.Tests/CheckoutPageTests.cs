@@ -383,6 +383,84 @@ public sealed class CheckoutPageTests
         Assert.DoesNotContain("<main", fragmentBody, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("pickup")]
+    [InlineData("shipping")]
+    public async Task Posted_checkout_ignores_the_empty_address_form_of_the_other_fulfillment(string fulfillment)
+    {
+        var offer = Guid.NewGuid();
+        var quoteId = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), ShippingEnabled = true, Currency = "BRL" }),
+            ShippingQuote = new(CheckoutLoadState.Success, new ShippingQuote
+            {
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+                Options = [new() { PublicShippingQuoteId = quoteId, ServiceName = "PAC", CarrierName = "Correios", Price = 18, MinimumDeliveryDays = 4, MaximumDeliveryDays = 7 }]
+            }),
+            CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()])
+        };
+        using var factory = CreateCheckoutFactory(cart, offer, api);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var page = await (await client.GetAsync("/checkout")).Content.ReadAsStringAsync();
+        var token = System.Text.RegularExpressions.Regex.Match(page, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+        string[] fields = ["PostalCode", "Recipient", "Street", "Number", "Complement", "Neighborhood", "City", "State"];
+        var filled = new Dictionary<string, string> { ["PostalCode"] = "18010-000", ["Recipient"] = "Customer", ["Street"] = "Rua XV de Novembro", ["Number"] = "100", ["Complement"] = "", ["Neighborhood"] = "Centro", ["City"] = "Sorocaba", ["State"] = "SP" };
+        var (activePrefix, inactivePrefix) = fulfillment == "pickup" ? ("BillingAddress", "ShippingAddress") : ("ShippingAddress", "BillingAddress");
+        var form = new List<KeyValuePair<string, string>>
+        {
+            new("FulfillmentMethod", fulfillment),
+            new("PaymentMethod", "Pix"),
+            new("Contact.Name", "Customer"),
+            new("Contact.Email", "customer@example.com"),
+            new("Contact.Phone", "15999999999"),
+            new("__RequestVerificationToken", token)
+        };
+        if (fulfillment == "shipping") form.Add(new("PublicShippingQuoteId", quoteId.ToString()));
+        form.AddRange(fields.Where(field => activePrefix == "ShippingAddress" || field != "Recipient").Select(field => new KeyValuePair<string, string>($"{activePrefix}.{field}", filled[field])));
+        form.AddRange(fields.Select(field => new KeyValuePair<string, string>($"{inactivePrefix}.{field}", "")));
+
+        var posted = await client.PostAsync("/checkout", new FormUrlEncodedContent(form));
+        var body = await posted.Content.ReadAsStringAsync();
+
+        Assert.DoesNotMatch(@">\s*The \w+ field is required\.\s*<", body);
+        var request = Assert.Single(api.Requests);
+        Assert.Equal(fulfillment, request.Fulfillment.Method);
+    }
+
+    [Fact]
+    public async Task Posted_checkout_reports_missing_active_address_fields_in_portuguese()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), ShippingEnabled = false, Currency = "BRL" })
+        };
+        using var factory = CreateCheckoutFactory(cart, offer, api);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var page = await (await client.GetAsync("/checkout")).Content.ReadAsStringAsync();
+        var token = System.Text.RegularExpressions.Regex.Match(page, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+
+        var posted = await client.PostAsync("/checkout", new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("FulfillmentMethod", "pickup"),
+            new KeyValuePair<string, string>("Contact.Name", "Customer"),
+            new KeyValuePair<string, string>("Contact.Email", "customer@example.com"),
+            new KeyValuePair<string, string>("Contact.Phone", "15999999999"),
+            new KeyValuePair<string, string>("BillingAddress.Street", ""),
+            new KeyValuePair<string, string>("BillingAddress.Number", ""),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]));
+        var body = System.Net.WebUtility.HtmlDecode(await posted.Content.ReadAsStringAsync());
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, posted.StatusCode);
+        Assert.Empty(api.Requests);
+        Assert.Contains("Informe o endereço de cobrança.", body);
+        Assert.Contains("Informe o número do endereço.", body);
+        Assert.DoesNotMatch(@">\s*The \w+ field is required\.\s*<", body);
+    }
+
     [Fact]
     public async Task Signed_in_checkout_locks_email_forwards_session_and_preserves_pickup_address_on_save()
     {
@@ -812,6 +890,34 @@ public sealed class CheckoutPageTests
         var available = availability == "available";
         return CatalogQuoteResult.Success("BRL", available ? 10 * quantity : 0, [new CatalogQuoteLine { PublicOfferId = offer, Quantity = quantity, Availability = availability, Presentation = "Kimono", Currency = "BRL", UnitPrice = 10, LinePrice = available ? 10 * quantity : null }]);
     }
+
+    private static WebApplicationFactory<Program> CreateCheckoutFactory(TestCart cart, Guid offer, RecordingCheckout api) =>
+        new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
+        {
+            builder.UseEnvironment("E2E");
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<ICartCookieStore>();
+                services.RemoveAll<ICatalogClient>();
+                services.RemoveAll<ICheckoutClient>();
+                services.RemoveAll<ICustomerAccountClient>();
+                services.RemoveAll<ICustomerAccountCookieStore>();
+                services.AddScoped<ICartCookieStore>(_ => cart);
+                services.AddScoped<ICatalogClient>(_ => new StubCatalog(CatalogQuoteResult.Success("BRL", 10, [new CatalogQuoteLine
+                {
+                    PublicOfferId = offer,
+                    Quantity = 1,
+                    Availability = "available",
+                    Presentation = "Kimono",
+                    Currency = "BRL",
+                    UnitPrice = 10,
+                    LinePrice = 10
+                }])));
+                services.AddScoped<ICheckoutClient>(_ => api);
+                services.AddScoped<ICustomerAccountClient>(_ => new RecordingAccount());
+                services.AddScoped<ICustomerAccountCookieStore>(_ => new RecordingAccountCookie());
+            });
+        });
 
     private static CheckoutModel.ShippingAddressInput ValidBillingAddress() => new() { Street = "Rua XV de Novembro", Number = "100", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18010-000" };
 

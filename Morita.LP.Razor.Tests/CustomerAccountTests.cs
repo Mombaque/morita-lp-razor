@@ -114,6 +114,81 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Failed_login_keeps_the_sign_in_form()
+    {
+        var page = new AccountModel(new AccountStub(), new SessionCookieStub())
+        {
+            PageContext = PageContext(),
+            Login = new() { Email = "ana@example.com", Password = "Senha123" }
+        };
+
+        await page.OnPostLoginAsync(CancellationToken.None);
+
+        Assert.Equal("signin", page.Mode);
+    }
+
+    [Fact]
+    public async Task Email_verification_saves_the_document_given_at_registration()
+    {
+        var session = new CustomerAccountSession(new string('t', 32), Now, Now.AddDays(1));
+        var client = new AccountStub { VerifyResult = new(AccountLoadState.Success, (session, new CustomerAccountProfile { Email = "ana@example.com", Name = "Ana", Phone = "15999999999" })) };
+        var page = new AccountModel(client, new SessionCookieStub())
+        {
+            PageContext = PageContext(),
+            ChallengeId = Guid.NewGuid(),
+            ChallengeExpiresAt = Now.AddMinutes(5),
+            ChallengeKind = "email-verification",
+            Verification = new() { Code = "123456" },
+            Registration = new() { Document = "529.982.247-25" },
+            ReturnUrl = "/checkout"
+        };
+
+        var result = await page.OnPostVerifyEmailAsync(CancellationToken.None);
+
+        Assert.Equal("/checkout", Assert.IsType<LocalRedirectResult>(result).Url);
+        Assert.Equal("52998224725", client.LastProfileDocument);
+    }
+
+    [Fact]
+    public async Task Saving_a_completed_profile_returns_to_the_checkout()
+    {
+        var page = new AccountModel(new AccountStub(), new SessionCookieStub())
+        {
+            PageContext = PageContext(),
+            ReturnUrl = "/checkout",
+            ProfileForm = new() { Name = "Ana", Phone = "15999999999", Document = "529.982.247-25" }
+        };
+
+        var result = await page.OnPostSaveProfileAsync(CancellationToken.None);
+
+        Assert.Equal("/checkout", Assert.IsType<LocalRedirectResult>(result).Url);
+    }
+
+    [Fact]
+    public async Task Invalid_profile_keeps_the_posted_document_for_correction()
+    {
+        var client = new AccountStub();
+        var page = new AccountModel(client, new SessionCookieStub())
+        {
+            PageContext = PageContext(),
+            ProfileForm = new() { Name = "Ana", Phone = "15999999999", Document = "529.982.247-24" }
+        };
+
+        await page.OnPostSaveProfileAsync(CancellationToken.None);
+
+        Assert.Equal("529.982.247-24", page.ProfileForm.Document);
+        Assert.Equal(0, client.ProfileUpdates);
+    }
+
+    [Theory]
+    [InlineData("+5515999990001", "(15) 99999-0001")]
+    [InlineData("15999990001", "(15) 99999-0001")]
+    [InlineData("1532223344", "(15) 3222-3344")]
+    [InlineData("123", "123")]
+    public void Brazilian_phone_is_formatted_for_display(string value, string expected) =>
+        Assert.Equal(expected, BrazilianPhone.Format(value));
+
+    [Fact]
     public async Task Address_validation_does_not_add_implicit_english_required_errors()
     {
         var page = new AccountModel(new AccountStub(), new SessionCookieStub())
@@ -466,7 +541,8 @@ public sealed class CustomerAccountTests
         public Task<AccountResult<(CustomerAccountSession Session, CustomerAccountProfile Profile)>> ResetPasswordAsync(string? token, Guid challengeId, string code, string password, CancellationToken cancellationToken = default) => Task.FromResult(VerifyResult);
         public Task<AccountResult<bool>> CloseAsync(string token, string currentPassword, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com" })); }
-        public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, string? document, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        public string? LastProfileDocument { get; private set; }
+        public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, string? document, CancellationToken cancellationToken = default) { ProfileUpdates++; LastProfileDocument = document; return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true)); }
         public Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(AddressesResult);
         public Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress address, CancellationToken cancellationToken = default) { CreateAddressCalls++; return Task.FromResult(CreateAddressResult); }
         public Task<AccountResult<CustomerAccountAddress>> UpdateAddressAsync(string token, Guid id, CustomerAccountAddress address, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<CustomerAccountAddress>.Failure(AccountLoadState.Unavailable));

@@ -34,8 +34,9 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
         Quantity = Math.Clamp(quantity ?? 1, 1, CartCookieStore.MaxUnitsPerLine);
         if (quantity is < 1 or > CartCookieStore.MaxUnitsPerLine)
             ModelState.AddModelError("quantity", $"A quantidade deve estar entre 1 e {CartCookieStore.MaxUnitsPerLine}.");
-        SelectedOfferId = publicOfferId;
-        SelectedOffer = publicOfferId is null ? null : Product.Variants.SelectMany(v => v.Offers).FirstOrDefault(o => o.PublicOfferId == publicOfferId);
+        var availableOffers = Product.Variants.SelectMany(v => v.Offers).Where(o => string.Equals(o.Availability, "available", StringComparison.OrdinalIgnoreCase)).ToList();
+        SelectedOfferId = publicOfferId ?? (availableOffers.Count == 1 ? availableOffers[0].PublicOfferId : null);
+        SelectedOffer = SelectedOfferId is null ? null : Product.Variants.SelectMany(v => v.Offers).FirstOrDefault(o => o.PublicOfferId == SelectedOfferId);
         if (publicOfferId is not null && SelectedOffer is null) ModelState.AddModelError("publicOfferId", "Selecione uma oferta válida.");
         if (SelectedOffer is not null && !string.Equals(SelectedOffer.Availability, "available", StringComparison.OrdinalIgnoreCase))
             ModelState.AddModelError("publicOfferId", "A oferta selecionada está indisponível.");
