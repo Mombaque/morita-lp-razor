@@ -128,7 +128,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         if (credential is null) return Inaccessible();
 
         var checkoutResult = await client.GetAsync(PublicCheckoutId, credential.Token, cancellationToken);
-        if (checkoutResult.State != CheckoutLoadState.Success || checkoutResult.Checkout is not { Status: "expired" } checkout)
+        if (checkoutResult.State != CheckoutLoadState.Success || checkoutResult.Checkout is not { Status: "expired" or "cancelled" } checkout)
         {
             await LoadOwnedAsync(cancellationToken);
             Message = "Este checkout não pode ser refeito neste momento.";
@@ -240,7 +240,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             var paymentCancellation = await client.CancelPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
             if (paymentCancellation.State == PaymentLoadState.Success)
             {
-                if (IsAjaxPaymentRequest) return await RefreshPaymentFlowAsync(cancellationToken);
+                if (IsAjaxPaymentRequest) return await RefreshAfterCancelAsync(cancellationToken);
                 return RedirectToPage(new { publicCheckoutId = PublicCheckoutId });
             }
             await LoadOwnedAsync(cancellationToken); PaymentState = paymentCancellation.State; Payment = paymentCancellation.Payment; Message = PaymentLifecycleMessage(Payment) ?? "O pagamento não pode ser cancelado neste momento."; return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
@@ -255,7 +255,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         var result = await client.CancelAsync(PublicCheckoutId, credential.Token, cancellationToken);
         if (result.State == CheckoutLoadState.Success)
         {
-            if (IsAjaxPaymentRequest) return await RefreshPaymentFlowAsync(cancellationToken);
+            if (IsAjaxPaymentRequest) return await RefreshAfterCancelAsync(cancellationToken);
             return RedirectToPage(new { publicCheckoutId = PublicCheckoutId });
         }
         if (result.State == CheckoutLoadState.NotFound)
@@ -347,6 +347,17 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         }
 
         return PaymentFlowFragment();
+    }
+
+    private async Task<IActionResult> RefreshAfterCancelAsync(CancellationToken cancellationToken)
+    {
+        var refreshed = await RefreshPaymentFlowAsync(cancellationToken);
+        if (refreshed is PartialViewResult && Checkout is { Status: "cancelled" })
+        {
+            return new JsonResult(new { redirectUrl = Url.Page("/CheckoutStatus", new { publicCheckoutId = PublicCheckoutId }) });
+        }
+
+        return refreshed;
     }
 
     private IActionResult PaymentFlowFragment() => Partial("_CheckoutPaymentFlow", this);

@@ -646,6 +646,65 @@ public sealed class CheckoutStatusPageTests
         Assert.Equal(1, api.PaymentCancelCount);
     }
 
+    [Fact]
+    public async Task Ajax_cancel_that_cancels_the_checkout_reloads_the_status_page()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            CheckoutAfterCancel = Checkout(id, "cancelled"),
+            Payment = new(PaymentLoadState.Success, new PixPayment
+            {
+                Status = "pending",
+                Amount = 10,
+                Currency = "BRL",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5)
+            })
+        };
+        var page = Create(id, api, new FakeOrderAccess(), ajax: true);
+
+        var result = await page.OnPostCancelAsync(CancellationToken.None);
+
+        Assert.IsType<JsonResult>(result);
+        Assert.Equal(1, api.PaymentCancelCount);
+    }
+
+    [Fact]
+    public async Task Cancelled_checkout_restores_previous_items_and_redirects_to_checkout()
+    {
+        var id = Guid.NewGuid();
+        var checkout = Checkout(id, "cancelled");
+        var api = new FakeCheckout
+        {
+            Checkout = checkout,
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "cancelled", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5) })
+        };
+        var cart = new FakeCart();
+        var page = Create(id, api, new FakeOrderAccess(), cart);
+
+        var result = await page.OnPostRestoreCheckoutAsync(CancellationToken.None);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(result);
+        Assert.Equal("/Checkout", redirect.PageName);
+        Assert.Equal(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity)), cart.ReplacedLines);
+    }
+
+    [Fact]
+    public async Task Cancelled_checkout_offers_to_restore_its_items()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "cancelled"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "cancelled", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5) })
+        };
+
+        var html = await RenderStatusAsync(id, api);
+
+        Assert.Contains("Refazer com estes itens", html);
+    }
+
     private static async Task<string> RenderStatusAsync(Guid id, FakeCheckout api)
     {
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
@@ -764,6 +823,7 @@ public sealed class CheckoutStatusPageTests
     private sealed class FakeCheckout : ICheckoutClient
     {
         public CheckoutResponse? Checkout;
+        public CheckoutResponse? CheckoutAfterCancel;
         public CheckoutConfigurationResult Configuration = CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable);
         public PaymentResult Payment = PaymentResult.Failure(PaymentLoadState.NotFound);
         public PaymentResult Initiation = PaymentResult.Failure(PaymentLoadState.Unavailable);
@@ -783,7 +843,7 @@ public sealed class CheckoutStatusPageTests
         public EmbeddedCardPayment? LastEmbeddedCard;
         public Task<PaymentResult> InitiateEmbeddedCardAsync(Guid i, string a, string k, EmbeddedCardPayment card, CancellationToken c = default) { CardInitiationCount++; LastInitiationKey = k; LastEmbeddedCard = card; return Task.FromResult(EmbeddedCardInitiation); }
         public Task<PaymentResult> GetPaymentAsync(Guid i, string a, CancellationToken c = default) => Task.FromResult(Payment);
-        public Task<PaymentResult> CancelPaymentAsync(Guid i, string a, CancellationToken c = default) { PaymentCancelCount++; return Task.FromResult(PaymentResult.Failure(PaymentLoadState.Success)); }
+        public Task<PaymentResult> CancelPaymentAsync(Guid i, string a, CancellationToken c = default) { PaymentCancelCount++; Checkout = CheckoutAfterCancel ?? Checkout; return Task.FromResult(PaymentResult.Failure(PaymentLoadState.Success)); }
     }
     private sealed class FakeAccess(Guid id) : ICheckoutAccessCookieStore { public CheckoutAccess? Read(Guid value) => value == id ? new(value, new string('t', 32), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(30)) : null; public bool Write(CheckoutResponse c, string t) => true; public void Clear() { } }
     private sealed class FakeAttempt : IPaymentAttemptCookieStore { public PaymentAttempt? Read(Guid id) => null; public PaymentAttempt Ensure(Guid id) => new(id, new string('i', 32), DateTimeOffset.UtcNow); public PaymentAttempt Rotate(Guid id) => new(id, new string('r', 32), DateTimeOffset.UtcNow); public void Clear(Guid id) { } }
