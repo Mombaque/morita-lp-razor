@@ -347,7 +347,10 @@ public sealed class CheckoutClientTests
         Assert.Equal(PaymentLoadState.Success, convertedCard.State);
         Assert.Equal("MF-0123456789ABCDEF", convertedCard.Payment!.PublicOrderNumber);
         Assert.Null(convertedCard.Payment.CheckoutUrl);
-        var badStatus = await Create(new RecordingHandler(PaymentJson("unknown", DateTimeOffset.UtcNow.AddMinutes(10)))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        var unknown = await Create(new RecordingHandler(PaymentJson("Unknown", DateTimeOffset.UtcNow.AddMinutes(10), includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
+        Assert.Equal(PaymentLoadState.Success, unknown.State);
+        Assert.Equal("unknown", unknown.Payment!.Status);
+        var badStatus = await Create(new RecordingHandler(PaymentJson("bogus", DateTimeOffset.UtcNow.AddMinutes(10)))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Malformed, badStatus.State);
         var unknownMethod = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), method: "wire"))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Malformed, unknownMethod.State);

@@ -299,6 +299,73 @@ public sealed class CheckoutStatusPageTests
     }
 
     [Fact]
+    public async Task Failed_pix_offers_card_and_reservation_cancel()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "failed", FailureReason = "payment_not_created", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30) }),
+            Configuration = EmbeddedConfiguration()
+        };
+
+        var body = await RenderStatusAsync(id, api);
+
+        Assert.Contains("Tentar gerar o PIX novamente", body, StringComparison.Ordinal);
+        Assert.Contains("data-payment-panel", body, StringComparison.Ordinal);
+        Assert.Contains("Cancelar reserva", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Failed_pix_with_hosted_card_offers_card_retry()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "expired", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1) }),
+            Configuration = new(CheckoutLoadState.Success, new CheckoutConfiguration { Currency = "BRL", PickupEnabled = true, OnlinePaymentMethods = [OnlinePaymentMethod.Pix, OnlinePaymentMethod.Card] })
+        };
+
+        var body = await RenderStatusAsync(id, api);
+
+        Assert.Contains("Gerar novo PIX", body, StringComparison.Ordinal);
+        Assert.Contains("handler=RetryCard", body, StringComparison.Ordinal);
+        Assert.Contains("Pagar com cartão", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Unknown_payment_shows_confirmation_state_and_cancel()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "unknown", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30) }),
+            Configuration = new(CheckoutLoadState.Success, new CheckoutConfiguration { Currency = "BRL", PickupEnabled = true, OnlinePaymentMethods = [OnlinePaymentMethod.Pix] })
+        };
+
+        var body = await RenderStatusAsync(id, api);
+
+        Assert.Contains("data-payment-status=\"unknown\"", body, StringComparison.Ordinal);
+        Assert.Contains("data-payment-unknown", body, StringComparison.Ordinal);
+        Assert.Contains("Cancelar pagamento", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task Failed_payment_cancel_uses_payment_cancel_endpoint()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout { Checkout = Checkout(id, "paymentpending"), Payment = new(PaymentLoadState.Success, new PixPayment { Status = "failed", FailureReason = "payment_not_created", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30) }) };
+        var page = Create(id, api, new FakeOrderAccess());
+
+        await page.OnPostCancelAsync(CancellationToken.None);
+
+        Assert.Equal(0, api.CheckoutCancelCount);
+        Assert.Equal(1, api.PaymentCancelCount);
+    }
+
+    [Fact]
     public async Task Card_initiation_does_not_redirect_to_a_disallowed_checkout_url()
     {
         var id = Guid.NewGuid();
@@ -559,6 +626,25 @@ public sealed class CheckoutStatusPageTests
         var fragment = Assert.IsType<PartialViewResult>(result);
         Assert.Equal("_CheckoutPaymentFlow", fragment.ViewName);
         Assert.Equal(1, api.PaymentCancelCount);
+    }
+
+    private static async Task<string> RenderStatusAsync(Guid id, FakeCheckout api)
+    {
+        using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
+        {
+            services.RemoveAll<ICheckoutClient>();
+            services.RemoveAll<ICheckoutAccessCookieStore>();
+            services.RemoveAll<IPaymentAttemptCookieStore>();
+            services.RemoveAll<IOrderAccessCookieStore>();
+            services.RemoveAll<ICartCookieStore>();
+            services.AddSingleton<ICheckoutClient>(api);
+            services.AddSingleton<ICheckoutAccessCookieStore>(new FakeAccess(id));
+            services.AddSingleton<IPaymentAttemptCookieStore>(new FakeAttempt());
+            services.AddSingleton<IOrderAccessCookieStore>(new FakeOrderAccess());
+            services.AddSingleton<ICartCookieStore>(new FakeCart());
+        }));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        return System.Net.WebUtility.HtmlDecode(await (await client.GetAsync($"/checkout/{id}")).Content.ReadAsStringAsync());
     }
 
     private static EmbeddedCardRequest ValidCardRequest() => new() { Token = "fake_tok_approve_1", PaymentMethodId = "visa", Installments = 2, PayerEmail = "a@a.com", IdentificationType = "cpf", IdentificationNumber = "529.982.247-25" };

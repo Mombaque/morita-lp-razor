@@ -22,7 +22,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public PaymentClientConfiguration? PaymentClient { get; private set; }
     public bool EmbeddedPayments => PaymentClient is not null;
     public bool CanEnterCard => EmbeddedPayments && CardAvailable && Checkout?.Status is ("active" or "paymentpending")
-        && (Payment is null || Payment.IsCard && Payment.Status is ("failed" or "cancelled" or "expired"));
+        && (Payment is null || Payment.Status is ("failed" or "cancelled" or "expired"));
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
     [BindProperty(SupportsGet = true)] public OnlinePaymentMethod PaymentMethod { get; set; } = OnlinePaymentMethod.Pix;
 
@@ -111,7 +111,6 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         var paymentResult = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
         if (checkoutResult.State != CheckoutLoadState.Success || checkoutResult.Checkout is null ||
             paymentResult.State != PaymentLoadState.Success || paymentResult.Payment is not { } payment ||
-            !payment.IsCard ||
             checkoutResult.Checkout.Status is not ("active" or "paymentpending") ||
             payment.Status is not ("expired" or "failed" or "cancelled"))
         {
@@ -236,7 +235,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             return IsAjaxPaymentRequest ? PaymentFlowFragment() : Page();
         }
         var currentPayment = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
-        if (currentPayment.State == PaymentLoadState.Success && currentPayment.Payment is { Status: "pending" or "processing" or "approved" or "conversionpending" })
+        if (currentPayment.State == PaymentLoadState.Success && currentPayment.Payment is { Status: "pending" or "unknown" or "processing" or "approved" or "conversionpending" or "failed" or "cancelled" or "expired" })
         {
             var paymentCancellation = await client.CancelPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
             if (paymentCancellation.State == PaymentLoadState.Success)
