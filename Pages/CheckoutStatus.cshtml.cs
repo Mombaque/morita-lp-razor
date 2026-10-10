@@ -220,7 +220,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
 
             return PaymentFlowFragment();
         }
-        return new JsonResult(new { state = result.State.ToString().ToLowerInvariant(), status = result.Payment?.Status, expiresAt = result.Payment?.ExpiresAt });
+        return new JsonResult(new { state = result.State.ToString().ToLowerInvariant(), status = result.Payment?.Status, awaitingCode = result.Payment?.AwaitingPixCode, expiresAt = result.Payment?.ExpiresAt });
     }
 
     public async Task<IActionResult> OnPostCancelAsync(CancellationToken cancellationToken)

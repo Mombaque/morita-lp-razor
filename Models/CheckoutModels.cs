@@ -34,6 +34,12 @@ public sealed class PixPayment
     public bool IsPix => Method == OnlinePaymentMethod.Pix;
     public bool IsCard => Method == OnlinePaymentMethod.Card;
 
+    public bool AwaitingPixCode =>
+        IsPix
+        && Status == "pending"
+        && string.IsNullOrWhiteSpace(CheckoutUrl)
+        && (string.IsNullOrWhiteSpace(PixCopyPaste) || string.IsNullOrWhiteSpace(QrCodePngDataUri));
+
     public bool NeedsPixPresentation(string? checkoutStatus) =>
         IsPix
         && Status == "failed"
