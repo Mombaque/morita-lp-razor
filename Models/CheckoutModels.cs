@@ -94,6 +94,8 @@ public sealed class PublicOrder
     public IReadOnlyList<PublicOrderLine> Lines { get; init; } = [];
     public bool CanReportProblem { get; init; }
     public PublicCustomerOrderProblem? OpenProblem { get; init; }
+    public PublicCustomerOrderProblem? LatestProblem { get; init; }
+    public DateTimeOffset? ReturnWindowEndsAt { get; init; }
 }
 
 public sealed class PublicCustomerOrderProblem
@@ -102,7 +104,18 @@ public sealed class PublicCustomerOrderProblem
     public string Message { get; init; } = "";
     public string Status { get; init; } = "";
     public DateTimeOffset CreatedAt { get; init; }
+    public DateTimeOffset? ResolvedAt { get; init; }
+    public string? StaffNote { get; init; }
+    public List<PublicCustomerOrderProblemItem> Items { get; init; } = [];
 }
+
+public sealed class PublicCustomerOrderProblemItem
+{
+    public string Description { get; init; } = "";
+    public int Quantity { get; init; }
+}
+
+public sealed record OrderProblemItemSelection(int LineIndex, int Quantity);
 
 public sealed class PublicOrderLine
 {
