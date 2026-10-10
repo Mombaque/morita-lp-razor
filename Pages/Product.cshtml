@@ -114,6 +114,32 @@
                     <p id="offer-validation-message" class="offer-validation-message" role="alert" aria-live="assertive" hidden="@(string.IsNullOrWhiteSpace(offerError) ? "hidden" : null)">@offerError</p>
                     <button class="button primary-cta" type="submit" data-cart="add">Adicionar ao carrinho</button>
                 </form>
+                @{
+                    var soldOut = p.Variants.SelectMany(variant => variant.Offers.Select(offer => (Variant: variant, Offer: offer)))
+                        .Where(item => !string.Equals(item.Offer.Availability, "available", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                }
+                @if (soldOut.Count > 0) {
+                    <details class="stock-alert" id="stock-alert" open="@(Model.StockAlertStatus is null ? null : "open")">
+                        <summary>Avise-me quando chegar</summary>
+                        @if (Model.StockAlertStatus == "ok") { <p class="stock-alert-message" role="status" data-stock-alert="ok">Pronto! Enviaremos um e-mail quando este tamanho voltar ao estoque.</p> }
+                        else if (Model.StockAlertStatus == "available") { <p class="stock-alert-message" role="status" data-stock-alert="available">Esta opção já está disponível. Atualize a página para comprar.</p> }
+                        else if (Model.StockAlertStatus == "invalid") { <p class="stock-alert-message is-error" role="alert" data-stock-alert="invalid">Confira o e-mail, a opção escolhida e o aceite da política de privacidade.</p> }
+                        else if (Model.StockAlertStatus == "unavailable") { <p class="stock-alert-message is-error" role="alert" data-stock-alert="unavailable">Não foi possível registrar o aviso agora. Tente novamente em instantes.</p> }
+                        <form method="post" asp-page-handler="StockAlert" class="stock-alert-form">
+                            <label>Opção
+                                <select name="alertOfferId" required>
+                                    @foreach (var item in soldOut) {
+                                        <option value="@item.Offer.PublicOfferId">@(string.IsNullOrWhiteSpace(item.Variant.ColorLabel) ? "Cor única" : item.Variant.ColorLabel) / @(string.IsNullOrWhiteSpace(item.Offer.SizeLabel) ? "Tamanho único" : item.Offer.SizeLabel)</option>
+                                    }
+                                </select>
+                            </label>
+                            <label>E-mail <input type="email" name="alertEmail" maxlength="254" autocomplete="email" required></label>
+                            <label class="account-check"><input type="checkbox" name="alertConsent" value="true" required><span>Aceito a política de privacidade @if (Model.PrivacyPolicyUrl is not null) { <text>(<a href="@Model.PrivacyPolicyUrl">ler a política</a>)</text> }.</span></label>
+                            <button class="button" type="submit">Avisar por e-mail</button>
+                        </form>
+                    </details>
+                }
                 @if (StorefrontOptions.Value.PublicAssistantEnabled) { <button class="button" type="button" data-assistant-open data-assistant-product="@p.Slug">Perguntar sobre este produto</button> }
                 <noscript><p>Escolha uma oferta para adicionar ao carrinho.</p></noscript>
             </section>

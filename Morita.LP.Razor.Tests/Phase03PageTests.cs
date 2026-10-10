@@ -374,6 +374,29 @@ public sealed class Phase03PageTests
         Assert.Contains("quantidade", html, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task Detail_offers_a_back_in_stock_alert_only_for_sold_out_options()
+    {
+        var available = Guid.NewGuid();
+        var unavailable = Guid.NewGuid();
+        var product = new Product { Slug = "kimono", Nome = "Kimono", Variants = [new ProductVariant { ColorLabel = "Azul", Images = ["/images/azul.jpg"], Offers = [new ProductOffer { PublicOfferId = available, SizeLabel = "A1", UnitPrice = 100, Availability = "available" }, new ProductOffer { PublicOfferId = unavailable, SizeLabel = "A2", Availability = "unavailable" }] }] };
+        using var factory = CreateDetail(product);
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products/kimono?alert=ok")).Content.ReadAsStringAsync());
+        Assert.Contains("Avise-me quando chegar", html);
+        Assert.Contains($"<option value=\"{unavailable}\">Azul / A2</option>", html);
+        Assert.DoesNotContain($"<option value=\"{available}\">", html);
+        Assert.Contains("data-stock-alert=\"ok\"", html);
+    }
+
+    [Fact]
+    public async Task Detail_hides_the_back_in_stock_alert_when_everything_is_available()
+    {
+        var product = new Product { Slug = "kimono", Nome = "Kimono", Variants = [new ProductVariant { ColorLabel = "Azul", Images = ["/images/azul.jpg"], Offers = [new ProductOffer { PublicOfferId = Guid.NewGuid(), SizeLabel = "A1", UnitPrice = 100, Availability = "available" }] }] };
+        using var factory = CreateDetail(product);
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/products/kimono")).Content.ReadAsStringAsync());
+        Assert.DoesNotContain("Avise-me quando chegar", html);
+    }
+
     private static WebApplicationFactory<Program> Create(CatalogPage page, CatalogFilters? filters = null) => CreateDetail(new Product { Slug = "x", Nome = "x" }, page: page, filters: filters);
     private static WebApplicationFactory<Program> CreateDetail(Product? detail, ProductDetailResult? forced = null, CatalogPage? page = null, CatalogQuoteResult? quote = null, CatalogResult? related = null, CatalogFilters? filters = null)
     {

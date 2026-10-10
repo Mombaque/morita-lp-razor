@@ -10,4 +10,13 @@ public interface ICatalogClient
     Task<ProductDetailResult> GetProductAsync(string slug, CancellationToken cancellationToken = default) => Task.FromResult(ProductDetailResult.Unavailable());
     Task<CatalogResult> GetRelatedAsync(string slug, int limit = 4, CancellationToken cancellationToken = default) => Task.FromResult(CatalogResult.Unavailable());
     Task<CatalogQuoteResult> QuoteAsync(CatalogQuoteRequest request, CancellationToken cancellationToken = default) => Task.FromResult(CatalogQuoteResult.Unavailable());
+    Task<StockAlertResult> SubscribeStockAlertAsync(Guid publicOfferId, string email, bool acceptedPrivacyPolicy, CancellationToken cancellationToken = default) => Task.FromResult(StockAlertResult.Unavailable);
+}
+
+public enum StockAlertResult
+{
+    Accepted,
+    Invalid,
+    AlreadyAvailable,
+    Unavailable
 }
