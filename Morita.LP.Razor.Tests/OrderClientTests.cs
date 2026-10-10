@@ -56,6 +56,27 @@ public sealed class OrderClientTests
     }
 
     [Fact]
+    public async Task Get_maps_the_pickup_code_of_a_ready_order()
+    {
+        var number = "MF-0123456789ABCDEF";
+        var json = Json(number).Replace("\"pickupInstructions\":\"Documento\"", "\"pickupInstructions\":\"Documento\",\"pickupCode\":\"042137\"");
+
+        var result = await Create(new Handler(json)).GetAsync(number, Token);
+
+        Assert.Equal("042137", result.Order!.PickupCode);
+        Assert.True(result.Order.HasPickupCode);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("12345")]
+    [InlineData("12a456")]
+    public void Pickup_code_is_shown_only_when_it_has_six_digits(string? code)
+    {
+        Assert.False(new PublicOrder { PickupCode = code }.HasPickupCode);
+    }
+
+    [Fact]
     public async Task Get_rejects_bad_status_totals_address_and_number()
     {
         var number = "MF-0123456789ABCDEF";
