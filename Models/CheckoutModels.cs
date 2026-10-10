@@ -76,7 +76,9 @@ public sealed class PublicOrder
     public DateTimeOffset? FulfillmentUpdatedAt { get; init; }
     public string FulfillmentMethod { get; init; } = "pickup";
     public string PickupDisplayName { get; init; } = "";
-    public CheckoutAddress? PickupAddress { get; init; }
+    private readonly CheckoutAddress? pickupAddress;
+    public CheckoutAddress? PickupAddress { get => pickupAddress ?? (PickupAddressJson is { } json ? PickupAddressParser.Parse(json) : null); init => pickupAddress = value; }
+    public System.Text.Json.JsonElement? PickupAddressJson { get; init; }
     public string PickupHours { get; init; } = "";
     public string PickupInstructions { get; init; } = "";
     public ShippingSnapshot? Shipping { get; init; }

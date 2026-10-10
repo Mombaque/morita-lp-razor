@@ -45,6 +45,17 @@ public sealed class OrderClientTests
     }
 
     [Fact]
+    public void Account_order_payload_maps_pickup_address_from_snapshot_json()
+    {
+        const string json = """{"publicOrderNumber":"MF-0123456789ABCDEF","fulfillmentMethod":"pickup","pickupDisplayName":"Morita","pickupAddressJson":"{\"Street\":\"Coronel Nogueira Padilha\",\"Number\":\"429\",\"Neighborhood\":\"Vila Hortência\",\"City\":\"Sorocaba\",\"State\":\"SP\",\"PostalCode\":\"18020-000\"}","pickupHours":"Seg a sexta"}""";
+
+        var order = JsonSerializer.Deserialize<PublicOrder>(json, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        Assert.Equal("Coronel Nogueira Padilha", order!.PickupAddress!.Street);
+        Assert.Equal("Sorocaba", order.PickupAddress.City);
+    }
+
+    [Fact]
     public async Task Get_rejects_bad_status_totals_address_and_number()
     {
         var number = "MF-0123456789ABCDEF";
