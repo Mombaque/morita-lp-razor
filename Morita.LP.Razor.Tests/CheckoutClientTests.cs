@@ -323,7 +323,8 @@ public sealed class CheckoutClientTests
         var badQr = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), null, "bm90LXBuZw=="))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Malformed, badQr.State);
         var missingPendingPix = await Create(new RecordingHandler(PaymentJson("pending", DateTimeOffset.UtcNow.AddMinutes(10), includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
-        Assert.Equal(PaymentLoadState.Malformed, missingPendingPix.State);
+        Assert.Equal(PaymentLoadState.Success, missingPendingPix.State);
+        Assert.True(missingPendingPix.Payment!.AwaitingPixCode);
         var processingWithoutPix = await Create(new RecordingHandler(PaymentJson("conversionpending", DateTimeOffset.UtcNow.AddMinutes(10), includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));
         Assert.Equal(PaymentLoadState.Success, processingWithoutPix.State);
         var cancellationPending = await Create(new RecordingHandler(PaymentJson("CancellationPending", DateTimeOffset.UtcNow.AddMinutes(10), includePix: false))).GetPaymentAsync(Guid.NewGuid(), new string('a', 32));

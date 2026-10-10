@@ -85,9 +85,9 @@
             var canCancelPayment = (Model.Checkout.Status is ("active" or "paymentpending" or "conversionpending")) && (payment.Status is ("pending" or "unknown" or "processing" or "approved" or "conversionpending"));
             var canRetryPayment = (Model.Checkout.Status is ("active" or "paymentpending")) && (payment.Status is ("expired" or "failed" or "cancelled"));
             var pixNotPresented = payment.NeedsPixPresentation(Model.Checkout.Status);
-            var paymentStateLabel = pixNotPresented ? "Aguardando o PIX" : payment.Status switch { "pending" => "Aguardando pagamento", "unknown" => "Confirmando o pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" };
+            var paymentStateLabel = pixNotPresented ? "Aguardando o PIX" : payment.AwaitingPixCode ? "Gerando o PIX" : payment.Status switch { "pending" => "Aguardando pagamento", "unknown" => "Confirmando o pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" };
             var paymentStateClass = pixNotPresented || payment.Status is ("pending" or "unknown" or "processing" or "conversionpending" or "cancellationpending") ? "payment-status-pending" : payment.Status is ("failed" or "cancelled" or "expired") ? "payment-status-cancelled" : "";
-            <section class="pix-corner-card checkout-payment-card" aria-labelledby="payment-heading" data-payment-status="@payment.Status" data-payment-method="@payment.Method.ToWireValue()">
+            <section class="pix-corner-card checkout-payment-card" aria-labelledby="payment-heading" data-payment-status="@payment.Status" data-awaiting-code="@(payment.AwaitingPixCode ? "true" : "false")" data-payment-method="@payment.Method.ToWireValue()">
                 <div class="checkout-payment-heading">
                     <div>
                         <p class="checkout-card-kicker">03 // Pagamento</p>
@@ -124,11 +124,11 @@
                         </div>
                     </div>
                 }
-                @if (payment.Status == "unknown")
+                @if (payment.Status == "unknown" || payment.AwaitingPixCode)
                 {
                     <div class="card-payment-pending" data-payment-unknown>
                         <p class="pix-instructions-title">Confirmando o pagamento</p>
-                        <p class="cart-estimate-note" role="status">Estamos confirmando @(payment.IsCard ? "o pagamento com cartão" : "a geração do PIX") com o Mercado Pago. Esta tela atualiza sozinha; não é necessário tentar de novo.</p>
+                        <p class="cart-estimate-note" role="status">Estamos confirmando @(payment.IsCard ? "o pagamento com cartão" : "a geração do PIX") com o Mercado Pago. Esta tela atualiza sozinha; não é necessário tentar de novo. Se preferir, cancele a reserva e refaça o pedido.</p>
                     </div>
                 }
                 @if (!terminal && payment.IsCard && payment.Challenge is { } challenge)

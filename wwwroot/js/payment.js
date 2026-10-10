@@ -170,7 +170,7 @@ const startPaymentPolling = (flow) => {
         window.location.assign(result.redirectUrl || result.url);
         return;
       }
-      if (terminalStatuses.has(result.status) || (card.dataset.paymentStatus === 'unknown' && result.status && result.status !== 'unknown')) {
+      if (terminalStatuses.has(result.status) || (card.dataset.awaitingCode === 'true' && result.awaitingCode === false) || (card.dataset.paymentStatus === 'unknown' && result.status && result.status !== 'unknown')) {
         try {
           await refreshPaymentFlow(flow);
         } catch {

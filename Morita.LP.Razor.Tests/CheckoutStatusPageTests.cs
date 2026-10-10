@@ -353,6 +353,24 @@ public sealed class CheckoutStatusPageTests
     }
 
     [Fact]
+    public async Task Pending_pix_without_code_shows_generating_state_and_cancel()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "paymentpending"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "pending", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30) }),
+            Configuration = new(CheckoutLoadState.Success, new CheckoutConfiguration { Currency = "BRL", PickupEnabled = true, OnlinePaymentMethods = [OnlinePaymentMethod.Pix] })
+        };
+
+        var body = await RenderStatusAsync(id, api);
+
+        Assert.Contains("data-awaiting-code=\"true\"", body, StringComparison.Ordinal);
+        Assert.Contains("Gerando o PIX", body, StringComparison.Ordinal);
+        Assert.Contains("Cancelar pagamento", body, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task Failed_payment_cancel_uses_payment_cancel_endpoint()
     {
         var id = Guid.NewGuid();
