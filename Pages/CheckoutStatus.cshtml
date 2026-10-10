@@ -139,7 +139,7 @@
             @await Html.PartialAsync("_CheckoutPaymentFlow", Model)
         }
 
-        @if (Model.Checkout.Status == "expired")
+        @if (Model.Checkout.Status is "expired" or "cancelled")
         {
             <section class="checkout-next-step" aria-labelledby="restart-checkout-heading">
                 <div>
