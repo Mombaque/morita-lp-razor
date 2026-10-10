@@ -15,6 +15,13 @@
         <h3>Endereço de entrega</h3>
         <p>@shipping.Address.Recipient<br>@shipping.Address.Street, @shipping.Address.Number @shipping.Address.Complement<br>@shipping.Address.Neighborhood · @shipping.Address.City/@shipping.Address.State · CEP @shipping.Address.PostalCode</p>
     }
+    @if (Model.FulfillmentMethod == "pickup" && Model.HasPickupCode)
+    {
+        <div class="pickup-code" data-pickup-code>
+            <p>Seu pedido está pronto para retirada. Informe este código na loja:</p>
+            <p class="pickup-code-value" aria-label="Código de retirada">@Model.PickupCode</p>
+        </div>
+    }
     @if (Model.FulfillmentMethod == "pickup" && Model.PickupAddress is { } pickup)
     {
         <h3>Retirada</h3>

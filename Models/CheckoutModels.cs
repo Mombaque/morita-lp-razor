@@ -87,6 +87,8 @@ public sealed class PublicOrder
     public System.Text.Json.JsonElement? PickupAddressJson { get; init; }
     public string PickupHours { get; init; } = "";
     public string PickupInstructions { get; init; } = "";
+    public string? PickupCode { get; init; }
+    public bool HasPickupCode => PickupCode is { Length: 6 } code && code.All(char.IsAsciiDigit);
     public ShippingSnapshot? Shipping { get; init; }
     public PublicShipment? Shipment { get; init; }
     public IReadOnlyList<PublicOrderLine> Lines { get; init; } = [];
