@@ -1,5 +1,5 @@
 const terminalStatuses = new Set(['failed', 'cancelled', 'expired', 'refundpending', 'refunded']);
-const activePaymentStates = new Set(['pending', 'processing', 'approved', 'conversionpending', 'cancellationpending']);
+const activePaymentStates = new Set(['pending', 'unknown', 'processing', 'approved', 'conversionpending', 'cancellationpending']);
 const FAST_POLL_MS = 5000;
 const SLOW_POLL_MS = 15000;
 const FAST_POLL_WINDOW_MS = 2 * 60 * 1000;
@@ -170,7 +170,7 @@ const startPaymentPolling = (flow) => {
         window.location.assign(result.redirectUrl || result.url);
         return;
       }
-      if (terminalStatuses.has(result.status)) {
+      if (terminalStatuses.has(result.status) || (card.dataset.paymentStatus === 'unknown' && result.status && result.status !== 'unknown')) {
         try {
           await refreshPaymentFlow(flow);
         } catch {

@@ -31,6 +31,20 @@ public sealed class OrderClientTests
     }
 
     [Fact]
+    public async Task Get_maps_pascal_case_pickup_address_snapshot()
+    {
+        const string number = "MF-0123456789ABCDEF";
+        const string address = "{\"Recipient\":\"\",\"Street\":\"Coronel Nogueira Padilha\",\"Number\":\"429\",\"Complement\":null,\"Neighborhood\":\"Vila Hortência\",\"City\":\"Sorocaba\",\"State\":\"SP\",\"PostalCode\":\"18020-000\",\"CountryCode\":\"BR\"}";
+
+        var result = await Create(new Handler(Json(number, address: address))).GetAsync(number, Token);
+
+        Assert.Equal(OrderLoadState.Success, result.State);
+        Assert.Equal("Coronel Nogueira Padilha", result.Order!.PickupAddress!.Street);
+        Assert.Equal("18020-000", result.Order.PickupAddress.PostalCode);
+        Assert.Null(result.Order.PickupAddress.Complement);
+    }
+
+    [Fact]
     public async Task Get_rejects_bad_status_totals_address_and_number()
     {
         var number = "MF-0123456789ABCDEF";

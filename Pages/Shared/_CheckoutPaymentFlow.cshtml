@@ -82,11 +82,11 @@
         @if (Model.Payment is { } payment)
         {
             var terminal = payment.Status is ("converted" or "failed" or "cancelled" or "expired" or "refundpending" or "refunded");
-            var canCancelPayment = (Model.Checkout.Status is ("active" or "paymentpending" or "conversionpending")) && (payment.Status is ("pending" or "processing" or "approved" or "conversionpending"));
+            var canCancelPayment = (Model.Checkout.Status is ("active" or "paymentpending" or "conversionpending")) && (payment.Status is ("pending" or "unknown" or "processing" or "approved" or "conversionpending"));
             var canRetryPayment = (Model.Checkout.Status is ("active" or "paymentpending")) && (payment.Status is ("expired" or "failed" or "cancelled"));
             var pixNotPresented = payment.NeedsPixPresentation(Model.Checkout.Status);
-            var paymentStateLabel = pixNotPresented ? "Aguardando o PIX" : payment.Status switch { "pending" => "Aguardando pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" };
-            var paymentStateClass = pixNotPresented || payment.Status is ("pending" or "processing" or "conversionpending" or "cancellationpending") ? "payment-status-pending" : payment.Status is ("failed" or "cancelled" or "expired") ? "payment-status-cancelled" : "";
+            var paymentStateLabel = pixNotPresented ? "Aguardando o PIX" : payment.Status switch { "pending" => "Aguardando pagamento", "unknown" => "Confirmando o pagamento", "processing" or "conversionpending" => "Pagamento em análise", "cancellationpending" => "Cancelamento em confirmação", "approved" => "Pagamento aprovado; finalizando pedido", "failed" => "Pagamento não aprovado", "cancelled" => "Pagamento cancelado", "expired" => payment.IsCard ? "Cartão expirado" : "PIX expirado", "refundpending" => "Estorno em andamento", "refunded" => "Pagamento estornado", "converted" => "Pagamento aprovado", _ => "Atualização do pagamento" };
+            var paymentStateClass = pixNotPresented || payment.Status is ("pending" or "unknown" or "processing" or "conversionpending" or "cancellationpending") ? "payment-status-pending" : payment.Status is ("failed" or "cancelled" or "expired") ? "payment-status-cancelled" : "";
             <section class="pix-corner-card checkout-payment-card" aria-labelledby="payment-heading" data-payment-status="@payment.Status" data-payment-method="@payment.Method.ToWireValue()">
                 <div class="checkout-payment-heading">
                     <div>
@@ -124,6 +124,13 @@
                         </div>
                     </div>
                 }
+                @if (payment.Status == "unknown")
+                {
+                    <div class="card-payment-pending" data-payment-unknown>
+                        <p class="pix-instructions-title">Confirmando o pagamento</p>
+                        <p class="cart-estimate-note" role="status">Estamos confirmando @(payment.IsCard ? "o pagamento com cartão" : "a geração do PIX") com o Mercado Pago. Esta tela atualiza sozinha; não é necessário tentar de novo.</p>
+                    </div>
+                }
                 @if (!terminal && payment.IsCard && payment.Challenge is { } challenge)
                 {
                     <div class="card-payment-challenge" data-card-challenge data-challenge-url="@challenge.Url" data-challenge-creq="@challenge.Creq">
@@ -153,29 +160,33 @@
                         </form>
                     </div>
                 }
-                @if (canRetryPayment && payment.IsPix)
+                @if (canRetryPayment)
                 {
-                    <div class="checkout-status-actions">
+                    <div class="checkout-status-actions" data-payment-retry>
                         @if (pixNotPresented)
                         {
-                            <p class="validation-error" role="alert" data-pix-not-created>Não foi possível gerar o PIX agora. Sua reserva continua válida: tente novamente ou fale com a Morita pelo <a href="https://wa.me/5515981079332" target="_blank" rel="noopener noreferrer">WhatsApp</a>.</p>
+                            <p class="validation-error" role="alert" data-pix-not-created>Não foi possível gerar o PIX agora. Sua reserva continua válida: tente novamente@(Model.CardAvailable ? ", pague com cartão" : "") ou fale com a Morita pelo <a href="https://wa.me/5515981079332" target="_blank" rel="noopener noreferrer">WhatsApp</a>.</p>
                         }
-                        <form method="post" asp-page-handler="RetryPix" data-payment-action="retry" data-payment-method="@OnlinePaymentMethod.Pix.ToWireValue()">
-                            <button class="commerce-button commerce-button-primary" type="submit">@(pixNotPresented ? "Tentar gerar o PIX novamente" : "Gerar novo PIX")</button>
+                        @if (Model.PixAvailable)
+                        {
+                            <form method="post" asp-page-handler="RetryPix" data-payment-action="retry" data-payment-method="@OnlinePaymentMethod.Pix.ToWireValue()">
+                                <button class="commerce-button @(payment.IsPix ? "commerce-button-primary" : "commerce-button-secondary")" type="submit">@(pixNotPresented ? "Tentar gerar o PIX novamente" : payment.IsPix ? "Gerar novo PIX" : "Pagar com PIX")</button>
+                            </form>
+                        }
+                        @if (Model.CardAvailable && !Model.CanEnterCard)
+                        {
+                            <form method="post" asp-page-handler="RetryCard" data-payment-action="retry" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
+                                <button class="commerce-button @(payment.IsCard ? "commerce-button-primary" : "commerce-button-secondary")" type="submit">@(payment.IsCard ? "Gerar novo pagamento com cartão" : "Pagar com cartão")</button>
+                            </form>
+                        }
+                        <form method="post" asp-page-handler="Cancel" data-payment-action="cancel" data-confirm="Cancelar esta reserva? Os itens voltam ao estoque.">
+                            <button class="commerce-button commerce-button-danger" type="submit">Cancelar reserva</button>
                         </form>
                     </div>
-                }
-                @if (canRetryPayment && payment.IsCard && Model.CanEnterCard)
-                {
-                    <partial name="_EmbeddedCardPanel" model="Model" view-data='@(new ViewDataDictionary(ViewData) { ["EmbeddedCardUrl"] = embeddedCardUrl })' />
-                }
-                else if (canRetryPayment && payment.IsCard)
-                {
-                    <div class="checkout-status-actions">
-                        <form method="post" asp-page-handler="RetryCard" data-payment-action="retry" data-payment-method="@OnlinePaymentMethod.Card.ToWireValue()">
-                            <button class="commerce-button commerce-button-primary" type="submit">Gerar novo pagamento com cartão</button>
-                        </form>
-                    </div>
+                    @if (Model.CanEnterCard)
+                    {
+                        <partial name="_EmbeddedCardPanel" model="Model" view-data='@(new ViewDataDictionary(ViewData) { ["EmbeddedCardUrl"] = embeddedCardUrl })' />
+                    }
                 }
             </section>
         }
