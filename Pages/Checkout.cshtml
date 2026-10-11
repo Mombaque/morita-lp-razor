@@ -56,12 +56,12 @@
                     <p class="cart-estimate-note cep-lookup-status" data-cep-status role="status" aria-live="polite"><a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noopener">Não sei meu CEP</a></p>
                     <span asp-validation-for="ShippingAddress.PostalCode" class="validation-error full"></span>
                     <label class="checkout-field full">Destinatário<input class="checkout-control" asp-for="ShippingAddress.Recipient" autocomplete="name"></label><span asp-validation-for="ShippingAddress.Recipient" class="validation-error"></span>
-                    <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="ShippingAddress.Street" autocomplete="address-line1"></label>
-                    <label class="checkout-field number">Número<input class="checkout-control" asp-for="ShippingAddress.Number" inputmode="numeric"></label>
+                    <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="ShippingAddress.Street" autocomplete="address-line1"><span asp-validation-for="ShippingAddress.Street" class="validation-error"></span></label>
+                    <label class="checkout-field number">Número<input class="checkout-control" asp-for="ShippingAddress.Number" inputmode="numeric"><span asp-validation-for="ShippingAddress.Number" class="validation-error"></span></label>
                     <label class="checkout-field full">Complemento <small>(opcional)</small><input class="checkout-control" asp-for="ShippingAddress.Complement" autocomplete="address-line3"></label>
-                    <label class="checkout-field">Bairro<input class="checkout-control" asp-for="ShippingAddress.Neighborhood" autocomplete="address-level3"></label>
-                    <label class="checkout-field">Cidade<input class="checkout-control" asp-for="ShippingAddress.City" autocomplete="address-level2"></label>
-                    <label class="checkout-field">UF<select class="checkout-control" asp-for="ShippingAddress.State" autocomplete="address-level1"><option value="">UF</option>@foreach (var state in AccountModel.BrazilianStates) { <option value="@state.Code" selected="@(string.Equals(Model.ShippingAddress?.State, state.Code, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@state.Code</option> }</select></label>
+                    <label class="checkout-field">Bairro<input class="checkout-control" asp-for="ShippingAddress.Neighborhood" autocomplete="address-level3"><span asp-validation-for="ShippingAddress.Neighborhood" class="validation-error"></span></label>
+                    <label class="checkout-field">Cidade<input class="checkout-control" asp-for="ShippingAddress.City" autocomplete="address-level2"><span asp-validation-for="ShippingAddress.City" class="validation-error"></span></label>
+                    <label class="checkout-field">UF<select class="checkout-control" asp-for="ShippingAddress.State" autocomplete="address-level1"><option value="">UF</option>@foreach (var state in AccountModel.BrazilianStates) { <option value="@state.Code" selected="@(string.Equals(Model.ShippingAddress?.State, state.Code, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@state.Code</option> }</select><span asp-validation-for="ShippingAddress.State" class="validation-error"></span></label>
                    </div>
                    @if (Model.AccountPrefilled && Model.SavedAddresses.Count < 10)
                    {
@@ -105,14 +105,12 @@
                     <label class="checkout-field cep" asp-for="BillingAddress.PostalCode">CEP<input class="checkout-control" asp-for="BillingAddress.PostalCode" inputmode="numeric" autocomplete="billing postal-code" placeholder="00000-000" maxlength="9" data-billing-postal-code></label>
                     <p class="cart-estimate-note cep-lookup-status" data-billing-cep-status role="status" aria-live="polite"></p>
                     <span asp-validation-for="BillingAddress.PostalCode" class="validation-error full"></span>
-                    <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="BillingAddress.Street" autocomplete="billing address-line1"></label>
-                    <label class="checkout-field number">Número<input class="checkout-control" asp-for="BillingAddress.Number" inputmode="numeric"></label>
-                    <span asp-validation-for="BillingAddress.Street" class="validation-error"></span><span asp-validation-for="BillingAddress.Number" class="validation-error"></span>
+                    <label class="checkout-field street">Rua / Avenida<input class="checkout-control" asp-for="BillingAddress.Street" autocomplete="billing address-line1"><span asp-validation-for="BillingAddress.Street" class="validation-error"></span></label>
+                    <label class="checkout-field number">Número<input class="checkout-control" asp-for="BillingAddress.Number" inputmode="numeric"><span asp-validation-for="BillingAddress.Number" class="validation-error"></span></label>
                     <label class="checkout-field full">Complemento <small>(opcional)</small><input class="checkout-control" asp-for="BillingAddress.Complement" autocomplete="billing address-line3"></label>
-                    <label class="checkout-field">Bairro<input class="checkout-control" asp-for="BillingAddress.Neighborhood" autocomplete="billing address-level3"></label>
-                    <label class="checkout-field">Cidade<input class="checkout-control" asp-for="BillingAddress.City" autocomplete="billing address-level2"></label>
-                    <label class="checkout-field">UF<select class="checkout-control" asp-for="BillingAddress.State" autocomplete="billing address-level1"><option value="">UF</option>@foreach (var state in AccountModel.BrazilianStates) { <option value="@state.Code" selected="@(string.Equals(Model.BillingAddress?.State, state.Code, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@state.Code</option> }</select></label>
-                    <span asp-validation-for="BillingAddress.Neighborhood" class="validation-error"></span><span asp-validation-for="BillingAddress.City" class="validation-error"></span><span asp-validation-for="BillingAddress.State" class="validation-error"></span>
+                    <label class="checkout-field">Bairro<input class="checkout-control" asp-for="BillingAddress.Neighborhood" autocomplete="billing address-level3"><span asp-validation-for="BillingAddress.Neighborhood" class="validation-error"></span></label>
+                    <label class="checkout-field">Cidade<input class="checkout-control" asp-for="BillingAddress.City" autocomplete="billing address-level2"><span asp-validation-for="BillingAddress.City" class="validation-error"></span></label>
+                    <label class="checkout-field">UF<select class="checkout-control" asp-for="BillingAddress.State" autocomplete="billing address-level1"><option value="">UF</option>@foreach (var state in AccountModel.BrazilianStates) { <option value="@state.Code" selected="@(string.Equals(Model.BillingAddress?.State, state.Code, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@state.Code</option> }</select><span asp-validation-for="BillingAddress.State" class="validation-error"></span></label>
                   </div>
                 </section>
               </div>
