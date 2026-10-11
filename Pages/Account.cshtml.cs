@@ -36,6 +36,7 @@ public sealed class AccountModel(
     [BindProperty] public string ProblemReason { get; set; } = "";
     [BindProperty] public string ProblemMessage { get; set; } = "";
     [BindProperty] public List<int> ProblemQuantities { get; set; } = [];
+    public OrderProblemDraft? ProblemDraft { get; private set; }
     [BindProperty] public RegistrationInput Registration { get; set; } = new();
     [BindProperty] public LoginInput Login { get; set; } = new();
     [BindProperty] public EmailInput EmailForm { get; set; } = new();
@@ -185,7 +186,12 @@ public sealed class AccountModel(
             .ToList();
         var result = await client.ReportProblemAsync(session.Token, PublicOrderNumber, ProblemReason, ProblemMessage, items, ct);
         if (result.State == AccountLoadState.Success) Message = "Solicitação enviada. A loja vai analisar e responder por e-mail.";
-        else { ExpireIfNeeded(result.State); Error = result.Message ?? "Não foi possível enviar o relato."; }
+        else
+        {
+            ExpireIfNeeded(result.State);
+            Error = result.Message ?? "Não foi possível enviar o relato.";
+            ProblemDraft = new OrderProblemDraft(ProblemReason, ProblemMessage, ProblemQuantities);
+        }
         await LoadAsync(ct);
         return Page();
     }

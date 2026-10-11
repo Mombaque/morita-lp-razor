@@ -468,6 +468,9 @@ public sealed class CustomerAccountTests
         await page.OnPostReportProblemAsync(CancellationToken.None);
 
         Assert.Equal("Trocas e devoluções podem ser pedidas em até 7 dias.", page.Error);
+        Assert.Equal("Return", page.ProblemDraft!.Reason);
+        Assert.Equal("Desisti.", page.ProblemDraft.Message);
+        Assert.Equal([1], page.ProblemDraft.Quantities);
     }
 
     [Fact]
