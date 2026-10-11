@@ -26,6 +26,7 @@ public interface ICustomerAccountClient
     Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
     Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default);
     Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken cancellationToken = default);
+    Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, IReadOnlyList<OrderProblemItemSelection> items, CancellationToken cancellationToken = default) => ReportProblemAsync(token, number, reason, message, cancellationToken);
 }
 
 public sealed class CustomerAccountClient(
@@ -82,7 +83,8 @@ public sealed class CustomerAccountClient(
     public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken ct = default) => NoContentAsync(HttpMethod.Post, $"v1/storefront/account/{(all ? "logout-all" : "logout")}", null, token, ct);
     public Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken ct = default) => SendAsync<StorefrontAccountOrderPage>(HttpMethod.Get, $"v1/storefront/account/orders?page={Math.Max(page, 1)}&pageSize={Math.Clamp(pageSize, 1, 20)}", null, token, ct);
     public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken ct = default) => SendAsync<PublicOrder>(HttpMethod.Get, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}", null, token, ct);
-    public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken ct = default) => SendAsync<PublicCustomerOrderProblem>(HttpMethod.Post, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}/problems", new { reason, message }, token, ct);
+    public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken ct = default) => ReportProblemAsync(token, number, reason, message, [], ct);
+    public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, IReadOnlyList<OrderProblemItemSelection> items, CancellationToken ct = default) => SendAsync<PublicCustomerOrderProblem>(HttpMethod.Post, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}/problems", new { reason, message, items = items.Select(item => new { lineIndex = item.LineIndex, quantity = item.Quantity }).ToList() }, token, ct);
     private async Task<AccountResult<bool>> NoContentAsync(HttpMethod method, string path, object? body, string token, CancellationToken ct, (string Name, string Value)? extra = null)
     {
         var result = await SendAsync<JsonElement>(method, path, body, token, ct, extra);
@@ -109,7 +111,7 @@ public sealed class CustomerAccountClient(
             if (response.StatusCode == HttpStatusCode.NotFound) return AccountResult<T>.Failure(AccountLoadState.NotFound);
             if (response.StatusCode == HttpStatusCode.Conflict) return AccountResult<T>.Failure(AccountLoadState.Conflict, path.Contains("/problems", StringComparison.Ordinal) ? "Este pedido já possui um relato em aberto." : "Este pedido já pertence a outra conta.");
             if (response.StatusCode == (HttpStatusCode)429) return AccountResult<T>.Failure(AccountLoadState.RateLimited, "Muitas tentativas. Aguarde um pouco.");
-            if (response.StatusCode == HttpStatusCode.UnprocessableEntity) return AccountResult<T>.Failure(AccountLoadState.Validation, "Revise os dados informados.");
+            if (response.StatusCode == HttpStatusCode.UnprocessableEntity) return AccountResult<T>.Failure(AccountLoadState.Validation, path.Contains("/problems", StringComparison.Ordinal) ? await FirstNotificationAsync(response, timeout.Token) ?? "Revise os dados informados." : "Revise os dados informados.");
             if (response.StatusCode == HttpStatusCode.NoContent) return new(AccountLoadState.Success, default);
             if ((int)response.StatusCode >= 500) return AccountResult<T>.Failure(AccountLoadState.Unavailable, "O serviço está temporariamente indisponível.");
             if (!response.IsSuccessStatusCode) return AccountResult<T>.Failure(AccountLoadState.Unavailable);
@@ -120,6 +122,20 @@ public sealed class CustomerAccountClient(
         catch (HttpRequestException ex) { logger.LogWarning(ex, "Customer account API unavailable"); return AccountResult<T>.Failure(AccountLoadState.Unavailable, "Não foi possível acessar o serviço agora."); }
         catch (JsonException ex) { logger.LogWarning(ex, "Customer account API response malformed"); return AccountResult<T>.Failure(AccountLoadState.Malformed); }
     }
+    private static async Task<string?> FirstNotificationAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            var notifications = await response.Content.ReadFromJsonAsync<List<ApiNotification>>(JsonOptions, ct);
+            var message = notifications?.Select(item => item.Message).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            return message is { Length: <= 300 } ? message : null;
+        }
+        catch (JsonException) { return null; }
+        catch (NotSupportedException) { return null; }
+    }
+
+    private sealed record ApiNotification(string? Message);
+
     private async Task<AccountResult<CustomerAccountAddress>> AddressAsync(HttpMethod method, string path, CustomerAccountAddress address, string token, CancellationToken ct)
     {
         var result = await SendAsync<AddressDto>(method, path, new { address.Label, address.Recipient, address.Street, address.Number, address.Complement, address.Neighborhood, address.City, address.State, address.PostalCode, address.CountryCode }, token, ct);

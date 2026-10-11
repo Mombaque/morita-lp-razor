@@ -35,6 +35,7 @@ public sealed class AccountModel(
     [BindProperty(SupportsGet = true)] public int CurrentPage { get; set; } = 1;
     [BindProperty] public string ProblemReason { get; set; } = "";
     [BindProperty] public string ProblemMessage { get; set; } = "";
+    [BindProperty] public List<int> ProblemQuantities { get; set; } = [];
     [BindProperty] public RegistrationInput Registration { get; set; } = new();
     [BindProperty] public LoginInput Login { get; set; } = new();
     [BindProperty] public EmailInput EmailForm { get; set; } = new();
@@ -178,8 +179,12 @@ public sealed class AccountModel(
         if (!AccountEnabled) return NotFound();
         ModelState.Clear();
         if (Session is not { } session || string.IsNullOrWhiteSpace(PublicOrderNumber)) return Redirect("/conta#pedidos");
-        var result = await client.ReportProblemAsync(session.Token, PublicOrderNumber, ProblemReason, ProblemMessage, ct);
-        if (result.State == AccountLoadState.Success) Message = "Relato enviado. A loja vai analisar o pedido.";
+        var items = ProblemQuantities
+            .Select((quantity, lineIndex) => new OrderProblemItemSelection(lineIndex, quantity))
+            .Where(item => item.Quantity > 0)
+            .ToList();
+        var result = await client.ReportProblemAsync(session.Token, PublicOrderNumber, ProblemReason, ProblemMessage, items, ct);
+        if (result.State == AccountLoadState.Success) Message = "Solicitação enviada. A loja vai analisar e responder por e-mail.";
         else { ExpireIfNeeded(result.State); Error = result.Message ?? "Não foi possível enviar o relato."; }
         await LoadAsync(ct);
         return Page();

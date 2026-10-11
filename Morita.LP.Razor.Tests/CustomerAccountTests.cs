@@ -430,6 +430,47 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Report_problem_sends_only_the_pieces_with_a_quantity()
+    {
+        var client = new AccountStub();
+        var page = new AccountModel(client, new SessionCookieStub())
+        {
+            PageContext = PageContext(),
+            PublicOrderNumber = "MF-0123456789ABCDEF",
+            ProblemReason = "Exchange",
+            ProblemMessage = "Quero A3.",
+            ProblemQuantities = [0, 2, 0]
+        };
+
+        await page.OnPostReportProblemAsync(CancellationToken.None);
+
+        Assert.Equal("Exchange", client.LastProblemReason);
+        Assert.Equal([new OrderProblemItemSelection(1, 2)], client.LastProblemItems);
+        Assert.Contains("responder por e-mail", page.Message);
+    }
+
+    [Fact]
+    public async Task Report_problem_shows_the_api_reason_when_rejected()
+    {
+        var client = new AccountStub
+        {
+            ProblemResult = AccountResult<PublicCustomerOrderProblem>.Failure(AccountLoadState.Validation, "Trocas e devoluções podem ser pedidas em até 7 dias.")
+        };
+        var page = new AccountModel(client, new SessionCookieStub())
+        {
+            PageContext = PageContext(),
+            PublicOrderNumber = "MF-0123456789ABCDEF",
+            ProblemReason = "Return",
+            ProblemMessage = "Desisti.",
+            ProblemQuantities = [1]
+        };
+
+        await page.OnPostReportProblemAsync(CancellationToken.None);
+
+        Assert.Equal("Trocas e devoluções podem ser pedidas em até 7 dias.", page.Error);
+    }
+
+    [Fact]
     public async Task Disabled_customer_accounts_return_not_found_without_loading_profile()
     {
         var client = new AccountStub();
@@ -557,6 +598,15 @@ public sealed class CustomerAccountTests
         public Task<AccountResult<IReadOnlyList<PublicOrder>>> GetOrdersAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(OrdersResult);
         public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default) => Task.FromResult(OrderResult);
         public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken cancellationToken = default) => Task.FromResult(AccountResult<PublicCustomerOrderProblem>.Failure(AccountLoadState.Unavailable));
+        public IReadOnlyList<OrderProblemItemSelection>? LastProblemItems { get; private set; }
+        public string? LastProblemReason { get; private set; }
+        public AccountResult<PublicCustomerOrderProblem> ProblemResult { get; set; } = new(AccountLoadState.Success, new PublicCustomerOrderProblem());
+        public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, IReadOnlyList<OrderProblemItemSelection> items, CancellationToken cancellationToken = default)
+        {
+            LastProblemItems = items;
+            LastProblemReason = reason;
+            return Task.FromResult(ProblemResult);
+        }
     }
     private sealed class OrderStub(string number) : IOrderClient
     {

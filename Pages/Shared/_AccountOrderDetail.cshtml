@@ -56,28 +56,66 @@
         <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@TimePresentation.ToStoreTime(updatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
     }
     <p><strong>Total: @CurrencyPresentation.Format(Model.Amount, Model.Currency)</strong></p>
-    @if (Model.OpenProblem is { } problem)
+    @if ((Model.LatestProblem ?? Model.OpenProblem) is { } problem)
     {
-        <h3>Relato enviado</h3>
-        <p><strong>@AccountPresentation.ProblemReason(problem.Reason)</strong></p>
-        <p>@problem.Message</p>
-        <p>Enviado em <time datetime="@problem.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(problem.CreatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
+        <div class="order-problem" data-order-problem="@problem.Status">
+            <h3>@(problem.Status == "Resolved" ? "Solicitação respondida" : "Solicitação enviada")</h3>
+            <p><strong>@AccountPresentation.ProblemReason(problem.Reason)</strong></p>
+            @if (problem.Items.Count > 0)
+            {
+                <ul>@foreach (var item in problem.Items) { <li>@item.Quantity × @item.Description</li> }</ul>
+            }
+            <p>@problem.Message</p>
+            <p>Enviada em <time datetime="@problem.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(problem.CreatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
+            @if (problem.Status == "Resolved")
+            {
+                @if (!string.IsNullOrWhiteSpace(problem.StaffNote)) { <p class="order-problem-answer" data-order-problem-answer><strong>Resposta da loja:</strong> @problem.StaffNote</p> }
+                else { <p>A loja concluiu o atendimento.</p> }
+            }
+            else
+            {
+                <p>A loja vai analisar e responder por e-mail.</p>
+            }
+        </div>
     }
-    else if (Model.CanReportProblem)
+    @if (Model.CanReportProblem)
     {
-        <h3>Informar um problema</h3>
-        <form method="post" action="/conta?handler=ReportProblem&amp;publicOrderNumber=@Uri.EscapeDataString(Model.PublicOrderNumber)#pedidos">
+        var returnsOpen = Model.ReturnWindowEndsAt is { } endsAt && endsAt >= DateTimeOffset.UtcNow;
+        <h3>Trocas, devoluções e problemas</h3>
+        @if (Model.ReturnWindowEndsAt is { } windowEndsAt)
+        {
+            <p data-return-window>@(returnsOpen ? "Trocas e devoluções podem ser pedidas até" : "O prazo para trocas e devoluções terminou em") <time datetime="@windowEndsAt.ToString("O")">@TimePresentation.ToStoreTime(windowEndsAt).ToString("dd/MM/yyyy")</time>.</p>
+        }
+        else
+        {
+            <p data-return-window>Trocas e devoluções ficam disponíveis por 7 dias após a entrega ou retirada.</p>
+        }
+        <form method="post" class="order-problem-form" action="/conta?handler=ReportProblem&amp;publicOrderNumber=@Uri.EscapeDataString(Model.PublicOrderNumber)#pedidos">
             <label for="problemReason">Motivo</label>
             <select id="problemReason" name="ProblemReason" required>
                 <option value="">Selecione</option>
+                @if (returnsOpen)
+                {
+                    <option value="Exchange">Quero trocar</option>
+                    <option value="Return">Quero devolver</option>
+                }
                 <option value="Damaged">Item danificado</option>
-                <option value="Exchange">Quero trocar</option>
                 <option value="Other">Outro</option>
             </select>
+            <fieldset class="order-problem-items">
+                <legend>Peças (troca, devolução ou dano)</legend>
+                @for (var index = 0; index < Model.Lines.Count; index++)
+                {
+                    var line = Model.Lines[index];
+                    <label>@(string.IsNullOrWhiteSpace(line.Presentation) ? line.Description : line.Presentation)
+                        <input type="number" name="ProblemQuantities[@index]" min="0" max="@line.Quantity" value="0" inputmode="numeric" data-problem-line="@index">
+                    </label>
+                }
+            </fieldset>
             <label for="problemMessage">Mensagem</label>
-            <textarea id="problemMessage" name="ProblemMessage" maxlength="1000" required></textarea>
+            <textarea id="problemMessage" name="ProblemMessage" maxlength="1000" required placeholder="Ex.: ficou pequeno, quero o tamanho A3."></textarea>
             @Html.AntiForgeryToken()
-            <button type="submit" class="button">Enviar relato</button>
+            <button type="submit" class="button">Enviar solicitação</button>
         </form>
     }
 </section>

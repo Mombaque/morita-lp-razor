@@ -48,6 +48,7 @@ public static class AccountPresentation
     {
         "damaged" => "Item danificado",
         "exchange" => "Quero trocar",
+        "return" => "Quero devolver",
         "other" => "Outro",
         _ => "Outro"
     };
