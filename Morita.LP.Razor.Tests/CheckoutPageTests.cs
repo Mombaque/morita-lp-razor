@@ -458,6 +458,7 @@ public sealed class CheckoutPageTests
         Assert.Empty(api.Requests);
         Assert.Contains("Informe o endereço de cobrança.", body);
         Assert.Contains("Informe o número do endereço.", body);
+        Assert.Contains("data-checkout=\"error\" data-field-errors=\"true\"", body);
         Assert.DoesNotMatch(@">\s*The \w+ field is required\.\s*<", body);
     }
 
