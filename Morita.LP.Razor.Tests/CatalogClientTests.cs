@@ -100,6 +100,19 @@ public sealed class CatalogClientTests
 
     private const string FiltersJson = "{}";
 
+    [Theory]
+    [InlineData(HttpStatusCode.Accepted, StockAlertResult.Accepted)]
+    [InlineData(HttpStatusCode.BadRequest, StockAlertResult.Invalid)]
+    [InlineData(HttpStatusCode.NotFound, StockAlertResult.Invalid)]
+    [InlineData(HttpStatusCode.UnprocessableEntity, StockAlertResult.AlreadyAvailable)]
+    [InlineData(HttpStatusCode.TooManyRequests, StockAlertResult.Unavailable)]
+    public async Task SubscribeStockAlert_maps_the_api_answer(HttpStatusCode status, StockAlertResult expected)
+    {
+        var client = Create(status, string.Empty);
+
+        Assert.Equal(expected, await client.SubscribeStockAlertAsync(Guid.NewGuid(), "ana@example.com", true));
+    }
+
     private static ICatalogClient CreateCached(HttpMessageHandler handler, int cacheSeconds, string host)
     {
         var context = new DefaultHttpContext();

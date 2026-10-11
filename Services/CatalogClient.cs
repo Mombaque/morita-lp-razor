@@ -75,6 +75,28 @@ public sealed class CatalogClient(
         return CatalogQuoteResult.Success(result.Value.Currency!, result.Value.Total!.Value, lines);
     }
 
+    public async Task<StockAlertResult> SubscribeStockAlertAsync(Guid publicOfferId, string email, bool acceptedPrivacyPolicy, CancellationToken cancellationToken = default)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Clamp(_options.TimeoutSeconds, 1, 30)));
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"v1/storefront/catalog/offers/{publicOfferId}/stock-alerts");
+            request.Content = JsonContent.Create(new { email, acceptedPrivacyPolicy }, options: JsonOptions);
+            using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
+            if (response.IsSuccessStatusCode) return StockAlertResult.Accepted;
+            logger.LogWarning("Stock alert request returned status {StatusCode}", (int)response.StatusCode);
+            return response.StatusCode switch
+            {
+                HttpStatusCode.BadRequest or HttpStatusCode.NotFound => StockAlertResult.Invalid,
+                HttpStatusCode.UnprocessableEntity => StockAlertResult.AlreadyAvailable,
+                _ => StockAlertResult.Unavailable
+            };
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { logger.LogWarning("Stock alert request timed out"); return StockAlertResult.Unavailable; }
+        catch (HttpRequestException ex) { logger.LogWarning(ex, "Stock alert request unavailable"); return StockAlertResult.Unavailable; }
+    }
+
     private static bool IsValidQuote(CatalogQuoteRequest request, QuoteResponse response)
     {
         if (request.Lines is null || request.Lines.Count == 0 || request.Lines.Any(x => x.PublicOfferId == Guid.Empty || x.Quantity is < 1 or > 10) || response.Lines is null || response.Currency is null || string.IsNullOrWhiteSpace(response.Currency) || response.Total is null || response.Total < 0 || response.Lines.Count != request.Lines.Count) return false;

@@ -1,13 +1,18 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.Options;
+using Morita.LP.Razor.Configuration;
 using Morita.LP.Razor.Models;
 using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations, ICartCookieStore cart) : PageModel
+public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations, ICartCookieStore cart, IOptions<StorefrontOptions>? storefrontOptions = null) : PageModel
 {
+    public string? StockAlertStatus { get; private set; }
+    public string? PrivacyPolicyUrl => storefrontOptions?.Value.PrivacyPolicyUrl;
+
     public Product? Product { get; private set; }
     public CatalogResult Related { get; private set; } = CatalogResult.Empty();
     public CatalogLoadState State { get; private set; }
@@ -18,8 +23,9 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
     public string BreadcrumbJsonLd { get; private set; } = "{}";
     public string BaseUrl => (configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/").TrimEnd('/');
 
-    public async Task<IActionResult> OnGetAsync(string slug, Guid? publicOfferId, int? quantity, CancellationToken cancellationToken)
+    public async Task<IActionResult> OnGetAsync(string slug, Guid? publicOfferId, int? quantity, CancellationToken cancellationToken, string? alert = null)
     {
+        StockAlertStatus = alert is "ok" or "invalid" or "available" or "unavailable" ? alert : null;
         var detail = await client.GetProductAsync(slug, cancellationToken);
         State = detail.State;
         if (detail.State == CatalogLoadState.NotFound) return NotFound();
@@ -80,6 +86,22 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
 
         Related = await client.GetRelatedAsync(slug, 4, cancellationToken);
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostStockAlertAsync(string slug, Guid alertOfferId, string? alertEmail, bool alertConsent, CancellationToken cancellationToken)
+    {
+        var email = alertEmail?.Trim() ?? string.Empty;
+        var result = alertOfferId == Guid.Empty || email.Length is 0 or > 254 || !alertConsent
+            ? StockAlertResult.Invalid
+            : await client.SubscribeStockAlertAsync(alertOfferId, email, alertConsent, cancellationToken);
+        var alert = result switch
+        {
+            StockAlertResult.Accepted => "ok",
+            StockAlertResult.Invalid => "invalid",
+            StockAlertResult.AlreadyAvailable => "available",
+            _ => "unavailable"
+        };
+        return Redirect($"/products/{Uri.EscapeDataString(slug)}?alert={alert}#stock-alert");
     }
 
     private bool WantsJsonResponse =>

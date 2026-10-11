@@ -5668,3 +5668,11 @@ html.lightbox-open {
 .order-problem-items { border: 1px solid #343434; margin: .8rem 0; padding: .6rem .8rem; }
 .order-problem-items label { align-items: center; display: flex !important; gap: .8rem; justify-content: space-between; }
 .order-problem-items input { max-width: 5rem; }
+.stock-alert { border: 1px solid #343434; border-top: 2px solid #3CF9AE; background: #111; margin: 1rem 0; max-width: 28rem; padding: .8rem 1rem; }
+.stock-alert summary { cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-size: 1.05rem; letter-spacing: .04em; text-transform: uppercase; }
+.stock-alert summary:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 3px; }
+.stock-alert-form label { display: block; margin: .8rem 0; }
+.stock-alert-form input[type="email"], .stock-alert-form select { display: block; width: 100%; box-sizing: border-box; margin-top: .3rem; padding: .7rem; background: #090909; color: #fff; border: 1px solid #666; font: inherit; }
+.stock-alert-form input:focus-visible, .stock-alert-form select:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 2px; }
+.stock-alert-message { color: #3CF9AE; font-weight: 800; margin: .7rem 0 0; }
+.stock-alert-message.is-error { color: #ff4d4d; }
