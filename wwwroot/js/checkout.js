@@ -77,9 +77,26 @@ if (form) {
 
   const formatPostal = (digits) => (digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits);
 
+  const validationSummary = form.querySelector('[data-valmsg-summary]');
+  const clearFieldError = (name) => {
+    form.querySelectorAll(`[data-valmsg-for="${CSS.escape(name)}"]`).forEach((message) => {
+      const text = message.textContent.trim();
+      message.textContent = '';
+      if (!text || !validationSummary) return;
+      validationSummary.querySelectorAll('li').forEach((item) => {
+        if (item.textContent.trim() === text) item.remove();
+      });
+      if (validationSummary.querySelector('li')) return;
+      validationSummary.replaceChildren();
+      document.querySelector('[data-checkout="error"][data-field-errors]')?.remove();
+    });
+  };
+
   const setField = (name, value) => {
     const field = form.querySelector(`[name="${name}"]`);
-    if (field) field.value = value ?? '';
+    if (!field) return;
+    field.value = value ?? '';
+    if (field.value) clearFieldError(name);
   };
 
   let lastLookup = '';
@@ -285,8 +302,7 @@ if (form) {
   }
   form.addEventListener('input', (event) => {
     const name = event.target?.name;
-    if (!name) return;
-    form.querySelectorAll(`[data-valmsg-for="${CSS.escape(name)}"]`).forEach((message) => { message.textContent = ''; });
+    if (name) clearFieldError(name);
   });
   update();
   if (methodInputs.find((input) => input.checked)?.value === 'shipping') scheduleQuote();
