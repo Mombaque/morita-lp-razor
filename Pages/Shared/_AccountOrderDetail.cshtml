@@ -81,6 +81,7 @@
     @if (Model.CanReportProblem)
     {
         var returnsOpen = Model.ReturnWindowEndsAt is { } endsAt && endsAt >= DateTimeOffset.UtcNow;
+        var draft = ViewData["ProblemDraft"] as OrderProblemDraft;
         <h3>Trocas, devoluções e problemas</h3>
         @if (Model.ReturnWindowEndsAt is { } windowEndsAt)
         {
@@ -96,11 +97,11 @@
                 <option value="">Selecione</option>
                 @if (returnsOpen)
                 {
-                    <option value="Exchange">Quero trocar</option>
-                    <option value="Return">Quero devolver</option>
+                    <option value="Exchange" selected="@(draft?.Reason == "Exchange")">Quero trocar</option>
+                    <option value="Return" selected="@(draft?.Reason == "Return")">Quero devolver</option>
                 }
-                <option value="Damaged">Item danificado</option>
-                <option value="Other">Outro</option>
+                <option value="Damaged" selected="@(draft?.Reason == "Damaged")">Item danificado</option>
+                <option value="Other" selected="@(draft?.Reason == "Other")">Outro</option>
             </select>
             <fieldset class="order-problem-items">
                 <legend>Peças (troca, devolução ou dano)</legend>
@@ -108,12 +109,12 @@
                 {
                     var line = Model.Lines[index];
                     <label>@(string.IsNullOrWhiteSpace(line.Presentation) ? line.Description : line.Presentation)
-                        <input type="number" name="ProblemQuantities[@index]" min="0" max="@line.Quantity" value="0" inputmode="numeric" data-problem-line="@index">
+                        <input type="number" name="ProblemQuantities[@index]" min="0" max="@line.Quantity" value="@(draft?.Quantities.ElementAtOrDefault(index) ?? 0)" inputmode="numeric" data-problem-line="@index">
                     </label>
                 }
             </fieldset>
             <label for="problemMessage">Mensagem</label>
-            <textarea id="problemMessage" name="ProblemMessage" maxlength="1000" required placeholder="Ex.: ficou pequeno, quero o tamanho A3."></textarea>
+            <textarea id="problemMessage" name="ProblemMessage" maxlength="1000" required placeholder="Ex.: ficou pequeno, quero o tamanho A3.">@draft?.Message</textarea>
             @Html.AntiForgeryToken()
             <button type="submit" class="button">Enviar solicitação</button>
         </form>

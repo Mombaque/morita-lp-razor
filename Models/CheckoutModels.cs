@@ -117,6 +117,8 @@ public sealed class PublicCustomerOrderProblemItem
 
 public sealed record OrderProblemItemSelection(int LineIndex, int Quantity);
 
+public sealed record OrderProblemDraft(string Reason, string Message, IReadOnlyList<int> Quantities);
+
 public sealed class PublicOrderLine
 {
     public string Description { get; init; } = "";

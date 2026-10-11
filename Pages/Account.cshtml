@@ -289,7 +289,7 @@
 
         @if (Model.SelectedOrder is not null)
         {
-            <partial name="_AccountOrderDetail" model="Model.SelectedOrder" />
+            <partial name="_AccountOrderDetail" model="Model.SelectedOrder" view-data='new ViewDataDictionary(ViewData) { ["ProblemDraft"] = Model.ProblemDraft }' />
         }
         else if (Model.PublicOrderNumber is not null)
         {
