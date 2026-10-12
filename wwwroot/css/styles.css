@@ -3210,6 +3210,16 @@ a.product-variant-more:focus-visible {
   text-transform: uppercase;
 }
 
+.checkout-field .validation-error {
+  color: #ffb3aa;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.checkout-field .validation-error:empty {
+  display: none;
+}
+
 .checkout-control {
   background: #080908;
   border: 1px solid var(--fight-line);

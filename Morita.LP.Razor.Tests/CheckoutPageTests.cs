@@ -463,6 +463,54 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public async Task Posted_shipping_checkout_shows_each_missing_address_field_next_to_it()
+    {
+        var offer = Guid.NewGuid();
+        var quoteId = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" })
+        };
+        using var factory = CreateCheckoutFactory(cart, offer, api);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var page = await (await client.GetAsync("/checkout")).Content.ReadAsStringAsync();
+        var token = System.Text.RegularExpressions.Regex.Match(page, "name=\\\"request-verification-token\\\" content=\\\"([^\\\"]+)").Groups[1].Value;
+
+        var posted = await client.PostAsync("/checkout", new FormUrlEncodedContent([
+            new KeyValuePair<string, string>("FulfillmentMethod", "shipping"),
+            new KeyValuePair<string, string>("PublicShippingQuoteId", quoteId.ToString()),
+            new KeyValuePair<string, string>("Contact.Name", "Customer"),
+            new KeyValuePair<string, string>("Contact.Email", "customer@example.com"),
+            new KeyValuePair<string, string>("Contact.Phone", "15999999999"),
+            new KeyValuePair<string, string>("ShippingAddress.PostalCode", "18010-000"),
+            new KeyValuePair<string, string>("ShippingAddress.Recipient", "Customer"),
+            new KeyValuePair<string, string>("ShippingAddress.Street", ""),
+            new KeyValuePair<string, string>("ShippingAddress.Number", ""),
+            new KeyValuePair<string, string>("ShippingAddress.Neighborhood", ""),
+            new KeyValuePair<string, string>("ShippingAddress.City", ""),
+            new KeyValuePair<string, string>("ShippingAddress.State", ""),
+            new KeyValuePair<string, string>("__RequestVerificationToken", token)
+        ]));
+        var body = System.Net.WebUtility.HtmlDecode(await posted.Content.ReadAsStringAsync());
+
+        Assert.Equal(System.Net.HttpStatusCode.OK, posted.StatusCode);
+        Assert.Empty(api.Requests);
+        Assert.Contains("data-checkout=\"error\" data-field-errors=\"true\"", body);
+        foreach (var (field, message) in new[]
+        {
+            ("Street", "Informe o endereço de entrega."),
+            ("Number", "Informe o número do endereço."),
+            ("Neighborhood", "Informe o bairro."),
+            ("City", "Informe a cidade."),
+            ("State", "Informe uma UF brasileira válida.")
+        })
+        {
+            Assert.Matches($"data-valmsg-for=\"ShippingAddress\\.{field}\"[^>]*>{System.Text.RegularExpressions.Regex.Escape(message)}</span>", body);
+        }
+    }
+
+    [Fact]
     public async Task Signed_in_checkout_locks_email_forwards_session_and_preserves_pickup_address_on_save()
     {
         var offer = Guid.NewGuid();

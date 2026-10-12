@@ -88,7 +88,13 @@ if (form) {
       });
       if (validationSummary.querySelector('li')) return;
       validationSummary.replaceChildren();
-      document.querySelector('[data-checkout="error"][data-field-errors]')?.remove();
+      const banner = document.querySelector('[data-checkout="error"][data-field-errors]');
+      if (!banner) return;
+      const bannerText = banner.textContent.trim();
+      banner.remove();
+      form.querySelectorAll('[data-shipping-quote-error]').forEach((error) => {
+        if (error.textContent.trim() === bannerText) error.remove();
+      });
     });
   };
 
