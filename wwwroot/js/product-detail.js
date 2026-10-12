@@ -269,3 +269,80 @@ if (offerForm) {
   const checkedOffer = offerForm.querySelector('input[data-offer-id]:checked:not(:disabled)');
   if (checkedOffer) updateOffer(checkedOffer);
 }
+
+(() => {
+  const section = document.querySelector('[data-shipping-estimate]');
+  const form = section?.querySelector('[data-shipping-estimate-form]');
+  const result = section?.querySelector('[data-shipping-estimate-result]');
+  if (!form || !result) return;
+  const offerForm = document.querySelector('[data-offer-form]');
+  const postalCode = form.querySelector('input[name="postalCode"]');
+
+  postalCode?.addEventListener('input', () => {
+    const digits = postalCode.value.replace(/\D/g, '').slice(0, 8);
+    postalCode.value = digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+  });
+
+  const render = (data) => {
+    result.replaceChildren();
+    if (!data.ok) {
+      const error = document.createElement('p');
+      error.className = 'validation-error';
+      error.setAttribute('role', 'alert');
+      error.textContent = data.error || 'Não foi possível calcular o frete agora.';
+      result.append(error);
+      return;
+    }
+    const list = document.createElement('ul');
+    for (const option of data.options) {
+      const item = document.createElement('li');
+      const label = document.createElement('span');
+      const service = document.createElement('strong');
+      service.textContent = option.service;
+      const detail = document.createElement('small');
+      detail.textContent = `${option.carrier} · ${option.minimumDays} a ${option.maximumDays} dias úteis`;
+      label.append(service, ' ', detail);
+      const price = document.createElement('em');
+      price.textContent = option.price;
+      if (option.freeShipping) {
+        price.className = 'free-shipping';
+        if (option.regularPrice) {
+          const regular = document.createElement('s');
+          regular.textContent = option.regularPrice;
+          price.append(' ', regular);
+        }
+      }
+      item.append(label, price);
+      list.append(item);
+    }
+    const note = document.createElement('p');
+    note.className = 'shipping-estimate-note';
+    note.textContent = 'Estimativa para esta opção e quantidade. O valor final é confirmado no checkout.';
+    result.append(list, note);
+  };
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const selected = offerForm?.querySelector('input[name="publicOfferId"]:checked');
+    const quantity = offerForm?.querySelector('input[name="quantity"]');
+    form.querySelector('[data-estimate-offer]').value = selected ? selected.value : '';
+    form.querySelector('[data-estimate-quantity]').value = quantity ? quantity.value : '1';
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    result.setAttribute('aria-busy', 'true');
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        body: new FormData(form),
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin'
+      });
+      render(response.ok ? await response.json() : { ok: false });
+    } catch {
+      render({ ok: false });
+    } finally {
+      button.disabled = false;
+      result.removeAttribute('aria-busy');
+    }
+  });
+})();

@@ -8,8 +8,11 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations, ICartCookieStore cart, IOptions<StorefrontOptions>? storefrontOptions = null) : PageModel
+public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations, ICartCookieStore cart, IOptions<StorefrontOptions>? storefrontOptions = null, ICheckoutClient? checkout = null, CheckoutRateLimiter? rateLimiter = null) : PageModel
 {
+    public ShippingQuote? ShippingEstimate { get; private set; }
+    public string? ShippingEstimateError { get; private set; }
+    public string? EstimatePostalCode { get; private set; }
     public string? StockAlertStatus { get; private set; }
     public string? PrivacyPolicyUrl => storefrontOptions?.Value.PrivacyPolicyUrl;
 
@@ -69,6 +72,46 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
         BreadcrumbJsonLd = JsonSerializer.Serialize(new Dictionary<string, object?> { ["@context"] = "https://schema.org", ["@type"] = "BreadcrumbList", ["itemListElement"] = new[] { new Dictionary<string, object?> { ["@type"] = "ListItem", ["position"] = 1, ["name"] = "Produtos", ["item"] = $"{BaseUrl}/products" }, new Dictionary<string, object?> { ["@type"] = "ListItem", ["position"] = 2, ["name"] = Product.Nome, ["item"] = url } } });
         Related = await client.GetRelatedAsync(slug, 4, cancellationToken);
         return Page();
+    }
+
+    public async Task<IActionResult> OnPostQuoteShippingAsync(string slug, Guid? publicOfferId, int? quantity, string? postalCode, CancellationToken cancellationToken)
+    {
+        var digits = new string((postalCode ?? "").Where(char.IsAsciiDigit).ToArray());
+        var units = quantity ?? 1;
+        var (options, error) = await QuoteShippingEstimateAsync(slug, publicOfferId, units, digits, cancellationToken);
+        if (WantsJsonResponse)
+            return error is null
+                ? new JsonResult(new { ok = true, options = options!.Options.Select(option => new { service = option.ServiceName, carrier = option.CarrierName, minimumDays = option.MinimumDeliveryDays, maximumDays = option.MaximumDeliveryDays, price = option.FreeShipping ? "Grátis" : CurrencyPresentation.Format(option.Price, options.Currency), regularPrice = option.RegularPrice is { } regular ? CurrencyPresentation.Format(regular, options.Currency) : null, freeShipping = option.FreeShipping }) })
+                : new JsonResult(new { ok = false, error });
+
+        var page = await OnGetAsync(slug, publicOfferId, Math.Clamp(units, 1, CartCookieStore.MaxUnitsPerLine), cancellationToken);
+        ModelState.Clear();
+        ShippingEstimate = options;
+        ShippingEstimateError = error;
+        EstimatePostalCode = digits.Length == 8 ? $"{digits[..5]}-{digits[5..]}" : postalCode;
+        return page;
+    }
+
+    private async Task<(ShippingQuote? Quote, string? Error)> QuoteShippingEstimateAsync(string slug, Guid? publicOfferId, int quantity, string postalCode, CancellationToken cancellationToken)
+    {
+        if (checkout is null || rateLimiter is null)
+            return (null, "Não foi possível calcular o frete agora.");
+        if (publicOfferId is null || publicOfferId == Guid.Empty)
+            return (null, "Escolha a cor e o tamanho para calcular o frete.");
+        if (quantity is < 1 or > CartCookieStore.MaxUnitsPerLine)
+            return (null, $"A quantidade deve estar entre 1 e {CartCookieStore.MaxUnitsPerLine}.");
+        if (postalCode.Length != 8)
+            return (null, "Informe um CEP válido com 8 dígitos.");
+        var detail = await client.GetProductAsync(slug, cancellationToken);
+        var offer = detail.Product?.Variants.SelectMany(variant => variant.Offers).FirstOrDefault(item => item.PublicOfferId == publicOfferId);
+        if (offer is null || !string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase))
+            return (null, "Esta opção está indisponível.");
+        if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "product-shipping-quote"))
+            return (null, "Muitas consultas de frete. Aguarde um pouco.");
+        var result = await checkout.QuoteShippingAsync(new ShippingQuoteRequest([new CartLine(publicOfferId.Value, quantity)], postalCode), cancellationToken);
+        return result.Quote is { } quote
+            ? (quote, null)
+            : (null, result.State == CheckoutLoadState.Validation && !string.IsNullOrWhiteSpace(result.Message) ? result.Message : "Não foi possível calcular o frete agora. Tente novamente.");
     }
 
     public string AbsoluteUrl(string path) =>

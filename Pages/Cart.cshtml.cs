@@ -5,8 +5,9 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public sealed class CartModel(ICartCookieStore cart, ICatalogClient client, ICartMutationService cartMutations) : PageModel
+public sealed class CartModel(ICartCookieStore cart, ICatalogClient client, ICartMutationService cartMutations, ICheckoutClient? checkout = null) : PageModel
 {
+    public decimal? FreeShippingMinimumAmount { get; private set; }
     public CartState State { get; private set; } = new(DateTimeOffset.UtcNow, []);
     public CatalogQuoteResult Quote { get; private set; } = CatalogQuoteResult.Unavailable();
     public bool IsEmpty => State.Lines.Count == 0;
@@ -17,7 +18,11 @@ public sealed class CartModel(ICartCookieStore cart, ICatalogClient client, ICar
         ViewData["Robots"] = "noindex,nofollow";
         State = cart.Read();
         if (!IsEmpty)
+        {
             Quote = await client.QuoteAsync(new CatalogQuoteRequest(State.Lines.Select(x => new CatalogQuoteItem(x.PublicOfferId, x.Quantity)).ToList()), cancellationToken);
+            if (checkout is not null && Quote.State == CatalogLoadState.Success)
+                FreeShippingMinimumAmount = (await checkout.GetConfigurationAsync(cancellationToken)).Configuration?.FreeShippingMinimumAmount;
+        }
     }
 
     public async Task<IActionResult> OnPostUpdateAsync(Guid publicOfferId, int quantity, CancellationToken cancellationToken)
