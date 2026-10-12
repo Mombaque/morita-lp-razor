@@ -36,6 +36,14 @@
                 }
             </section>
             <aside class="cart-summary" aria-label="Resumo do carrinho">
+                @if (Model.FreeShippingMinimumAmount is { } freeShippingMinimum && Model.Quote.Total is { } cartTotal)
+                {
+                    var missing = freeShippingMinimum - cartTotal;
+                    <div class="free-shipping-progress@(missing <= 0 ? " is-reached" : "")" data-free-shipping-progress>
+                        <p>@(missing <= 0 ? "Você ganhou frete grátis na opção de envio mais econômica." : $"Faltam {CurrencyPresentation.Format(missing, Model.Quote.Currency)} para frete grátis.")</p>
+                        <progress max="@freeShippingMinimum.ToString(System.Globalization.CultureInfo.InvariantCulture)" value="@Math.Min(cartTotal, freeShippingMinimum).ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-label="Progresso para frete grátis"></progress>
+                    </div>
+                }
                 <partial name="_CartSummary" model="Model.Quote" />
             </aside>
         </div>

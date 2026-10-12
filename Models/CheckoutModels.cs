@@ -138,6 +138,7 @@ public sealed class CheckoutConfiguration
     public bool PickupEnabled { get; init; }
     public bool ShippingEnabled { get; init; }
     public Guid? PublicPickupId { get; init; }
+    public decimal? FreeShippingMinimumAmount { get; init; }
     public string Currency { get; init; } = "BRL";
     public PickupSnapshot? Pickup { get; init; }
     public IReadOnlyList<OnlinePaymentMethod> OnlinePaymentMethods { get; init; } = [];
@@ -248,6 +249,8 @@ public sealed class ShippingQuoteOption
     public string ServiceName { get; init; } = "";
     public string CarrierName { get; init; } = "";
     public decimal Price { get; init; }
+    public bool FreeShipping { get; init; }
+    public decimal? RegularPrice { get; init; }
     public int MinimumDeliveryDays { get; init; }
     public int MaximumDeliveryDays { get; init; }
 }

@@ -144,6 +144,51 @@ public sealed class CheckoutClientTests
     }
 
     [Fact]
+    public async Task Shipping_quote_maps_free_shipping_and_rejects_an_inconsistent_free_option()
+    {
+        var free = Guid.NewGuid();
+        var paid = Guid.NewGuid();
+        using var handler = new RecordingHandler(JsonSerializer.Serialize(new
+        {
+            expiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+            currency = "BRL",
+            options = new object[]
+            {
+                new { publicShippingQuoteId = free, serviceName = "PAC", carrierName = "Correios", price = 0m, freeShipping = true, regularPrice = 18.5m, minimumDeliveryDays = 4, maximumDeliveryDays = 7 },
+                new { publicShippingQuoteId = paid, serviceName = "SEDEX", carrierName = "Correios", price = 30m, freeShipping = false, regularPrice = (decimal?)null, minimumDeliveryDays = 1, maximumDeliveryDays = 2 }
+            }
+        }));
+
+        var result = await Create(handler).QuoteShippingAsync(new([new(Guid.NewGuid(), 1)], "01310-100"));
+
+        var options = result.Quote!.Options;
+        Assert.True(options[0].FreeShipping);
+        Assert.Equal(18.5m, options[0].RegularPrice);
+        Assert.False(options[1].FreeShipping);
+        Assert.Null(options[1].RegularPrice);
+
+        using var inconsistent = new RecordingHandler(JsonSerializer.Serialize(new
+        {
+            expiresAt = DateTimeOffset.UtcNow.AddMinutes(10),
+            currency = "BRL",
+            options = new[] { new { publicShippingQuoteId = free, serviceName = "PAC", carrierName = "Correios", price = 5m, freeShipping = true, regularPrice = 18.5m, minimumDeliveryDays = 4, maximumDeliveryDays = 7 } }
+        }));
+        Assert.Equal(CheckoutLoadState.Malformed, (await Create(inconsistent).QuoteShippingAsync(new([new(Guid.NewGuid(), 1)], "01310-100"))).State);
+    }
+
+    [Fact]
+    public async Task Configuration_maps_the_free_shipping_minimum_only_when_shipping_is_enabled()
+    {
+        var enabled = await Create(new RecordingHandler("{\"pickupEnabled\":false,\"shippingEnabled\":true,\"freeShippingMinimumAmount\":299.9,\"currency\":\"BRL\"}"))
+            .GetConfigurationAsync();
+        var disabled = await Create(new RecordingHandler("{\"pickupEnabled\":true,\"shippingEnabled\":false,\"freeShippingMinimumAmount\":299.9,\"currency\":\"BRL\",\"publicPickupId\":\"" + Guid.NewGuid() + "\",\"pickup\":{\"publicPickupId\":\"" + Guid.NewGuid() + "\",\"displayName\":\"Loja\",\"hours\":\"9-18\",\"instructions\":\"Balcão\",\"address\":{\"street\":\"Rua\",\"number\":\"1\",\"neighborhood\":\"Centro\",\"city\":\"Sorocaba\",\"state\":\"SP\",\"postalCode\":\"18000000\",\"countryCode\":\"BR\"}}}"))
+            .GetConfigurationAsync();
+
+        Assert.Equal(299.9m, enabled.Configuration!.FreeShippingMinimumAmount);
+        Assert.Null(disabled.Configuration?.FreeShippingMinimumAmount);
+    }
+
+    [Fact]
     public async Task Configuration_exposes_shipping_without_requiring_pickup()
     {
         var result = await Create(new RecordingHandler("{\"pickupEnabled\":false,\"shippingEnabled\":true,\"currency\":\"BRL\"}"))

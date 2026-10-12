@@ -27,6 +27,7 @@ public sealed class CheckoutClient(
             PickupEnabled = result.Value.PickupEnabled,
             ShippingEnabled = result.Value.ShippingEnabled,
             PublicPickupId = result.Value.PublicPickupId,
+            FreeShippingMinimumAmount = result.Value.ShippingEnabled && result.Value.FreeShippingMinimumAmount is > 0 ? result.Value.FreeShippingMinimumAmount : null,
             Currency = result.Value.Currency!,
             Pickup = result.Value.Pickup is null ? null : Map(result.Value.Pickup),
             OnlinePaymentMethods = StorefrontOnlinePayments.Normalize(result.Value.OnlinePaymentMethods),
@@ -302,8 +303,8 @@ public sealed class CheckoutClient(
     private static bool TryMapShippingQuote(ShippingQuoteDto x, out ShippingQuote? quote)
     {
         quote = null;
-        if (x.ExpiresAt <= DateTimeOffset.UtcNow.AddMinutes(-1) || !Currency(x.Currency) || x.Options is null || x.Options.Count == 0 || x.Options.GroupBy(option => option.PublicShippingQuoteId).Any(group => group.Key == Guid.Empty || group.Count() > 1) || x.Options.Any(option => !Text(option.ServiceName, 120) || !Text(option.CarrierName, 120) || option.Price < 0 || option.Price != decimal.Round(option.Price, 2) || option.MinimumDeliveryDays < 0 || option.MaximumDeliveryDays < option.MinimumDeliveryDays)) return false;
-        quote = new() { ExpiresAt = x.ExpiresAt, Currency = x.Currency!.Trim().ToUpperInvariant(), Options = x.Options.Select(option => new ShippingQuoteOption { PublicShippingQuoteId = option.PublicShippingQuoteId, ServiceName = option.ServiceName!.Trim(), CarrierName = option.CarrierName!.Trim(), Price = option.Price, MinimumDeliveryDays = option.MinimumDeliveryDays, MaximumDeliveryDays = option.MaximumDeliveryDays }).ToList() };
+        if (x.ExpiresAt <= DateTimeOffset.UtcNow.AddMinutes(-1) || !Currency(x.Currency) || x.Options is null || x.Options.Count == 0 || x.Options.GroupBy(option => option.PublicShippingQuoteId).Any(group => group.Key == Guid.Empty || group.Count() > 1) || x.Options.Any(option => !Text(option.ServiceName, 120) || !Text(option.CarrierName, 120) || option.Price < 0 || option.Price != decimal.Round(option.Price, 2) || option.RegularPrice is < 0 || option.FreeShipping && (option.Price != 0 || option.RegularPrice is null) || option.MinimumDeliveryDays < 0 || option.MaximumDeliveryDays < option.MinimumDeliveryDays)) return false;
+        quote = new() { ExpiresAt = x.ExpiresAt, Currency = x.Currency!.Trim().ToUpperInvariant(), Options = x.Options.Select(option => new ShippingQuoteOption { PublicShippingQuoteId = option.PublicShippingQuoteId, ServiceName = option.ServiceName!.Trim(), CarrierName = option.CarrierName!.Trim(), Price = option.Price, FreeShipping = option.FreeShipping, RegularPrice = option.FreeShipping ? option.RegularPrice : null, MinimumDeliveryDays = option.MinimumDeliveryDays, MaximumDeliveryDays = option.MaximumDeliveryDays }).ToList() };
         return true;
     }
     private static bool SafeImage(string? value) => string.IsNullOrWhiteSpace(value) || !value.TrimStart().StartsWith("//", StringComparison.Ordinal) && Uri.TryCreate(value.Trim(), UriKind.RelativeOrAbsolute, out var uri) && (value.TrimStart().StartsWith('/') || uri.IsAbsoluteUri && (uri.Scheme == "http" || uri.Scheme == "https"));
@@ -328,7 +329,7 @@ public sealed class CheckoutClient(
     private sealed class LineRequestDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } }
     private sealed class ContactDto { public string? Name { get; set; } public string? Email { get; set; } public string? Phone { get; set; } }
     private sealed class FulfillmentDto { public string? Method { get; set; } public Guid PublicPickupId { get; set; } public Guid PublicShippingQuoteId { get; set; } public AddressDto? ShippingAddress { get; set; } }
-    private sealed class ConfigurationDto { public bool PickupEnabled { get; set; } public bool ShippingEnabled { get; set; } public Guid? PublicPickupId { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } public List<string>? OnlinePaymentMethods { get; set; } public string? OnlinePaymentCheckoutMode { get; set; } public PaymentClientDto? OnlinePaymentClient { get; set; } }
+    private sealed class ConfigurationDto { public bool PickupEnabled { get; set; } public bool ShippingEnabled { get; set; } public Guid? PublicPickupId { get; set; } public decimal? FreeShippingMinimumAmount { get; set; } public string? Currency { get; set; } public PickupDto? Pickup { get; set; } public List<string>? OnlinePaymentMethods { get; set; } public string? OnlinePaymentCheckoutMode { get; set; } public PaymentClientDto? OnlinePaymentClient { get; set; } }
     private sealed class PaymentClientDto { public string? ProviderKey { get; set; } public string? PublicKey { get; set; } public int MaxInstallments { get; set; } }
     private sealed class ChallengeDto { public string? Url { get; set; } public string? Creq { get; set; } }
     private sealed class PickupDto { public Guid PublicPickupId { get; set; } public string? DisplayName { get; set; } public AddressDto? Address { get; set; } public string? Hours { get; set; } public string? Instructions { get; set; } }
@@ -339,5 +340,5 @@ public sealed class CheckoutClient(
     private sealed class PaymentDto { public string? Status { get; set; } public OnlinePaymentMethod? Method { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? CheckoutUrl { get; set; } public string? PublicOrderNumber { get; set; } public string? CheckoutMode { get; set; } public ChallengeDto? Challenge { get; set; } public int? Installments { get; set; } public string? FailureReason { get; set; } }
     private sealed class ShippingQuoteRequestDto { public List<LineRequestDto> Lines { get; set; } = []; public string DestinationPostalCode { get; set; } = ""; }
     private sealed class ShippingQuoteDto { public DateTimeOffset ExpiresAt { get; set; } public string? Currency { get; set; } public List<ShippingQuoteOptionDto>? Options { get; set; } }
-    private sealed class ShippingQuoteOptionDto { public Guid PublicShippingQuoteId { get; set; } public string? ServiceName { get; set; } public string? CarrierName { get; set; } public decimal Price { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } }
+    private sealed class ShippingQuoteOptionDto { public Guid PublicShippingQuoteId { get; set; } public string? ServiceName { get; set; } public string? CarrierName { get; set; } public decimal Price { get; set; } public bool FreeShipping { get; set; } public decimal? RegularPrice { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } }
 }
