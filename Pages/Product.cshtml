@@ -33,7 +33,10 @@
         ViewData["Title"] = $"{p.Nome} | Morita Fight";
         ViewData["Description"] = p.Descricao;
         ViewData["Canonical"] = canonical;
-        ViewData["OgImage"] = p.Imagens.FirstOrDefault();
+        ViewData["OgImage"] = p.Imagens.FirstOrDefault() is { } ogImage ? Model.AbsoluteUrl(ogImage) : null;
+        ViewData["OgType"] = "product";
+        ViewData["OgTitle"] = $"{p.Nome} | Morita Fight";
+        ViewData["OgDescription"] = p.Descricao;
         ViewData["Robots"] = "index,follow";
     }
 }

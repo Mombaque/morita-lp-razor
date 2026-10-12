@@ -35,7 +35,7 @@
     <link rel="stylesheet" href="~/css/checkout-payments.css" asp-append-version="true">
     @if (publicAssistantEnabled) { <link rel="stylesheet" href="~/css/public-assistant.css" asp-append-version="true"> }
     
-    <meta property="og:type" content="website">
+    <meta property="og:type" content="@(ViewData["OgType"] as string ?? "website")">
     <meta property="og:locale" content="pt_BR">
     <meta property="og:title" content="@(ViewData["OgTitle"] ?? "Morita | Artes Marciais em Sorocaba")">
     <meta property="og:description" content="@(ViewData["OgDescription"] ?? "Kimonos, luvas, rashguards, shorts e acessórios para Jiu-Jitsu e Muay Thai em Sorocaba.")">

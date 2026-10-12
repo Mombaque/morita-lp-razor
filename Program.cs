@@ -95,6 +95,7 @@ builder.Services.AddScoped<IPublicAssistantCookieStore, PublicAssistantCookieSto
 builder.Services.AddSingleton<CheckoutRateLimiter>();
 builder.Services.AddTransient<StorefrontApiHeadersHandler>();
 builder.Services.AddScoped<CatalogService>();
+builder.Services.AddScoped<SeoDocuments>();
 builder.Services.AddSingleton<CatalogResponseCache>();
 builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, client) =>
 {
@@ -209,6 +210,19 @@ app.UseAuthorization();
 app.MapGet("/JiuJitsu", (HttpContext context) => Results.Redirect("/jiu-jitsu" + context.Request.QueryString, permanent: true));
 app.MapGet("/MuayThai", (HttpContext context) => Results.Redirect("/muay-thai" + context.Request.QueryString, permanent: true));
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/robots.txt", (HttpContext context, SeoDocuments seo) =>
+{
+    context.Response.Headers.CacheControl = "public, max-age=3600";
+    return Results.Text(seo.Robots(), "text/plain; charset=utf-8");
+});
+app.MapGet("/sitemap.xml", async (HttpContext context, SeoDocuments seo, CancellationToken cancellationToken) =>
+{
+    var sitemap = await seo.SitemapAsync(cancellationToken);
+    if (sitemap is null)
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    context.Response.Headers.CacheControl = "public, max-age=3600";
+    return Results.Text(sitemap, "application/xml; charset=utf-8");
+});
 app.MapGet("/v1/storefront/catalog/images/{imageId:guid}", async (Guid imageId, HttpContext context, IHttpClientFactory clients, CancellationToken cancellationToken) =>
 {
     context.Response.Headers.CacheControl = "no-store";

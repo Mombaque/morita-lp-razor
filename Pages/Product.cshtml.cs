@@ -47,12 +47,37 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
         if (SelectedOffer is not null && !string.Equals(SelectedOffer.Availability, "available", StringComparison.OrdinalIgnoreCase))
             ModelState.AddModelError("publicOfferId", "A oferta selecionada está indisponível.");
         var url = $"{BaseUrl}/products/{Uri.EscapeDataString(Product.Slug ?? slug)}";
-        var offers = Product.Variants.SelectMany(v => v.Offers).Select(o => new Dictionary<string, object?> { ["@type"] = "Offer", ["price"] = o.UnitPrice ?? Product.Price, ["priceCurrency"] = o.Currency ?? Product.Currency ?? "BRL", ["availability"] = $"https://schema.org/{(o.Availability == "available" ? "InStock" : "OutOfStock")}" }).ToList();
-        ProductJsonLd = JsonSerializer.Serialize(new Dictionary<string, object?> { ["@context"] = "https://schema.org", ["@type"] = "Product", ["name"] = Product.Nome, ["description"] = Product.Descricao, ["url"] = url, ["image"] = Product.Imagens, ["offers"] = offers });
+        var seller = new Dictionary<string, object?> { ["@type"] = "Organization", ["name"] = "Morita Fight", ["url"] = $"{BaseUrl}/" };
+        var offers = Product.Variants.SelectMany(v => v.Offers).Select(o => new Dictionary<string, object?>
+        {
+            ["@type"] = "Offer",
+            ["sku"] = o.PublicOfferId.ToString(),
+            ["name"] = OfferName(o),
+            ["url"] = $"{url}?publicOfferId={o.PublicOfferId}",
+            ["price"] = o.UnitPrice ?? Product.Price,
+            ["priceCurrency"] = o.Currency ?? Product.Currency ?? "BRL",
+            ["itemCondition"] = "https://schema.org/NewCondition",
+            ["availability"] = $"https://schema.org/{(o.Availability == "available" ? "InStock" : "OutOfStock")}",
+            ["seller"] = seller
+        }).ToList();
+        var productLd = new Dictionary<string, object?> { ["@context"] = "https://schema.org", ["@type"] = "Product", ["name"] = Product.Nome, ["description"] = Product.Descricao, ["url"] = url, ["image"] = Product.Imagens.Select(AbsoluteUrl).ToList(), ["offers"] = offers };
+        if (!string.IsNullOrWhiteSpace(Product.Brand?.Label))
+            productLd["brand"] = new Dictionary<string, object?> { ["@type"] = "Brand", ["name"] = Product.Brand.Label };
+        if (!string.IsNullOrWhiteSpace(Product.Category?.Label))
+            productLd["category"] = Product.Category.Label;
+        ProductJsonLd = JsonSerializer.Serialize(productLd);
         BreadcrumbJsonLd = JsonSerializer.Serialize(new Dictionary<string, object?> { ["@context"] = "https://schema.org", ["@type"] = "BreadcrumbList", ["itemListElement"] = new[] { new Dictionary<string, object?> { ["@type"] = "ListItem", ["position"] = 1, ["name"] = "Produtos", ["item"] = $"{BaseUrl}/products" }, new Dictionary<string, object?> { ["@type"] = "ListItem", ["position"] = 2, ["name"] = Product.Nome, ["item"] = url } } });
         Related = await client.GetRelatedAsync(slug, 4, cancellationToken);
         return Page();
     }
+
+    public string AbsoluteUrl(string path) =>
+        Uri.TryCreate(path, UriKind.Absolute, out var absolute) && absolute.Scheme is "http" or "https"
+            ? path
+            : $"{BaseUrl}/{path.TrimStart('/')}";
+
+    private static string? OfferName(ProductOffer offer) =>
+        string.Join(" / ", new[] { offer.ColorLabel, offer.SizeLabel }.Where(label => !string.IsNullOrWhiteSpace(label))) is { Length: > 0 } name ? name : null;
 
     public async Task<IActionResult> OnPostAddAsync(string slug, Guid publicOfferId, int quantity, CancellationToken cancellationToken)
     {
