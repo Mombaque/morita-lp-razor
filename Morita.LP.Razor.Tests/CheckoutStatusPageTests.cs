@@ -33,6 +33,7 @@ public sealed class CheckoutStatusPageTests
         var result = await page.OnGetAsync(CancellationToken.None);
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Order", redirect.PageName);
+        Assert.Equal(true, redirect.RouteValues!["placed"]);
         Assert.Equal("MF-0123456789ABCDEF", order.Number);
     }
 

@@ -15,6 +15,7 @@
     var customerSignedIn = CustomerAccountCookies.Read() is not null;
     var googleTagManagerId = Configuration["Analytics:GoogleTagManagerId"];
     var googleAdsId = Configuration["Analytics:GoogleAdsId"];
+    var googleAdsPurchaseConversion = Configuration["Analytics:GoogleAdsPurchaseConversion"];
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -42,6 +43,7 @@
     <meta property="og:url" content="@canonical">
     @if (hasOgImage) { <meta property="og:image" content="@ogImage"> }
     <meta name="request-verification-token" content="@Antiforgery.GetAndStoreTokens(Context).RequestToken">
+    @if (!string.IsNullOrWhiteSpace(googleAdsPurchaseConversion)) { <meta name="analytics-ads-purchase-conversion" content="@googleAdsPurchaseConversion"> }
 
     @if (!string.IsNullOrWhiteSpace(googleTagManagerId))
     {

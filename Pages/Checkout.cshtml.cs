@@ -322,7 +322,7 @@ public sealed class CheckoutModel(
             : await checkout.InitiatePixAsync(publicCheckoutId, accessToken, idempotencyKey, cancellationToken);
         if (result.State != PaymentLoadState.Success || result.Payment is not { } payment) return null;
         if (payment is { Status: "converted", PublicOrderNumber: { } orderNumber } && orderAccess?.Write(orderNumber, accessToken) == true)
-            return RedirectToPage("/Order", new { publicOrderNumber = orderNumber });
+            return RedirectToPage("/Order", new { publicOrderNumber = orderNumber, placed = true });
         if (payment is { Status: "pending", CheckoutUrl: { } checkoutUrl } && StorefrontHostedCheckoutUrl.IsAllowed(checkoutUrl))
             return Redirect(checkoutUrl);
         return null;

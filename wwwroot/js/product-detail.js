@@ -222,6 +222,7 @@ if (offerForm) {
         }
       });
       const payload = await response.json().catch(() => null);
+      if (payload?.ok) trackAddToCart(selectedOffer, quantity);
       if (payload?.ok && window.moritaMiniCart) {
         const price = selectedOffer.dataset.price;
         window.moritaMiniCart.open({
@@ -346,3 +347,25 @@ if (offerForm) {
     }
   });
 })();
+
+function trackAddToCart(offer, quantity) {
+  if (typeof window.trackEcommerceEvent !== 'function') return;
+  let viewItem = null;
+  for (const script of document.querySelectorAll('script[data-analytics-event]')) {
+    try {
+      const data = JSON.parse(script.textContent || '{}');
+      if (data.event === 'view_item') viewItem = data.ecommerce;
+    } catch {
+      continue;
+    }
+  }
+  const base = viewItem?.items?.[0];
+  if (!base) return;
+  const price = Number(offer.dataset.price || base.price || 0);
+  const variant = offer.closest('label')?.getAttribute('aria-label') || undefined;
+  window.trackEcommerceEvent('add_to_cart', {
+    currency: offer.dataset.currency || viewItem.currency || 'BRL',
+    value: price * quantity,
+    items: [{ ...base, item_variant: variant, price, quantity }]
+  });
+}

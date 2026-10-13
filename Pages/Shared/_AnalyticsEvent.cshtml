@@ -1,0 +1,2 @@
+@model Morita.LP.Razor.Models.AnalyticsEvent
+<script type="application/json" data-analytics-event>@Json.Serialize(new { @event = Model.Event, transaction_id = Model.TransactionId, ecommerce = Model.Ecommerce })</script>

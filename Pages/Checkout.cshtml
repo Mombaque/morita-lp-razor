@@ -198,4 +198,10 @@
   }
 </main>
 
-@section Scripts { <script type="module" src="~/js/checkout.js" asp-append-version="true"></script> }
+@section Scripts {
+  @if (Microsoft.AspNetCore.Http.HttpMethods.IsGet(ViewContext.HttpContext.Request.Method) && Model.Quote.Lines.Count > 0)
+  {
+    <partial name="_AnalyticsEvent" model="AnalyticsEvents.BeginCheckout(Model.Quote)" />
+  }
+  <script type="module" src="~/js/checkout.js" asp-append-version="true"></script>
+}
