@@ -18,4 +18,11 @@ public sealed class OrderModel(IOrderClient client, IOrderAccessCookieStore acce
         Order = result.Order; Message = result.Message ?? (Order is null ? "Este pedido não está disponível neste dispositivo." : null);
         if (Order is null) access.Clear();
     }
+
+    public async Task<IActionResult> OnGetInvoiceAsync(string kind, CancellationToken cancellationToken)
+    {
+        if (!OrderAccessCookieStore.IsValidOrderNumber(PublicOrderNumber) || !PublicOrderInvoice.IsKnownFile(kind) || access.Read(PublicOrderNumber) is not { } credential) return NotFound();
+        var file = await client.DownloadInvoiceAsync(PublicOrderNumber, credential.Token, kind, cancellationToken);
+        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+    }
 }

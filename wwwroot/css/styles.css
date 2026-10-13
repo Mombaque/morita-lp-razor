@@ -5722,3 +5722,9 @@ html.lightbox-open {
 .unsubscribe-page { padding-block: 2rem; }
 .unsubscribe-page a:not(.commerce-button) { color: #3CF9AE; text-decoration: underline; }
 .unsubscribe-page form { margin: 1rem 0; }
+
+.order-invoice { margin: 1rem 0; padding: .8rem 1rem; border: 1px solid #343434; border-top: 2px solid #3CF9AE; background: #111; }
+.order-invoice h3 { margin: 0 0 .4rem; }
+.order-invoice-links { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 0; }
+.order-invoice-links a.commerce-button, .unsubscribe-page a.commerce-button:not(.commerce-button-primary) { color: #3CF9AE; text-decoration: none; }
+.order-invoice-links a.commerce-button:hover, .unsubscribe-page a.commerce-button:not(.commerce-button-primary):hover { background: #3CF9AE; color: #050505; }

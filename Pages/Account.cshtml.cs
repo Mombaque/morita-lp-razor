@@ -154,6 +154,13 @@ public sealed class AccountModel(
         await LoadAsync(ct); return Page();
     }
 
+    public async Task<IActionResult> OnGetInvoiceAsync(string number, string kind, CancellationToken ct)
+    {
+        if (!AccountEnabled || Session is not { } session || !PublicOrderInvoice.IsKnownFile(kind)) return NotFound();
+        var file = await client.DownloadInvoiceAsync(session.Token, number, kind, ct);
+        return file is null ? NotFound() : File(file.Content, file.ContentType, file.FileName);
+    }
+
     public async Task<IActionResult> OnPostMarketingAsync(bool marketingEmails, CancellationToken ct)
     {
         if (!AccountEnabled) return NotFound();

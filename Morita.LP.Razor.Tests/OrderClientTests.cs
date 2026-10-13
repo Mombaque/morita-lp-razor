@@ -31,6 +31,37 @@ public sealed class OrderClientTests
     }
 
     [Fact]
+    public async Task Get_maps_the_invoice_and_keeps_only_known_files()
+    {
+        const string number = "MF-0123456789ABCDEF";
+        var json = Json(number).TrimEnd('}') + ",\"invoice\":{\"number\":123,\"series\":1,\"authorizedAt\":\"2026-08-20T12:00:00Z\",\"cancelled\":false,\"files\":[\"danfe\",\"xml\",\"zip\"]}}";
+        using var handler = new Handler(json);
+
+        var order = (await Create(handler).GetAsync(number, new string('t', 32))).Order!;
+
+        Assert.Equal(123, order.Invoice!.Number);
+        Assert.Equal(["danfe", "xml"], order.Invoice.Files);
+        Assert.True(order.Invoice.HasFile("danfe"));
+    }
+
+    [Fact]
+    public async Task Invoice_download_sends_the_order_token_and_returns_the_file()
+    {
+        const string number = "MF-0123456789ABCDEF";
+        using var handler = new FileHandler("%PDF-1.4", "application/pdf", "NFe-123.pdf");
+
+        var file = await Create(handler).DownloadInvoiceAsync(number, new string('t', 32), "danfe");
+
+        Assert.Equal("https://api.test/v1/storefront/orders/MF-0123456789ABCDEF/invoice/danfe", handler.Request!.RequestUri!.ToString());
+        Assert.Equal(new string('t', 32), handler.Request.Headers.GetValues("X-Order-Access-Token").Single());
+        Assert.Equal("application/pdf", file!.ContentType);
+        Assert.Equal("NFe-123.pdf", file.FileName);
+        Assert.Null(await Create(handler).DownloadInvoiceAsync(number, new string('t', 32), "zip"));
+        using var html = new FileHandler("<html>", "text/html", "x.html");
+        Assert.Null(await Create(html).DownloadInvoiceAsync(number, new string('t', 32), "xml"));
+    }
+
+    [Fact]
     public async Task Get_maps_pascal_case_pickup_address_snapshot()
     {
         const string number = "MF-0123456789ABCDEF";
@@ -128,5 +159,18 @@ public sealed class OrderClientTests
         public Handler(HttpStatusCode status) { this.status = status; }
         public HttpRequestMessage? Request { get; private set; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) { Request = request; return Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body ?? "", System.Text.Encoding.UTF8, "application/json") }); }
+    }
+
+    private sealed class FileHandler(string body, string contentType, string fileName) : HttpMessageHandler
+    {
+        public HttpRequestMessage? Request { get; private set; }
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            Request = request;
+            var content = new ByteArrayContent(System.Text.Encoding.UTF8.GetBytes(body));
+            content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+            content.Headers.ContentDisposition = new System.Net.Http.Headers.ContentDispositionHeaderValue("attachment") { FileName = fileName };
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = content });
+        }
     }
 }

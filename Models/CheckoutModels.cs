@@ -96,6 +96,7 @@ public sealed class PublicOrder
     public PublicCustomerOrderProblem? OpenProblem { get; init; }
     public PublicCustomerOrderProblem? LatestProblem { get; init; }
     public DateTimeOffset? ReturnWindowEndsAt { get; init; }
+    public PublicOrderInvoice? Invoice { get; init; }
 }
 
 public sealed class PublicCustomerOrderProblem
@@ -254,3 +255,18 @@ public sealed class ShippingQuoteOption
     public int MinimumDeliveryDays { get; init; }
     public int MaximumDeliveryDays { get; init; }
 }
+
+public sealed class PublicOrderInvoice
+{
+    public const string Danfe = "danfe";
+    public const string Xml = "xml";
+    public int? Number { get; init; }
+    public int? Series { get; init; }
+    public DateTimeOffset? AuthorizedAt { get; init; }
+    public bool Cancelled { get; init; }
+    public List<string> Files { get; init; } = [];
+    public bool HasFile(string kind) => !Cancelled && Files.Contains(kind, StringComparer.Ordinal);
+    public static bool IsKnownFile(string? kind) => kind is Danfe or Xml;
+}
+
+public sealed record InvoiceFile(byte[] Content, string ContentType, string FileName);

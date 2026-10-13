@@ -27,6 +27,7 @@ public interface ICustomerAccountClient
     Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken cancellationToken = default);
     Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken cancellationToken = default);
     Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken cancellationToken = default);
+    Task<InvoiceFile?> DownloadInvoiceAsync(string token, string number, string kind, CancellationToken cancellationToken = default) => Task.FromResult<InvoiceFile?>(null);
     Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken cancellationToken = default);
     Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, IReadOnlyList<OrderProblemItemSelection> items, CancellationToken cancellationToken = default) => ReportProblemAsync(token, number, reason, message, cancellationToken);
 }
@@ -90,6 +91,13 @@ public sealed class CustomerAccountClient(
     public Task<AccountResult<bool>> CloseAsync(string token, string currentPassword, CancellationToken ct = default) => NoContentAsync(HttpMethod.Post, "v1/storefront/account/close", new { currentPassword }, token, ct);
     public Task<AccountResult<bool>> LogoutAsync(string token, bool all, CancellationToken ct = default) => NoContentAsync(HttpMethod.Post, $"v1/storefront/account/{(all ? "logout-all" : "logout")}", null, token, ct);
     public Task<AccountResult<StorefrontAccountOrderPage>> GetOrdersAsync(string token, int page = 1, int pageSize = 20, CancellationToken ct = default) => SendAsync<StorefrontAccountOrderPage>(HttpMethod.Get, $"v1/storefront/account/orders?page={Math.Max(page, 1)}&pageSize={Math.Clamp(pageSize, 1, 20)}", null, token, ct);
+    public async Task<InvoiceFile?> DownloadInvoiceAsync(string token, string number, string kind, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(token) || !OrderAccessCookieStore.IsValidOrderNumber(number) || !PublicOrderInvoice.IsKnownFile(kind)) return null;
+        using var request = new HttpRequestMessage(HttpMethod.Get, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}/invoice/{kind}");
+        request.Headers.TryAddWithoutValidation("X-Storefront-Session", token);
+        return await InvoiceDownload.SendAsync(httpClient, request, settings.TimeoutSeconds, logger, ct);
+    }
     public Task<AccountResult<PublicOrder>> GetOrderAsync(string token, string number, CancellationToken ct = default) => SendAsync<PublicOrder>(HttpMethod.Get, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}", null, token, ct);
     public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, CancellationToken ct = default) => ReportProblemAsync(token, number, reason, message, [], ct);
     public Task<AccountResult<PublicCustomerOrderProblem>> ReportProblemAsync(string token, string number, string reason, string message, IReadOnlyList<OrderProblemItemSelection> items, CancellationToken ct = default) => SendAsync<PublicCustomerOrderProblem>(HttpMethod.Post, $"v1/storefront/account/orders/{Uri.EscapeDataString(number)}/problems", new { reason, message, items = items.Select(item => new { lineIndex = item.LineIndex, quantity = item.Quantity }).ToList() }, token, ct);
