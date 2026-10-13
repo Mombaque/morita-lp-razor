@@ -13,6 +13,7 @@ public interface IReviewClient
     Task<ReviewFormResult> GetFormAsync(string token, CancellationToken cancellationToken = default);
     Task<ReviewSubmitResult> SubmitAsync(string token, IReadOnlyList<ReviewInput> items, CancellationToken cancellationToken = default);
     Task<ProductReviewPage?> GetProductReviewsAsync(string slug, int page, CancellationToken cancellationToken = default);
+    Task<ReviewOptOutState> OptOutAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(ReviewOptOutState.Unavailable);
 }
 
 public sealed partial class ReviewClient(HttpClient httpClient, IOptions<CatalogApiOptions> options, ILogger<ReviewClient> logger) : IReviewClient
@@ -20,6 +21,8 @@ public sealed partial class ReviewClient(HttpClient httpClient, IOptions<Catalog
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public static bool IsValidToken(string? token) => token is not null && TokenPattern().IsMatch(token);
+
+    public static bool IsValidOptOutToken(string? token) => token is not null && OptOutTokenPattern().IsMatch(token);
 
     public async Task<ReviewFormResult> GetFormAsync(string token, CancellationToken cancellationToken = default)
     {
@@ -52,6 +55,19 @@ public sealed partial class ReviewClient(HttpClient httpClient, IOptions<Catalog
     {
         var (status, result) = await SendAsync<ProductReviewPage>(HttpMethod.Get, $"v1/storefront/catalog/products/{Uri.EscapeDataString(slug.Trim())}/reviews?page={Math.Max(1, page)}", null, cancellationToken);
         return status == HttpStatusCode.OK && result is not null && IsValidPage(result) ? result : null;
+    }
+
+    public async Task<ReviewOptOutState> OptOutAsync(string token, CancellationToken cancellationToken = default)
+    {
+        if (!IsValidOptOutToken(token))
+            return ReviewOptOutState.Invalid;
+        var (status, _) = await SendAsync<JsonElement>(HttpMethod.Post, "v1/storefront/review-requests/opt-out", new { token }, cancellationToken);
+        return status switch
+        {
+            HttpStatusCode.NoContent or HttpStatusCode.OK => ReviewOptOutState.Done,
+            HttpStatusCode.UnprocessableEntity or HttpStatusCode.BadRequest => ReviewOptOutState.Invalid,
+            _ => ReviewOptOutState.Unavailable
+        };
     }
 
     private async Task<(HttpStatusCode? Status, T? Value)> SendAsync<T>(HttpMethod method, string path, object? body, CancellationToken cancellationToken)
@@ -88,6 +104,9 @@ public sealed partial class ReviewClient(HttpClient httpClient, IOptions<Catalog
 
     [GeneratedRegex("^[A-Z0-9-]{1,19}\\.[A-Za-z0-9_-]{20,64}$")]
     private static partial Regex TokenPattern();
+
+    [GeneratedRegex("^[A-Za-z0-9_-]{43}\\.[A-Za-z0-9_-]{43}$")]
+    private static partial Regex OptOutTokenPattern();
 
     private sealed class NotificationResponse
     {

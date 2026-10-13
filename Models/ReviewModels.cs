@@ -47,6 +47,8 @@ public enum ReviewSubmitState { Accepted, Invalid, NotFound, Unavailable }
 
 public sealed record ReviewSubmitResult(ReviewSubmitState State, string? Message);
 
+public enum ReviewOptOutState { Done, Invalid, Unavailable }
+
 public static class ReviewPresentation
 {
     public const int MaximumCommentLength = 1000;
