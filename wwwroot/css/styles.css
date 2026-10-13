@@ -5728,3 +5728,5 @@ html.lightbox-open {
 .order-invoice-links { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 0; }
 .order-invoice-links a.commerce-button, .unsubscribe-page a.commerce-button:not(.commerce-button-primary) { color: #3CF9AE; text-decoration: none; }
 .order-invoice-links a.commerce-button:hover, .unsubscribe-page a.commerce-button:not(.commerce-button-primary):hover { background: #3CF9AE; color: #050505; }
+.offer-size-choice.is-low-stock { border-color: #fbbf24; }
+.offer-low-stock { position: absolute; top: -.55rem; right: -.35rem; padding: 0 .3rem; background: #fbbf24; color: #0a0a0a; font-size: .62rem; font-style: normal; font-weight: 800; letter-spacing: .02em; line-height: 1.1rem; text-transform: uppercase; pointer-events: none; }
