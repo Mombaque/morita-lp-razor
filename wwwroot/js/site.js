@@ -57,3 +57,32 @@ if (siteMenuToggle && siteNav) {
     }
   });
 }
+
+document.addEventListener('click', async (event) => {
+  const button = event.target.closest('[data-copy-text]');
+  if (!button) {
+    return;
+  }
+
+  const original = button.textContent;
+  const text = button.dataset.copyText;
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    copied = true;
+  } catch {
+    const field = document.createElement('textarea');
+    field.value = text;
+    field.setAttribute('readonly', '');
+    field.style.position = 'fixed';
+    field.style.opacity = '0';
+    document.body.appendChild(field);
+    field.select();
+    copied = document.execCommand('copy');
+    field.remove();
+  }
+  button.textContent = copied ? 'Copiado!' : 'Não foi possível copiar';
+  setTimeout(() => {
+    button.textContent = original;
+  }, 2000);
+});

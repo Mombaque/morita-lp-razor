@@ -37,6 +37,16 @@ public static class AccountPresentation
         _ => "Em atualização"
     };
 
+    public static string EffectiveFulfillmentStatus(string? method, string? fulfillmentStatus, string? shipmentStatus) =>
+        string.Equals(method, "shipping", StringComparison.OrdinalIgnoreCase) &&
+        !string.Equals(fulfillmentStatus, "cancelled", StringComparison.OrdinalIgnoreCase) &&
+        !string.IsNullOrWhiteSpace(shipmentStatus)
+            ? shipmentStatus.ToLowerInvariant()
+            : fulfillmentStatus?.ToLowerInvariant() ?? "";
+
+    public static string EffectiveFulfillmentStatus(PublicOrder order) =>
+        EffectiveFulfillmentStatus(order.FulfillmentMethod, order.FulfillmentStatus, order.Shipment?.Status);
+
     public static string FulfillmentMethod(string? method) => method?.ToLowerInvariant() switch
     {
         "shipping" => "Entrega",
