@@ -20,6 +20,7 @@ namespace Morita.LP.Razor.Tests;
 public sealed class SeoDocumentsTests
 {
     private static readonly XNamespace Sitemap = "http://www.sitemaps.org/schemas/sitemap/0.9";
+    private static readonly XNamespace Google = "http://base.google.com/ns/1.0";
 
     [Fact]
     public async Task Robots_keeps_private_flows_out_and_points_to_the_sitemap()
@@ -120,6 +121,82 @@ public sealed class SeoDocumentsTests
         Assert.Equal($"https://moritafight.com.br/products/kimono?publicOfferId={offer}", jsonOffer.GetProperty("url").GetString());
         Assert.Equal("https://schema.org/NewCondition", jsonOffer.GetProperty("itemCondition").GetString());
         Assert.Equal("Morita Fight", jsonOffer.GetProperty("seller").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    public async Task Merchant_feed_lists_one_item_per_offer_with_google_fields()
+    {
+        var available = Guid.NewGuid();
+        var soldOut = Guid.NewGuid();
+        var image = "/v1/storefront/catalog/images/3f2b1c1e-0000-4000-8000-000000000001";
+        var kimono = new Product
+        {
+            Slug = "kimono",
+            Nome = "Kimono Infantil",
+            Descricao = "Kimono trançado leve.",
+            Brand = new CatalogLookup(1, "keiko", "Keiko"),
+            Modality = new CatalogLookup(1, "jiu-jitsu", "Jiu-Jitsu"),
+            Category = new CatalogLookup(2, "kimonos", "Kimonos"),
+            Audience = PublicCatalogAudience.Kids,
+            Price = 299.9m,
+            Imagens = [image, "/v1/storefront/catalog/images/3f2b1c1e-0000-4000-8000-000000000002"],
+            Variants =
+            [
+                new ProductVariant
+                {
+                    ColorLabel = "Branco",
+                    Images = [image, "/v1/storefront/catalog/images/3f2b1c1e-0000-4000-8000-000000000002"],
+                    Offers =
+                    [
+                        new ProductOffer { PublicOfferId = available, SizeLabel = "M0", UnitPrice = 299.9m, Currency = "BRL", Availability = "available" },
+                        new ProductOffer { PublicOfferId = soldOut, SizeLabel = "M1", UnitPrice = 309m, Currency = "BRL", Availability = "unavailable" }
+                    ]
+                }
+            ]
+        };
+        var withoutImage = new Product
+        {
+            Slug = "sem-foto",
+            Nome = "Sem foto",
+            Variants = [new ProductVariant { Offers = [new ProductOffer { PublicOfferId = Guid.NewGuid(), UnitPrice = 10m }] }]
+        };
+        using var factory = Create(new PagedCatalog([new[] { kimono, withoutImage }]));
+
+        var response = await factory.CreateClient().GetAsync("/merchant-feed.xml");
+        var document = XDocument.Parse(await response.Content.ReadAsStringAsync());
+        var items = document.Root!.Element("channel")!.Elements("item").ToList();
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("application/xml", response.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(2, items.Count);
+        var first = items[0];
+        string Field(XElement item, string name) => item.Element(Google + name)!.Value;
+        Assert.Equal(available.ToString(), Field(first, "id"));
+        Assert.Equal("kimono", Field(first, "item_group_id"));
+        Assert.Equal("Kimono Infantil - Branco - M0", Field(first, "title"));
+        Assert.Equal($"https://moritafight.com.br/products/kimono?publicOfferId={available}", Field(first, "link"));
+        Assert.Equal($"https://moritafight.com.br{image}", Field(first, "image_link"));
+        Assert.Single(first.Elements(Google + "additional_image_link"));
+        Assert.Equal("in_stock", Field(first, "availability"));
+        Assert.Equal("299.90 BRL", Field(first, "price"));
+        Assert.Equal("new", Field(first, "condition"));
+        Assert.Equal("Keiko", Field(first, "brand"));
+        Assert.Equal("no", Field(first, "identifier_exists"));
+        Assert.Equal("Branco", Field(first, "color"));
+        Assert.Equal("M0", Field(first, "size"));
+        Assert.Equal("kids", Field(first, "age_group"));
+        Assert.Equal("Jiu-Jitsu > Kimonos", Field(first, "product_type"));
+        Assert.Equal("out_of_stock", Field(items[1], "availability"));
+        Assert.Equal("309.00 BRL", Field(items[1], "price"));
+    }
+
+    [Fact]
+    public async Task Merchant_feed_is_unavailable_instead_of_empty_when_the_catalog_cannot_be_read()
+    {
+        using var factory = Create(new PagedCatalog([], unavailable: true));
+        var response = await factory.CreateClient().GetAsync("/merchant-feed.xml");
+
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
     }
 
     private static WebApplicationFactory<Program> Create(PagedCatalog catalog, Product? detail = null) =>

@@ -223,6 +223,14 @@ app.MapGet("/sitemap.xml", async (HttpContext context, SeoDocuments seo, Cancell
     context.Response.Headers.CacheControl = "public, max-age=3600";
     return Results.Text(sitemap, "application/xml; charset=utf-8");
 });
+app.MapGet("/merchant-feed.xml", async (HttpContext context, SeoDocuments seo, CancellationToken cancellationToken) =>
+{
+    var feed = await seo.MerchantFeedAsync(cancellationToken);
+    if (feed is null)
+        return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+    context.Response.Headers.CacheControl = "public, max-age=3600";
+    return Results.Text(feed, "application/xml; charset=utf-8");
+});
 app.MapGet("/v1/storefront/catalog/images/{imageId:guid}", async (Guid imageId, HttpContext context, IHttpClientFactory clients, CancellationToken cancellationToken) =>
 {
     context.Response.Headers.CacheControl = "no-store";
