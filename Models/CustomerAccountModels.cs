@@ -43,6 +43,7 @@ public sealed class StorefrontAccountOrderSummary
     public string PaymentStatus { get; init; } = "";
     public string FulfillmentStatus { get; init; } = "";
     public string FulfillmentMethod { get; init; } = "";
+    public string? ShipmentStatus { get; init; }
     public string? RepresentativeProductPresentation { get; init; }
     public string? RepresentativeProductImageUrl { get; init; }
 }

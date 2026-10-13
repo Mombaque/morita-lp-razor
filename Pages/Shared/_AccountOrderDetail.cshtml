@@ -2,7 +2,27 @@
 <section class="account-panel order-detail" aria-labelledby="selected-order-heading">
     <h2 id="selected-order-heading">Detalhes do pedido @Model.PublicOrderNumber</h2>
     <p>Pagamento: <strong class="@AccountPresentation.PaymentStatusClass(Model.PaymentStatus)">@AccountPresentation.PaymentStatus(Model.PaymentStatus)</strong></p>
-    <p>Status: <strong>@AccountPresentation.FulfillmentStatus(Model.FulfillmentStatus)</strong> · @AccountPresentation.FulfillmentMethod(Model.FulfillmentMethod)</p>
+    <p>Status: <strong>@AccountPresentation.FulfillmentStatus(AccountPresentation.EffectiveFulfillmentStatus(Model))</strong> · @AccountPresentation.FulfillmentMethod(Model.FulfillmentMethod)</p>
+    @{ var timeline = OrderTimeline.Build(Model); }
+    @if (timeline.Count > 0)
+    {
+        <ol class="order-timeline" data-order-timeline aria-label="Andamento do pedido">
+            @foreach (var step in timeline)
+            {
+                <li class="order-timeline-step is-@step.State.ToString().ToLowerInvariant()" data-step-state="@step.State.ToString().ToLowerInvariant()" aria-current="@(step.State == OrderTimelineStepState.Current ? "step" : null)">
+                    <span class="order-timeline-label">@step.Label</span>
+                    @if (step.At is { } at)
+                    {
+                        <time datetime="@at.ToString("O")">@TimePresentation.ToStoreTime(at).ToString("dd/MM HH:mm")</time>
+                    }
+                </li>
+            }
+        </ol>
+        @if (OrderTimeline.HasException(Model))
+        {
+            <p class="order-timeline-alert" data-order-timeline-alert>A transportadora registrou uma ocorrência. Estamos verificando e avisaremos por e-mail.</p>
+        }
+    }
     <ul>
         @foreach (var line in Model.Lines)
         {
@@ -60,7 +80,13 @@
         <p>@AccountPresentation.FulfillmentStatus(shipment.Status) · @shipment.CarrierName @shipment.ServiceName</p>
         @if (!string.IsNullOrWhiteSpace(shipment.TrackingCode))
         {
-            <p>Rastreamento: <strong>@shipment.TrackingCode</strong></p>
+            <div class="order-tracking" data-order-tracking>
+                <p>Código de rastreamento: <strong data-tracking-code>@shipment.TrackingCode</strong></p>
+                <p class="order-tracking-actions">
+                    <button type="button" class="commerce-button" data-copy-text="@shipment.TrackingCode">Copiar código</button>
+                    <a class="commerce-button" href="@OrderTimeline.TrackingSiteUrl" target="_blank" rel="noopener noreferrer">Rastrear no Melhor Rastreio</a>
+                </p>
+            </div>
         }
         <p>Atualizado em <time datetime="@shipment.UpdatedAt.ToString("O")">@TimePresentation.ToStoreTime(shipment.UpdatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
         @if (shipment.ShippedAt is { } shippedAt)
