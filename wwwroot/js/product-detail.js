@@ -227,7 +227,7 @@ if (offerForm) {
         const price = selectedOffer.dataset.price;
         window.moritaMiniCart.open({
           name: document.querySelector('.detail-copy h1')?.textContent?.trim(),
-          variant: selectedOffer.closest('label')?.getAttribute('aria-label'),
+          variant: selectedOffer.closest('label')?.dataset.presentation,
           image: detailImage?.getAttribute('src'),
           price: price ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: selectedOffer.dataset.currency || 'BRL' }).format(Number(price) * quantity) : '',
           quantity
@@ -362,7 +362,7 @@ function trackAddToCart(offer, quantity) {
   const base = viewItem?.items?.[0];
   if (!base) return;
   const price = Number(offer.dataset.price || base.price || 0);
-  const variant = offer.closest('label')?.getAttribute('aria-label') || undefined;
+  const variant = offer.closest('label')?.dataset.presentation || undefined;
   window.trackEcommerceEvent('add_to_cart', {
     currency: offer.dataset.currency || viewItem.currency || 'BRL',
     value: price * quantity,
