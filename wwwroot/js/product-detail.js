@@ -259,7 +259,7 @@ if (offerForm) {
     const currency = input.dataset.currency || 'BRL';
     const formatted = price ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(Number(price)) : 'Preço sob consulta';
     const presentation = input.closest('label')?.getAttribute('aria-label') || 'Oferta selecionada';
-    live.textContent = `${presentation}. ${formatted}. Disponível.`;
+    live.textContent = `${presentation}. ${formatted}.${input.dataset.lowStock === 'true' ? '' : ' Disponível.'}`;
     const detailPrice = document.querySelector('[data-detail-price] .product-price');
     if (detailPrice) detailPrice.textContent = formatted;
     setGalleryVariant(input.dataset.variantKey);

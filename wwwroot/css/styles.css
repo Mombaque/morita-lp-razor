@@ -5728,6 +5728,8 @@ html.lightbox-open {
 .order-invoice-links { display: flex; flex-wrap: wrap; gap: .5rem; margin: .6rem 0 0; }
 .order-invoice-links a.commerce-button, .unsubscribe-page a.commerce-button:not(.commerce-button-primary) { color: #3CF9AE; text-decoration: none; }
 .order-invoice-links a.commerce-button:hover, .unsubscribe-page a.commerce-button:not(.commerce-button-primary):hover { background: #3CF9AE; color: #050505; }
+.offer-size-choice.is-low-stock { border-color: #fbbf24; }
+.offer-low-stock { position: absolute; top: -.55rem; right: -.35rem; padding: 0 .3rem; background: #fbbf24; color: #0a0a0a; font-size: .62rem; font-style: normal; font-weight: 800; letter-spacing: .02em; line-height: 1.1rem; text-transform: uppercase; pointer-events: none; }
 .order-timeline { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .5rem; margin: 1rem 0; padding: 0; list-style: none; counter-reset: order-step; }
 .order-timeline-step { position: relative; display: flex; flex-direction: column; gap: .2rem; padding: .7rem .6rem .6rem; border: 1px solid #343434; border-top: 3px solid #343434; background: #111; color: #9a9a9a; font-size: .85rem; counter-increment: order-step; }
 .order-timeline-step::before { content: counter(order-step); font-size: .72rem; font-weight: 800; color: #6b6b6b; }

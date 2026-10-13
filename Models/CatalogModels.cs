@@ -29,6 +29,7 @@ public sealed class ProductOffer
     public decimal? UnitPrice { get; set; }
     public string? Currency { get; set; }
     public string Availability { get; set; } = "available";
+    public bool LowStock { get; set; }
     public int? ColorId { get; set; }
     public string? ColorLabel { get; set; }
 }
