@@ -11,16 +11,26 @@ public sealed class ReviewModel(IReviewClient client) : PageModel
     private const string Unavailable = "Não foi possível carregar agora. Tente novamente em instantes.";
 
     [BindProperty(SupportsGet = true)] public string? Token { get; set; }
+    [BindProperty(SupportsGet = true, Name = "enviado")] public bool Sent { get; set; }
     [BindProperty] public List<ReviewEntry> Entries { get; set; } = [];
     public ReviewForm? Form { get; private set; }
     public bool Done { get; private set; }
     public string? Error { get; private set; }
+    public bool AllReviewed => Form is { Items.Count: > 0 } form && form.Items.All(item => item.Reviewed);
 
-    public async Task OnGetAsync(CancellationToken cancellationToken) => await LoadAsync(cancellationToken);
+    public async Task OnGetAsync(CancellationToken cancellationToken)
+    {
+        if (Sent)
+        {
+            Done = true;
+            return;
+        }
+        await LoadAsync(cancellationToken);
+    }
 
     public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
     {
-        if (!await LoadAsync(cancellationToken))
+        if (!await LoadAsync(cancellationToken) || AllReviewed)
             return Page();
         var open = Form!.Items.Where(item => !item.Reviewed).Select(item => item.Slug).ToHashSet(StringComparer.Ordinal);
         var chosen = Entries
@@ -42,8 +52,7 @@ public sealed class ReviewModel(IReviewClient client) : PageModel
         switch (result.State)
         {
             case ReviewSubmitState.Accepted:
-                Done = true;
-                break;
+                return RedirectToPage(new { token = Token!.Trim(), enviado = "true" });
             case ReviewSubmitState.NotFound:
                 Form = null;
                 Error = InvalidLink;

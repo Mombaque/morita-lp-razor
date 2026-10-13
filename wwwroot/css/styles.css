@@ -3581,7 +3581,7 @@ a.product-variant-more:focus-visible {
 .account-error-toast-heading button:focus-visible { outline: 2px solid #ff4d4d; outline-offset: 3px; }
 .account-error-toast ul { margin: .65rem 0 0; padding-left: 1.2rem; }
 .account-error-toast li { color: #ff4d4d; font-weight: 800; margin: .25rem 0; }
-.account-page .validation-error { color: #ff4d4d; display: block; font-weight: 800; margin: .35rem 0 .5rem; }
+.account-page .validation-error, .review-page .validation-error { color: #ff4d4d; display: block; font-weight: 800; margin: .35rem 0 .5rem; }
 .offer-validation-message { color: #ff4d4d; display: block; font-weight: 800; margin: .35rem 0 .5rem; }
 .offer-boundary .offer-validation-message { margin: .55rem 0 0; max-width: 28rem; }
 .account-layout { display: grid; grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr); gap: clamp(1rem, 3vw, 2.5rem); align-items: start; }

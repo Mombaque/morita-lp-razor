@@ -22,7 +22,12 @@
             {
                 <p class="validation-error" role="alert">@Model.Error</p>
             }
-            @if (Model.Form is { } form)
+            @if (Model.AllReviewed)
+            {
+                <p role="status" data-review-all-done>Você já avaliou todos os produtos deste pedido. Obrigado pela opinião!</p>
+                <p><a class="commerce-button" href="/products">Voltar à loja</a></p>
+            }
+            else if (Model.Form is { } form)
             {
                 <p>Pedido <strong>@form.PublicOrderNumber</strong>. Escolha de 1 a 5 estrelas e, se quiser, deixe um comentário. Seu primeiro nome e a inicial do sobrenome aparecem com a avaliação.</p>
                 <form method="post" class="review-form" novalidate>
