@@ -9,6 +9,28 @@
             <li><strong>@line.Presentation</strong> — @line.Quantity × @CurrencyPresentation.Format(line.UnitPrice, Model.Currency) = @CurrencyPresentation.Format(line.Total, Model.Currency)</li>
         }
     </ul>
+    @if (Model.Invoice is { Number: not null } invoice)
+    {
+        var fromAccount = ViewData["InvoiceFromAccount"] is true;
+        string InvoiceUrl(string kind) => fromAccount
+            ? $"/conta?handler=Invoice&number={Uri.EscapeDataString(Model.PublicOrderNumber)}&kind={kind}"
+            : $"/order/{Uri.EscapeDataString(Model.PublicOrderNumber)}?handler=Invoice&kind={kind}";
+        <div class="order-invoice" data-order-invoice>
+            <h3>Nota fiscal</h3>
+            <p>NF-e nº @invoice.Number@(invoice.Series is { } series ? $" · série {series}" : "")@if (invoice.AuthorizedAt is { } issuedAt) {<text> · emitida em <time datetime="@issuedAt.ToString("O")">@TimePresentation.ToStoreTime(issuedAt).ToString("dd/MM/yyyy")</time></text>}</p>
+            @if (invoice.Cancelled)
+            {
+                <p data-order-invoice-cancelled>Esta nota fiscal foi cancelada.</p>
+            }
+            else
+            {
+                <p class="order-invoice-links">
+                    @if (invoice.HasFile(PublicOrderInvoice.Danfe)) { <a class="commerce-button" href="@InvoiceUrl(PublicOrderInvoice.Danfe)" data-invoice-file="danfe">Baixar DANFE (PDF)</a> }
+                    @if (invoice.HasFile(PublicOrderInvoice.Xml)) { <a class="commerce-button" href="@InvoiceUrl(PublicOrderInvoice.Xml)" data-invoice-file="xml">Baixar XML</a> }
+                </p>
+            }
+        </div>
+    }
     @if (Model.Shipping is { } shipping)
     {
         <p>Frete: <strong>@CurrencyPresentation.Format(shipping.Price, Model.Currency)</strong></p>
