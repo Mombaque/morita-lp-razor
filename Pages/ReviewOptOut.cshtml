@@ -1,0 +1,35 @@
+@page "/avaliacoes/descadastrar"
+@model ReviewOptOutModel
+@{
+    ViewData["Title"] = "Pedidos de avaliação | Morita Fight";
+    ViewData["Description"] = "Pare de receber e-mails pedindo a avaliação das suas compras na Morita Fight.";
+    ViewData["Robots"] = "noindex,nofollow";
+    ViewData["OgImage"] = null;
+    ViewData["BodyClass"] = "commerce-page";
+}
+
+<main class="commerce-shell unsubscribe-page" data-review-opt-out>
+    <section class="account-panel">
+        <h1>Pedidos de avaliação</h1>
+        @if (Model.Done)
+        {
+            <p role="status" data-review-opt-out-done>Pronto. Você não vai mais receber e-mails pedindo a avaliação das suas compras. E-mails sobre seus pedidos continuam chegando normalmente.</p>
+            <p><a class="commerce-button" href="/products">Voltar à loja</a></p>
+        }
+        else
+        {
+            @if (Model.Error is not null)
+            {
+                <p class="validation-error" role="alert">@Model.Error</p>
+            }
+            @if (Model.HasToken)
+            {
+                <p>Confirme para não receber mais e-mails pedindo a avaliação dos produtos depois da entrega ou retirada.</p>
+                <form method="post">
+                    <input type="hidden" asp-for="Token">
+                    <button class="commerce-button commerce-button-primary" type="submit">Parar pedidos de avaliação</button>
+                </form>
+            }
+        }
+    </section>
+</main>
