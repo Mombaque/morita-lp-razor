@@ -272,7 +272,7 @@
                                 <span>
                                     <strong>@order.PublicOrderNumber</strong>
                                     <span>@(order.RepresentativeProductPresentation ?? "Pedido Morita")</span>
-                                    <span>@AccountPresentation.FulfillmentMethod(order.FulfillmentMethod) · @AccountPresentation.FulfillmentStatus(order.FulfillmentStatus)</span>
+                                    <span>@AccountPresentation.FulfillmentMethod(order.FulfillmentMethod) · @AccountPresentation.FulfillmentStatus(AccountPresentation.EffectiveFulfillmentStatus(order.FulfillmentMethod, order.FulfillmentStatus, order.ShipmentStatus))</span>
                                 </span>
                                 <em><span class="@AccountPresentation.PaymentStatusClass(order.PaymentStatus)">@AccountPresentation.PaymentStatus(order.PaymentStatus)</span><br>@CurrencyPresentation.Format(order.Amount, order.Currency)<br><time datetime="@order.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(order.CreatedAt).ToString("dd/MM/yyyy")</time></em>
                             </a>

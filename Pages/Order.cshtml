@@ -4,7 +4,7 @@
     ViewData["Title"] = "Seu pedido | Morita Fight";
     ViewData["Robots"] = "noindex,nofollow";
     var paymentStatus = Model.Order?.PaymentStatus.ToLowerInvariant();
-    var fulfillmentStatus = Model.Order?.FulfillmentStatus.ToLowerInvariant();
+    var fulfillmentStatus = Model.Order is null ? null : AccountPresentation.EffectiveFulfillmentStatus(Model.Order);
     var heading = (paymentStatus, fulfillmentStatus) switch
     {
         (_, "delivered" or "pickedup") => "Pedido entregue",
@@ -30,7 +30,7 @@
             <p class="fight-label">Pedido Morita</p>
             <h1>@heading</h1>
             <p class="order-number">Número do pedido: <strong>@Model.Order.PublicOrderNumber</strong></p>
-            <p>@AccountPresentation.PaymentStatus(Model.Order.PaymentStatus) · @AccountPresentation.FulfillmentStatus(Model.Order.FulfillmentStatus)</p>
+            <p>@AccountPresentation.PaymentStatus(Model.Order.PaymentStatus) · @AccountPresentation.FulfillmentStatus(fulfillmentStatus)</p>
         </header>
         <partial name="_AccountOrderDetail" model="Model.Order" />
         <p class="checkout-status-actions">
