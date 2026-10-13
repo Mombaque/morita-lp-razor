@@ -161,6 +161,15 @@
             </form>
         </section>
 
+        <section id="comunicacoes" class="account-panel" aria-labelledby="marketing-heading">
+            <h2 id="marketing-heading">E-mails</h2>
+            <form method="post" asp-page-handler="Marketing" data-account-marketing>
+                <label class="account-check"><input type="checkbox" name="marketingEmails" value="true" checked="@(Model.Profile!.MarketingEmails ? "checked" : null)"><span>Quero receber novidades, ofertas e lembretes de compras não concluídas por e-mail.</span></label>
+                <p class="cart-estimate-note">Você pode cancelar quando quiser, aqui ou pelo link no fim de cada e-mail.</p>
+                <button class="commerce-button" type="submit">Salvar preferência</button>
+            </form>
+        </section>
+
         <section id="enderecos" class="account-panel" aria-labelledby="addresses-heading">
             <h2 id="addresses-heading">Endereços</h2>
             <p>Você pode guardar até 10 endereços.</p>

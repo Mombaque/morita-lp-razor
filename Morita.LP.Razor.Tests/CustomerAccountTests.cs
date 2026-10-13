@@ -165,6 +165,46 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Marketing_consent_and_unsubscribe_call_their_endpoints()
+    {
+        var context = new DefaultHttpContext();
+        var cookie = Store(DataProtectionProvider.Create(Directory.CreateTempSubdirectory()), context, Now);
+        var consentHandler = new StatusHandler(HttpStatusCode.NoContent);
+        var consent = await CreateClient(consentHandler, cookie).SetMarketingConsentAsync(new string('s', 32), true);
+
+        Assert.True(consent.Value);
+        Assert.Equal(HttpMethod.Put, consentHandler.Request!.Method);
+        Assert.EndsWith("/v1/storefront/account/marketing-consent", consentHandler.Request.RequestUri!.AbsolutePath);
+        Assert.Contains("\"consent\":true", consentHandler.RequestBody!, StringComparison.Ordinal);
+
+        var unsubscribeHandler = new StatusHandler(HttpStatusCode.NoContent);
+        var unsubscribed = await CreateClient(unsubscribeHandler, cookie).UnsubscribeMarketingAsync("abc.def");
+        Assert.True(unsubscribed.Value);
+        Assert.EndsWith("/v1/storefront/marketing/unsubscribe", unsubscribeHandler.Request!.RequestUri!.AbsolutePath);
+        Assert.Contains("\"token\":\"abc.def\"", unsubscribeHandler.RequestBody!, StringComparison.Ordinal);
+        Assert.False(unsubscribeHandler.Request.Headers.Contains("X-Storefront-Session"));
+
+        var invalid = await CreateClient(new StatusHandler(HttpStatusCode.UnprocessableEntity, new[] { new { message = "O link de descadastro é inválido." } }), cookie).UnsubscribeMarketingAsync("bad");
+        Assert.False(invalid.Value);
+        Assert.Equal(AccountLoadState.Validation, invalid.State);
+    }
+
+    [Fact]
+    public async Task Account_page_saves_the_marketing_preference()
+    {
+        var client = new AccountStub();
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext() };
+
+        await page.OnPostMarketingAsync(true, CancellationToken.None);
+        Assert.Equal(true, client.LastMarketingConsent);
+        Assert.Contains("Você vai receber", page.Message);
+
+        await page.OnPostMarketingAsync(false, CancellationToken.None);
+        Assert.Equal(false, client.LastMarketingConsent);
+        Assert.Contains("não vai mais receber", page.Message);
+    }
+
+    [Fact]
     public async Task Invalid_profile_keeps_the_posted_document_for_correction()
     {
         var client = new AccountStub();
@@ -586,6 +626,8 @@ public sealed class CustomerAccountTests
         public Task<AccountResult<bool>> CloseAsync(string token, string currentPassword, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
         public Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com" })); }
         public string? LastProfileDocument { get; private set; }
+        public bool? LastMarketingConsent { get; private set; }
+        public Task<AccountResult<bool>> SetMarketingConsentAsync(string token, bool consent, CancellationToken cancellationToken = default) { LastMarketingConsent = consent; return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true)); }
         public Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, string? document, CancellationToken cancellationToken = default) { ProfileUpdates++; LastProfileDocument = document; return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true)); }
         public Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) => Task.FromResult(AddressesResult);
         public Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress address, CancellationToken cancellationToken = default) { CreateAddressCalls++; return Task.FromResult(CreateAddressResult); }

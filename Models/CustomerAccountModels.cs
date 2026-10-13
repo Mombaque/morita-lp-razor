@@ -8,6 +8,7 @@ public sealed class CustomerAccountProfile
     public string? Phone { get; init; }
     public string? Document { get; init; }
     public bool HasPassword { get; init; }
+    public bool MarketingEmails { get; init; }
 }
 
 public sealed class CustomerAccountAddress

@@ -154,6 +154,17 @@ public sealed class AccountModel(
         await LoadAsync(ct); return Page();
     }
 
+    public async Task<IActionResult> OnPostMarketingAsync(bool marketingEmails, CancellationToken ct)
+    {
+        if (!AccountEnabled) return NotFound();
+        ModelState.Clear();
+        if (Session is not { } session) return RedirectToPage();
+        var result = await client.SetMarketingConsentAsync(session.Token, marketingEmails, ct);
+        if (!result.Value) { ExpireIfNeeded(result.State); Error = result.Message ?? "Não foi possível salvar sua preferência de e-mails."; await LoadAsync(ct); return Page(); }
+        Message = marketingEmails ? "Pronto! Você vai receber novidades e lembretes por e-mail." : "Você não vai mais receber novidades e lembretes por e-mail.";
+        await LoadAsync(ct); return Page();
+    }
+
     public async Task<IActionResult> OnPostSaveAddressAsync(CancellationToken ct)
     {
         if (!AccountEnabled) return NotFound();

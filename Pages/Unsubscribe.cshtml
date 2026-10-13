@@ -1,0 +1,36 @@
+@page "/descadastrar"
+@model UnsubscribeModel
+@{
+    ViewData["Title"] = "Descadastrar e-mails | Morita Fight";
+    ViewData["Description"] = "Pare de receber e-mails de novidades e lembretes da Morita Fight.";
+    ViewData["Robots"] = "noindex,nofollow";
+    ViewData["OgImage"] = null;
+    ViewData["BodyClass"] = "commerce-page";
+}
+
+<main class="commerce-shell unsubscribe-page" data-unsubscribe>
+    <section class="account-panel">
+        <h1>E-mails de novidades</h1>
+        @if (Model.Done)
+        {
+            <p role="status" data-unsubscribe-done>Pronto. Você não vai mais receber novidades e lembretes por e-mail. E-mails sobre seus pedidos continuam chegando normalmente.</p>
+            <p><a class="commerce-button" href="/products">Voltar à loja</a></p>
+        }
+        else
+        {
+            @if (Model.Error is not null)
+            {
+                <p class="validation-error" role="alert">@Model.Error</p>
+            }
+            @if (Model.HasToken)
+            {
+                <p>Confirme para não receber mais novidades, ofertas e lembretes de compras não concluídas.</p>
+                <form method="post">
+                    <input type="hidden" asp-for="Token">
+                    <button class="commerce-button commerce-button-primary" type="submit">Confirmar descadastro</button>
+                </form>
+            }
+            <p class="cart-estimate-note">Se tiver conta, você também pode mudar essa preferência em <a href="/conta#comunicacoes">Minha conta</a>.</p>
+        }
+    </section>
+</main>

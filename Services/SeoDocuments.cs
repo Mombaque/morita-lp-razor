@@ -8,7 +8,7 @@ public sealed class SeoDocuments(ICatalogClient catalog, IConfiguration configur
 {
     public const int MaximumCatalogPages = 50;
     private static readonly string[] StaticPaths = ["/", "/jiu-jitsu", "/muay-thai", "/kids", "/products"];
-    private static readonly string[] PrivatePaths = ["/cart", "/checkout", "/conta", "/order/", "/assistant/", "/analytics/", "/customer-product-request", "/*?handler="];
+    private static readonly string[] PrivatePaths = ["/cart", "/checkout", "/conta", "/order/", "/assistant/", "/analytics/", "/customer-product-request", "/descadastrar", "/*?handler="];
 
     public string BaseUrl => (configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/").TrimEnd('/');
 
