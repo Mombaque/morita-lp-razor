@@ -140,5 +140,10 @@
 </main>
 
 @section Scripts {
+    @if (Model.Catalog.State == CatalogLoadState.Success && Model.Catalog.Items.Count > 0)
+    {
+        var analyticsList = AnalyticsEvents.ViewItemList(Model.HasFilters ? "Catálogo filtrado" : "Catálogo", Model.Catalog.Items);
+        <partial name="_AnalyticsEvent" model="analyticsList" />
+    }
     <script type="module" src="~/js/catalog-filters.js" asp-append-version="true"></script>
 }

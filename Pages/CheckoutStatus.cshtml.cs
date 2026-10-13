@@ -172,8 +172,8 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         {
             if (orderAccess.Write(number, accessToken))
             {
-                if (IsAjaxPaymentRequest) return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = number }) });
-                return RedirectToPage("/Order", new { publicOrderNumber = number });
+                if (IsAjaxPaymentRequest) return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = number, placed = true }) });
+                return RedirectToPage("/Order", new { publicOrderNumber = number, placed = true });
             }
             return Inaccessible();
         }
@@ -205,7 +205,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         var result = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
         if (result.State == PaymentLoadState.Success && result.Payment is { PublicOrderNumber: { } number } && result.Payment.Status == "converted" && orderAccess.Write(number, credential.Token))
         {
-            var orderUrl = Url.Page("/Order", new { publicOrderNumber = number });
+            var orderUrl = Url.Page("/Order", new { publicOrderNumber = number, placed = true });
             return IsAjaxPaymentRequest
                 ? new JsonResult(new { state = "converted", redirectUrl = orderUrl })
                 : new JsonResult(new { state = "converted", url = orderUrl });
@@ -215,7 +215,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             var loaded = await LoadOwnedAsync(cancellationToken);
             if (loaded is RedirectToPageResult && Payment?.PublicOrderNumber is { } orderNumber)
             {
-                return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = orderNumber }) });
+                return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = orderNumber, placed = true }) });
             }
 
             return PaymentFlowFragment();
@@ -313,7 +313,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             Message = PaymentLifecycleMessage(Payment) ?? FailureMessage(Payment);
             if (Payment is { PublicOrderNumber: { } number } && Payment.Status == "converted" && orderAccess.Write(number, credential.Token))
             {
-                return RedirectToPage("/Order", new { publicOrderNumber = number });
+                return RedirectToPage("/Order", new { publicOrderNumber = number, placed = true });
             }
         }
         return null;
@@ -343,7 +343,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         var loaded = await LoadOwnedAsync(cancellationToken);
         if (loaded is RedirectToPageResult && Payment?.PublicOrderNumber is { } number)
         {
-            return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = number }) });
+            return new JsonResult(new { redirectUrl = Url.Page("/Order", new { publicOrderNumber = number, placed = true }) });
         }
 
         return PaymentFlowFragment();

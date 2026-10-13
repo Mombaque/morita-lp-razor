@@ -2,7 +2,7 @@
 @model ProductModel
 @inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.StorefrontOptions> StorefrontOptions
 @section Header { @if (Model.Product is not null) { <script type="application/ld+json">@Html.Raw(Model.ProductJsonLd)</script><script type="application/ld+json">@Html.Raw(Model.BreadcrumbJsonLd)</script> } }
-@section Scripts { @if (Model.Product is not null) { <script src="~/js/product-detail.js" asp-append-version="true"></script> } }
+@section Scripts { @if (Model.Product is not null) { <partial name="_AnalyticsEvent" model="AnalyticsEvents.ViewItem(Model.Product)" /><script src="~/js/product-detail.js" asp-append-version="true"></script> } }
 @{
     var p = Model.Product;
     string VariantKey(ProductVariant variant, int index) => variant.ColorId?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? $"variant-{index}";

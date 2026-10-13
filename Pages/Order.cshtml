@@ -39,3 +39,10 @@
         </p>
     }
 </main>
+
+@section Scripts {
+    @if (Model.TrackPurchase)
+    {
+        <partial name="_AnalyticsEvent" model="AnalyticsEvents.Purchase(Model.Order!)" />
+    }
+}

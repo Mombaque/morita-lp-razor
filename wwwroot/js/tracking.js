@@ -90,8 +90,55 @@ function sendPageViewEvent() {
   });
 }
 
+function purchaseAlreadyTracked(transactionId) {
+  try {
+    const key = `analytics-purchase:${transactionId}`;
+    if (window.localStorage.getItem(key)) return true;
+    window.localStorage.setItem(key, '1');
+  } catch {
+    return false;
+  }
+  return false;
+}
+
+function sendAdsPurchaseConversion(ecommerce) {
+  const sendTo = document.querySelector('meta[name="analytics-ads-purchase-conversion"]')?.content;
+  if (!sendTo || typeof window.gtag !== 'function') return;
+
+  window.gtag('event', 'conversion', {
+    send_to: sendTo,
+    value: ecommerce.value,
+    currency: ecommerce.currency,
+    transaction_id: ecommerce.transaction_id,
+  });
+}
+
+function trackEcommerceEvent(eventName, ecommerce) {
+  if (!eventName || !ecommerce) return;
+  if (eventName === 'purchase' && purchaseAlreadyTracked(ecommerce.transaction_id)) return;
+
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ ecommerce: null });
+  window.dataLayer.push({ event: eventName, ecommerce });
+  sendGtagEvent(eventName, ecommerce);
+  if (eventName === 'purchase') sendAdsPurchaseConversion(ecommerce);
+}
+
+function trackRenderedEcommerceEvents() {
+  for (const script of document.querySelectorAll('script[data-analytics-event]')) {
+    try {
+      const data = JSON.parse(script.textContent || '{}');
+      trackEcommerceEvent(data.event, data.ecommerce);
+    } catch {
+      continue;
+    }
+  }
+}
+
 sendPageViewEvent();
 window.sendWebsiteUsageEvent = sendWebsiteUsageEvent;
+window.trackEcommerceEvent = trackEcommerceEvent;
+trackRenderedEcommerceEvents();
 
 document.addEventListener('click', (event) => {
   if (!(event.target instanceof Element)) return;

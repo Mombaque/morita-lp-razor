@@ -10,6 +10,8 @@ public sealed class OrderModel(IOrderClient client, IOrderAccessCookieStore acce
     public PublicOrder? Order { get; private set; }
     public string? Message { get; private set; }
     [BindProperty(SupportsGet = true)] public string PublicOrderNumber { get; set; } = "";
+    [BindProperty(SupportsGet = true)] public bool Placed { get; set; }
+    public bool TrackPurchase => Placed && Order is { PaymentStatus: var status } && status.ToLowerInvariant() is "converted" or "approved";
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
         ViewData["Robots"] = "noindex,nofollow";
