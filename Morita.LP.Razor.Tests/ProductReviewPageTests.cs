@@ -45,9 +45,23 @@ public sealed class ProductReviewPageTests
         ]));
         var result = await response.Content.ReadAsStringAsync();
 
+        Assert.Contains("enviado=true", response.RequestMessage!.RequestUri!.Query);
         Assert.Contains("data-review-done", result);
         var submitted = Assert.Single(reviews.Submitted);
         Assert.Equal(new ReviewInput("kimono", 5, "Muito bom"), submitted);
+    }
+
+    [Fact]
+    public async Task Review_page_shows_a_done_state_without_the_form_once_every_product_is_reviewed()
+    {
+        var reviews = new Reviews { EverythingReviewed = true };
+        using var factory = Create(reviews);
+
+        var body = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync($"/avaliar?token={Uri.EscapeDataString(Token)}")).Content.ReadAsStringAsync());
+
+        Assert.Contains("data-review-all-done", body);
+        Assert.DoesNotContain("review-form", body);
+        Assert.DoesNotContain("Enviar avaliação", body);
     }
 
     [Fact]
@@ -107,6 +121,7 @@ public sealed class ProductReviewPageTests
     {
         public List<ReviewInput> Submitted { get; } = [];
         public int FormCalls { get; private set; }
+        public bool EverythingReviewed { get; init; }
 
         public Task<ReviewFormResult> GetFormAsync(string token, CancellationToken cancellationToken = default)
         {
@@ -116,7 +131,7 @@ public sealed class ProductReviewPageTests
                 PublicOrderNumber = "MF-AAAAAAAAAAAAAAAA",
                 Items =
                 [
-                    new ReviewFormItem { Slug = "kimono", Name = "Kimono" },
+                    new ReviewFormItem { Slug = "kimono", Name = "Kimono", Reviewed = EverythingReviewed },
                     new ReviewFormItem { Slug = "faixa", Name = "Faixa", Reviewed = true }
                 ]
             }));
