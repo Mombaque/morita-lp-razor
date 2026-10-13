@@ -1,0 +1,69 @@
+@page "/avaliar"
+@model ReviewModel
+@{
+    ViewData["Title"] = "Avaliar compra | Morita Fight";
+    ViewData["Description"] = "Conte o que achou dos produtos que você comprou na Morita Fight.";
+    ViewData["Robots"] = "noindex,nofollow";
+    ViewData["OgImage"] = null;
+    ViewData["BodyClass"] = "commerce-page";
+}
+
+<main class="commerce-shell review-page" data-review-page>
+    <section class="account-panel">
+        <h1>Avalie sua compra</h1>
+        @if (Model.Done)
+        {
+            <p role="status" data-review-done>Obrigado! Sua avaliação foi recebida e aparece na loja depois de revisada pela nossa equipe.</p>
+            <p><a class="commerce-button" href="/products">Voltar à loja</a></p>
+        }
+        else
+        {
+            @if (Model.Error is not null)
+            {
+                <p class="validation-error" role="alert">@Model.Error</p>
+            }
+            @if (Model.Form is { } form)
+            {
+                <p>Pedido <strong>@form.PublicOrderNumber</strong>. Escolha de 1 a 5 estrelas e, se quiser, deixe um comentário. Seu primeiro nome e a inicial do sobrenome aparecem com a avaliação.</p>
+                <form method="post" class="review-form" novalidate>
+                    <input type="hidden" asp-for="Token">
+                    @{ var index = 0; }
+                    @foreach (var item in form.Items)
+                    {
+                        <fieldset class="review-item" data-review-item="@item.Slug">
+                            <legend>
+                                @if (item.ImageUrl is not null) { <img src="@item.ImageUrl" alt="" width="64" height="64" loading="lazy"> }
+                                <span>@item.Name</span>
+                            </legend>
+                            @if (item.Reviewed)
+                            {
+                                <p class="review-item-done">Você já avaliou este produto.</p>
+                            }
+                            else
+                            {
+                                var current = index++;
+                                var entry = Model.Entries.FirstOrDefault(value => value.Slug == item.Slug);
+                                <input type="hidden" name="Entries[@current].Slug" value="@item.Slug">
+                                <div class="review-stars" role="radiogroup" aria-label="Nota para @item.Name">
+                                    @for (var star = 5; star >= 1; star--)
+                                    {
+                                        var id = $"rating-{current}-{star}";
+                                        <input type="radio" id="@id" name="Entries[@current].Rating" value="@star" checked="@(entry?.Rating == star ? "checked" : null)">
+                                        <label for="@id" title="@star de 5"><span aria-hidden="true">★</span><span class="visually-hidden">@star de 5 estrelas</span></label>
+                                    }
+                                </div>
+                                <label class="review-comment">Comentário (opcional)
+                                    <textarea name="Entries[@current].Comment" maxlength="@ReviewPresentation.MaximumCommentLength" rows="3" placeholder="Como foi o tamanho, o tecido, o acabamento?">@entry?.Comment</textarea>
+                                </label>
+                            }
+                        </fieldset>
+                    }
+                    @if (form.Items.Any(item => !item.Reviewed))
+                    {
+                        <button class="commerce-button commerce-button-primary" type="submit">Enviar avaliação</button>
+                    }
+                </form>
+            }
+        }
+    </section>
+</main>

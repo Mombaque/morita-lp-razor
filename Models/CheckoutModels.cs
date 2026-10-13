@@ -97,6 +97,7 @@ public sealed class PublicOrder
     public PublicCustomerOrderProblem? LatestProblem { get; init; }
     public DateTimeOffset? ReturnWindowEndsAt { get; init; }
     public PublicOrderInvoice? Invoice { get; init; }
+    public string? ReviewToken { get; init; }
 }
 
 public sealed class PublicCustomerOrderProblem

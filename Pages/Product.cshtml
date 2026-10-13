@@ -81,6 +81,9 @@
             <section class="detail-copy">
                 <p class="taxonomy">@string.Join(" / ", new[] { p.Modality?.Label ?? "Morita", p.Category?.Label, p.Brand?.Label }.Where(label => !string.IsNullOrWhiteSpace(label)))</p>
                 <h1>@p.Nome</h1>
+                @if (p.Rating is { } headerRating) {
+                    <a class="detail-rating" href="#avaliacoes" data-detail-rating aria-label="Nota @ReviewPresentation.Average(headerRating.Average) de 5, @ReviewPresentation.CountLabel(headerRating.Count)"><span class="rating-stars" aria-hidden="true">@ReviewPresentation.Stars(headerRating.Average)</span> <span aria-hidden="true">@ReviewPresentation.Average(headerRating.Average) (@ReviewPresentation.CountLabel(headerRating.Count))</span></a>
+                }
                 <div data-detail-price><partial name="_ProductPrice" model="priceLabel" /></div>
                 <p class="availability-text">@(p.Availability == "available" ? "Em estoque" : "Produto temporariamente indisponível")</p>
                 <p>@p.Descricao</p>
@@ -184,6 +187,21 @@
                 <noscript><p>Escolha uma oferta para adicionar ao carrinho.</p></noscript>
             </section>
         </div>
+        @if (Model.Reviews is { Items.Count: > 0 } reviewPage) {
+            <section class="product-reviews" id="avaliacoes" aria-labelledby="product-reviews-title" data-product-reviews>
+                <h2 id="product-reviews-title">Avaliações de clientes</h2>
+                <p class="product-reviews-summary"><span class="rating-stars" aria-hidden="true">@ReviewPresentation.Stars(reviewPage.Rating.Average)</span> <strong>@ReviewPresentation.Average(reviewPage.Rating.Average)</strong> de 5 · @ReviewPresentation.CountLabel(reviewPage.Rating.Count) de compras verificadas</p>
+                <ul class="product-review-list">
+                    @foreach (var review in reviewPage.Items) {
+                        <li class="product-review" data-product-review>
+                            <p class="product-review-head"><span class="rating-stars" aria-label="@review.Rating de 5 estrelas">@ReviewPresentation.Stars(review.Rating)</span> <strong>@review.DisplayName</strong> · <time datetime="@review.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(review.CreatedAt).ToString("dd/MM/yyyy")</time></p>
+                            @if (!string.IsNullOrWhiteSpace(review.Comment)) { <p>@review.Comment</p> }
+                            @if (!string.IsNullOrWhiteSpace(review.StaffReply)) { <p class="product-review-reply"><strong>Resposta da Morita:</strong> @review.StaffReply</p> }
+                        </li>
+                    }
+                </ul>
+            </section>
+        }
         @if (Model.Related.State == CatalogLoadState.Success) { <section class="related-products"><h2>Produtos relacionados</h2><div class="products">@for (var i = 0; i < Model.Related.Products.Count; i++) { <partial name="_ProductCard" model="@(new ProductCardViewModel(Model.Related.Products[i], "related", i))" /> }</div></section> }
         else if (Model.Related.State == CatalogLoadState.Empty) { <p class="related-state">Nenhum produto relacionado no momento.</p> }
         else if (Model.Related.State == CatalogLoadState.Unavailable) { <p class="related-state">Produtos relacionados temporariamente indisponíveis.</p> }

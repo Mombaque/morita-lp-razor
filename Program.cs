@@ -121,6 +121,12 @@ builder.Services.AddHttpClient<IPublicAssistantClient, PublicAssistantClient>((s
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
+builder.Services.AddHttpClient<IReviewClient, ReviewClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient<IOrderClient, OrderClient>((serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;

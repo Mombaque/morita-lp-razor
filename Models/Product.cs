@@ -20,6 +20,7 @@ public class Product
     public PublicCatalogAudience Audience { get; set; } = PublicCatalogAudience.Adult;
     public List<ProductVariant> Variants { get; set; } = [];
     public ProductSizeGuide? SizeGuide { get; set; }
+    public ProductRating? Rating { get; set; }
 }
 
 public sealed record ProductSizeGuide(string? Title, IReadOnlyList<string> Columns, IReadOnlyList<IReadOnlyList<string>> Rows, string? Note)

@@ -8,7 +8,7 @@ using Morita.LP.Razor.Services;
 
 namespace Morita.LP.Razor.Pages;
 
-public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations, ICartCookieStore cart, IOptions<StorefrontOptions>? storefrontOptions = null, ICheckoutClient? checkout = null, CheckoutRateLimiter? rateLimiter = null) : PageModel
+public class ProductModel(ICatalogClient client, IConfiguration configuration, ICartMutationService cartMutations, ICartCookieStore cart, IOptions<StorefrontOptions>? storefrontOptions = null, ICheckoutClient? checkout = null, CheckoutRateLimiter? rateLimiter = null, IReviewClient? reviews = null) : PageModel
 {
     public ShippingQuote? ShippingEstimate { get; private set; }
     public string? ShippingEstimateError { get; private set; }
@@ -18,6 +18,7 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
 
     public Product? Product { get; private set; }
     public CatalogResult Related { get; private set; } = CatalogResult.Empty();
+    public ProductReviewPage? Reviews { get; private set; }
     public CatalogLoadState State { get; private set; }
     public Guid? SelectedOfferId { get; private set; }
     public int Quantity { get; private set; } = 1;
@@ -68,6 +69,20 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
             productLd["brand"] = new Dictionary<string, object?> { ["@type"] = "Brand", ["name"] = Product.Brand.Label };
         if (!string.IsNullOrWhiteSpace(Product.Category?.Label))
             productLd["category"] = Product.Category.Label;
+        if (Product.Rating is { } rating && reviews is not null)
+        {
+            Reviews = await reviews.GetProductReviewsAsync(Product.Slug ?? slug, 1, cancellationToken);
+            productLd["aggregateRating"] = new Dictionary<string, object?> { ["@type"] = "AggregateRating", ["ratingValue"] = rating.Average, ["reviewCount"] = rating.Count, ["bestRating"] = 5, ["worstRating"] = 1 };
+            if (Reviews is { Items.Count: > 0 })
+                productLd["review"] = Reviews.Items.Take(5).Select(review => new Dictionary<string, object?>
+                {
+                    ["@type"] = "Review",
+                    ["author"] = new Dictionary<string, object?> { ["@type"] = "Person", ["name"] = review.DisplayName },
+                    ["datePublished"] = review.CreatedAt.ToString("yyyy-MM-dd"),
+                    ["reviewBody"] = string.IsNullOrWhiteSpace(review.Comment) ? null : review.Comment,
+                    ["reviewRating"] = new Dictionary<string, object?> { ["@type"] = "Rating", ["ratingValue"] = review.Rating, ["bestRating"] = 5 }
+                }).ToList();
+        }
         ProductJsonLd = JsonSerializer.Serialize(productLd);
         BreadcrumbJsonLd = JsonSerializer.Serialize(new Dictionary<string, object?> { ["@context"] = "https://schema.org", ["@type"] = "BreadcrumbList", ["itemListElement"] = new[] { new Dictionary<string, object?> { ["@type"] = "ListItem", ["position"] = 1, ["name"] = "Produtos", ["item"] = $"{BaseUrl}/products" }, new Dictionary<string, object?> { ["@type"] = "ListItem", ["position"] = 2, ["name"] = Product.Nome, ["item"] = url } } });
         Related = await client.GetRelatedAsync(slug, 4, cancellationToken);

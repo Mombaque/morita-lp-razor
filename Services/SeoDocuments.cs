@@ -11,7 +11,7 @@ public sealed class SeoDocuments(ICatalogClient catalog, IConfiguration configur
     private const string GoogleNamespace = "http://base.google.com/ns/1.0";
     private const string StoreName = "Morita Fight";
     private static readonly string[] StaticPaths = ["/", "/jiu-jitsu", "/muay-thai", "/kids", "/products"];
-    private static readonly string[] PrivatePaths = ["/cart", "/checkout", "/conta", "/order/", "/assistant/", "/analytics/", "/customer-product-request", "/descadastrar", "/*?handler="];
+    private static readonly string[] PrivatePaths = ["/cart", "/checkout", "/conta", "/order/", "/assistant/", "/analytics/", "/customer-product-request", "/descadastrar", "/avaliar", "/*?handler="];
 
     public string BaseUrl => (configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/").TrimEnd('/');
 

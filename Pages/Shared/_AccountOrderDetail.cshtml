@@ -104,6 +104,14 @@
         <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@TimePresentation.ToStoreTime(updatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
     }
     <p><strong>Total: @CurrencyPresentation.Format(Model.Amount, Model.Currency)</strong></p>
+    @if (ReviewClient.IsValidToken(Model.ReviewToken))
+    {
+        <div class="order-review" data-order-review>
+            <h3>Avalie sua compra</h3>
+            <p>Conte o que achou dos produtos. Sua opinião ajuda outros clientes.</p>
+            <a class="commerce-button commerce-button-primary" href="/avaliar?token=@Uri.EscapeDataString(Model.ReviewToken!)">Avaliar produtos</a>
+        </div>
+    }
     @if ((Model.LatestProblem ?? Model.OpenProblem) is { } problem)
     {
         <div class="order-problem" data-order-problem="@problem.Status">
