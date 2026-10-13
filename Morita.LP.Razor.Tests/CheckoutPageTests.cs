@@ -826,6 +826,34 @@ public sealed class CheckoutPageTests
         Assert.Equal(1, account.CreateAddressCalls);
     }
 
+    [Theory]
+    [InlineData(false, true, 1)]
+    [InlineData(false, false, 0)]
+    [InlineData(true, true, 0)]
+    public async Task Marketing_opt_in_is_recorded_only_after_a_successful_reservation(bool alreadyOptedIn, bool checkedBox, int expectedCalls)
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout { CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()]) };
+        var account = new MarketingAccount(alreadyOptedIn);
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+        page.TempData = new TempDataDictionary(context, new TestTempDataProvider());
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" });
+        await page.OnGetAsync(CancellationToken.None);
+        Assert.Equal(!alreadyOptedIn, page.OfferMarketingConsent);
+        page.FulfillmentMethod = "shipping";
+        page.PublicShippingQuoteId = Guid.NewGuid();
+        page.ShippingAddress = new() { Recipient = "Customer", Street = "Rua", Number = "10", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000000" };
+        page.Contact = new() { Name = "Customer", Email = "customer@example.com", Phone = "15999999999" };
+        page.MarketingConsent = checkedBox;
+
+        await page.OnPostAsync(CancellationToken.None);
+
+        Assert.Equal(expectedCalls, account.ConsentCalls);
+    }
+
     [Fact]
     public async Task Validation_after_stock_loss_redirects_to_cart_with_preserved_cart_and_message()
     {
@@ -1081,6 +1109,18 @@ public sealed class CheckoutPageTests
         public CustomerAccountSession? Read() => Session;
         public bool Write(string token, DateTimeOffset expiresAt) => true;
         public void Clear() { ClearCalls++; Session = null; }
+    }
+
+    private sealed class MarketingAccount(bool optedIn) : NoopAccount, ICustomerAccountClient
+    {
+        public int ConsentCalls { get; private set; }
+        public override Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999", Document = "529.982.247-25", MarketingEmails = optedIn }));
+        public Task<AccountResult<bool>> SetMarketingConsentAsync(string token, bool consent, CancellationToken cancellationToken = default)
+        {
+            ConsentCalls++;
+            return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
+        }
     }
 
     private sealed class RecordingAccount : NoopAccount

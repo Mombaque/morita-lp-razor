@@ -126,6 +126,10 @@
             <label class="checkout-field">E-mail<input class="checkout-control" asp-for="Contact.Email" autocomplete="email" type="email" readonly="readonly"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
             <label class="checkout-field">Telefone<input class="checkout-control" asp-for="Contact.Phone" autocomplete="tel" inputmode="tel" readonly="readonly"></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
             <p class="cart-estimate-note">Esses dados vêm da sua conta. Para alterá-los, <a href="/conta#perfil">acesse o seu perfil</a>.</p>
+            @if (Model.OfferMarketingConsent)
+            {
+              <label class="account-check checkout-marketing-consent"><input type="checkbox" asp-for="MarketingConsent"><span>Quero receber novidades, ofertas e lembretes de compras não concluídas por e-mail. Posso cancelar quando quiser.</span></label>
+            }
           </div>
         </section>
 

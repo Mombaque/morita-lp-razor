@@ -5718,3 +5718,7 @@ html.lightbox-open {
 .shipping-estimate-form button:hover, .stock-alert-form button:hover { background: #3CF9AE; color: #050505; }
 .shipping-estimate-form button:focus-visible, .stock-alert-form button:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 2px; }
 .shipping-estimate-form button:disabled { opacity: .6; cursor: progress; }
+
+.unsubscribe-page { padding-block: 2rem; }
+.unsubscribe-page a:not(.commerce-button) { color: #3CF9AE; text-decoration: underline; }
+.unsubscribe-page form { margin: 1rem 0; }

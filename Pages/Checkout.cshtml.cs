@@ -47,6 +47,8 @@ public sealed class CheckoutModel(
     public string? SavedAddressLabel { get; set; } = "Meu endereço";
     [BindProperty] public bool SetSavedAddressDefault { get; set; }
     [BindProperty] public bool SaveShippingAddress { get; set; }
+    [BindProperty] public bool MarketingConsent { get; set; }
+    public bool OfferMarketingConsent => LoadedProfile is { MarketingEmails: false };
     public IReadOnlyList<OnlinePaymentMethod> AvailablePaymentMethods =>
         StorefrontOnlinePayments.Normalize(Configuration.Configuration?.OnlinePaymentMethods);
     public bool PixAvailable => AvailablePaymentMethods.Contains(OnlinePaymentMethod.Pix);
@@ -180,6 +182,11 @@ public sealed class CheckoutModel(
 
             draft.Clear();
             cart.Clear();
+            if (MarketingConsent && OfferMarketingConsent)
+            {
+                var consent = await account.SetMarketingConsentAsync(session.Token, true, cancellationToken);
+                if (consent.State == AccountLoadState.Unauthorized) accountCookies.Clear();
+            }
             if (SaveShippingAddress && FulfillmentMethod == "shipping" && SelectedAddressId is null && SavedAddresses.Count < 10)
             {
                 var created = await account.CreateAddressAsync(session.Token, new CustomerAccountAddress { Label = string.IsNullOrWhiteSpace(SavedAddressLabel) ? "Meu endereço" : SavedAddressLabel.Trim(), Recipient = ShippingAddress.Recipient.Trim(), Street = ShippingAddress.Street.Trim(), Number = ShippingAddress.Number.Trim(), Complement = string.IsNullOrWhiteSpace(ShippingAddress.Complement) ? null : ShippingAddress.Complement.Trim(), Neighborhood = ShippingAddress.Neighborhood.Trim(), City = ShippingAddress.City.Trim(), State = ShippingAddress.State.Trim().ToUpperInvariant(), PostalCode = ShippingAddress.PostalCode.Trim(), CountryCode = "BR" }, cancellationToken);
