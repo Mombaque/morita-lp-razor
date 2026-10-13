@@ -115,7 +115,7 @@
                                             var unavailable = !string.Equals(offer.Availability, "available", StringComparison.OrdinalIgnoreCase);
                                             var lowStock = !unavailable && offer.LowStock;
                                             var presentation = unavailable ? $"{colorLabel} / {sizeLabel} indisponível" : lowStock ? $"{colorLabel} / {sizeLabel}, últimas unidades" : $"{colorLabel} / {sizeLabel}";
-                                            <label class="offer-size-choice@(unavailable ? " is-unavailable" : "")@(lowStock ? " is-low-stock" : "")" aria-label="@presentation">
+                                            <label class="offer-size-choice@(unavailable ? " is-unavailable" : "")@(lowStock ? " is-low-stock" : "")" aria-label="@presentation" data-presentation="@colorLabel / @sizeLabel">
                                                 <input type="radio" name="publicOfferId" value="@offer.PublicOfferId" data-offer-id="@offer.PublicOfferId" data-variant-key="@key" data-price="@(offer.UnitPrice?.ToString(System.Globalization.CultureInfo.InvariantCulture))" data-currency="@offer.Currency" data-availability="@offer.Availability" data-low-stock="@(lowStock ? "true" : null)" checked="@(Model.SelectedOfferId == offer.PublicOfferId && !unavailable ? "checked" : null)" disabled="@(unavailable ? "disabled" : null)" required>
                                                 <span>@sizeLabel</span>
                                                 @if (lowStock) { <em class="offer-low-stock" aria-hidden="true">Últimas</em> }

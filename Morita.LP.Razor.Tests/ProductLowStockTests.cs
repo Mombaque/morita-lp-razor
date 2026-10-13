@@ -30,6 +30,7 @@ public sealed class ProductLowStockTests
         Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "class=\"offer-low-stock\""));
         Assert.Contains($"value=\"{LowOffer}\" data-offer-id=\"{LowOffer}\"", html);
         Assert.Contains("data-low-stock=\"true\"", html);
+        Assert.Contains("aria-label=\"Azul / A1, últimas unidades\" data-presentation=\"Azul / A1\"", html);
     }
 
     [Fact]
