@@ -27,7 +27,10 @@ public sealed class AccountModel(
     public bool ChallengeIssued => ChallengeId != Guid.Empty;
     public bool EmailVerificationChallengeIssued => ChallengeKind == "email-verification" && ChallengeIssued;
     public bool PasswordChallengeIssued => ChallengeKind == "password" && ChallengeIssued;
-    public bool ProfileIncomplete => Profile is not null && (string.IsNullOrWhiteSpace(Profile.Name) || string.IsNullOrWhiteSpace(Profile.Phone));
+    public bool ProfileIncomplete => Profile is { ReadyForCheckout: false };
+    public string? ProfileCompletionMessage => Profile is { ReadyForCheckout: false } profile
+        ? $"Para finalizar compras, complete: {string.Join(", ", profile.MissingCheckoutFields)}."
+        : null;
     public bool SignedIn => Profile is not null;
 
     [BindProperty(SupportsGet = true)] public string? Mode { get; set; } = "create";

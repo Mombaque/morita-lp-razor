@@ -107,7 +107,7 @@ public sealed class CheckoutModel(
         if (!AccountLoadedSuccessfully())
         {
             if (AccountWasUnauthorized()) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
-            if (ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal)) return RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" });
+            if (ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal)) return CompleteProfileRedirect();
             return Page();
         }
         if (!HasAvailableFulfillment)
@@ -150,7 +150,7 @@ public sealed class CheckoutModel(
         if (accountCookies.Read() is null) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         await LoadConfigurationAsync(cancellationToken);
         if (!await LoadAccountAsync(cancellationToken)) return AccountFailureResult();
-        if (ProfileNeedsCompletion()) return RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" });
+        if (ProfileNeedsCompletion()) return CompleteProfileRedirect();
         if (FulfillmentMethod == "shipping" && Configuration.Configuration?.ShippingEnabled != true)
         {
             ErrorState = CheckoutLoadState.Unavailable;
@@ -269,16 +269,14 @@ public sealed class CheckoutModel(
     }
     public bool ProfileIncomplete => string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal);
     private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
-    private bool ProfileNeedsCompletion() =>
-        string.IsNullOrWhiteSpace(LoadedProfile?.Name)
-        || string.IsNullOrWhiteSpace(LoadedProfile?.Phone)
-        || string.IsNullOrWhiteSpace(LoadedProfile?.Document);
+    private bool ProfileNeedsCompletion() => LoadedProfile?.ReadyForCheckout != true;
+    private RedirectToPageResult CompleteProfileRedirect() => RedirectToPage("/Account", null, new { mode = "complete", returnUrl = "/checkout" }, "perfil");
     private IActionResult QuoteShippingResult() => IsQuoteFragmentRequest ? Partial("_CheckoutShippingQuote", this) : Page();
     private bool AccountWasUnauthorized() => ErrorState == CheckoutLoadState.Unauthorized;
     private IActionResult AccountFailureResult() => AccountWasUnauthorized()
         ? RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" })
         : ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal)
-            ? RedirectToPage("/Account", new { mode = "complete", returnUrl = "/checkout" })
+            ? CompleteProfileRedirect()
             : Page();
     private static CheckoutLoadState ToCheckoutState(AccountLoadState state) => state switch
     {

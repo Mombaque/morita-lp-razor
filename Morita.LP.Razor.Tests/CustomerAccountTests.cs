@@ -203,6 +203,37 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Account_page_names_the_document_when_it_blocks_checkout()
+    {
+        var client = new AccountStub { ProfileValue = new() { Email = "customer@example.com", Name = "Ana", Phone = "15999999999" } };
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext(), Mode = "complete", ReturnUrl = "/checkout" };
+
+        await page.OnGetAsync(CancellationToken.None);
+
+        Assert.True(page.ProfileIncomplete);
+        Assert.Equal("Para finalizar compras, complete: CPF ou CNPJ.", page.ProfileCompletionMessage);
+    }
+
+    [Fact]
+    public async Task Account_page_has_no_completion_notice_for_a_checkout_ready_profile()
+    {
+        var client = new AccountStub { ProfileValue = new() { Email = "customer@example.com", Name = "Ana", Phone = "15999999999", Document = "529.982.247-25" } };
+        var page = new AccountModel(client, new SessionCookieStub()) { PageContext = PageContext() };
+
+        await page.OnGetAsync(CancellationToken.None);
+
+        Assert.False(page.ProfileIncomplete);
+        Assert.Null(page.ProfileCompletionMessage);
+    }
+
+    [Fact]
+    public void Profile_lists_every_field_missing_for_checkout()
+    {
+        Assert.Equal(["nome", "telefone", "CPF ou CNPJ"], new CustomerAccountProfile { Email = "customer@example.com" }.MissingCheckoutFields);
+        Assert.True(new CustomerAccountProfile { Email = "customer@example.com", Name = "Ana", Phone = "15999999999", Document = "52998224725" }.ReadyForCheckout);
+    }
+
+    [Fact]
     public async Task Account_page_saves_the_marketing_preference()
     {
         var client = new AccountStub();
@@ -655,7 +686,8 @@ public sealed class CustomerAccountTests
         public Task<AccountResult<AccountCodeChallenge>> RequestPasswordCodeAsync(string? token, string email, CancellationToken cancellationToken = default) => Task.FromResult(CodeResult);
         public Task<AccountResult<(CustomerAccountSession Session, CustomerAccountProfile Profile)>> ResetPasswordAsync(string? token, Guid challengeId, string code, string password, CancellationToken cancellationToken = default) => Task.FromResult(VerifyResult);
         public Task<AccountResult<bool>> CloseAsync(string token, string currentPassword, CancellationToken cancellationToken = default) => Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true));
-        public Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com" })); }
+        public CustomerAccountProfile ProfileValue { get; set; } = new() { Email = "customer@example.com" };
+        public Task<AccountResult<CustomerAccountProfile>> GetProfileAsync(string token, CancellationToken cancellationToken = default) { ProfileReads++; return Task.FromResult(new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, ProfileValue)); }
         public string? LastProfileDocument { get; private set; }
         public bool? LastMarketingConsent { get; private set; }
         public Task<AccountResult<bool>> SetMarketingConsentAsync(string token, bool consent, CancellationToken cancellationToken = default) { LastMarketingConsent = consent; return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true)); }

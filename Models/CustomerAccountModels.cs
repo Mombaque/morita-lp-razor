@@ -9,6 +9,13 @@ public sealed class CustomerAccountProfile
     public string? Document { get; init; }
     public bool HasPassword { get; init; }
     public bool MarketingEmails { get; init; }
+    public IReadOnlyList<string> MissingCheckoutFields => new[]
+    {
+        string.IsNullOrWhiteSpace(Name) ? "nome" : null,
+        string.IsNullOrWhiteSpace(Phone) ? "telefone" : null,
+        string.IsNullOrWhiteSpace(Document) ? "CPF ou CNPJ" : null
+    }.OfType<string>().ToArray();
+    public bool ReadyForCheckout => MissingCheckoutFields.Count == 0;
 }
 
 public sealed class CustomerAccountAddress
