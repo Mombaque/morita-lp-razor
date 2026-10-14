@@ -429,7 +429,39 @@ public sealed class CheckoutClientTests
         Assert.False(new PixPayment { Status = "failed", Method = OnlinePaymentMethod.Card, FailureReason = "invalid_payment_data" }.NeedsPixPresentation("paymentpending"));
     }
 
-    private const string HostedCheckoutUrl = "http://127.0.0.1/v1/testing/online-payments/hosted/ref";
+    [Fact]
+    public async Task Postal_code_lookup_calls_the_storefront_endpoint_with_proxy_headers()
+    {
+        using var handler = new RecordingHandler("""{"postalCode":"18010000","street":" Rua Direita ","neighborhood":"Centro","city":"Sorocaba","state":"sp","cityIbgeCode":"3552205"}""");
+        var result = await Create(handler).LookupPostalCodeAsync("18010000");
+        Assert.Equal(CheckoutLoadState.Success, result.State);
+        Assert.Equal(new PostalCodeAddress("Rua Direita", "Centro", "Sorocaba", "SP"), result.Address);
+        Assert.Equal(HttpMethod.Get, handler.Request!.Method);
+        Assert.Equal("/v1/storefront/postal-codes/18010000", handler.Request.RequestUri!.AbsolutePath);
+        Assert.Equal("proxy-secret", handler.Request.Headers.GetValues("X-Morita-Proxy-Secret").Single());
+    }
+
+    [Theory]
+    [InlineData(HttpStatusCode.NotFound, CheckoutLoadState.NotFound)]
+    [InlineData(HttpStatusCode.ServiceUnavailable, CheckoutLoadState.Unavailable)]
+    [InlineData((HttpStatusCode)429, CheckoutLoadState.RateLimited)]
+    public async Task Postal_code_lookup_maps_api_failures(HttpStatusCode status, CheckoutLoadState expected)
+    {
+        using var handler = new RecordingHandler(status);
+        var result = await Create(handler).LookupPostalCodeAsync("18010000");
+        Assert.Equal(expected, result.State);
+        Assert.Null(result.Address);
+    }
+
+    [Fact]
+    public async Task Postal_code_lookup_rejects_an_address_without_city_or_state()
+    {
+        using var handler = new RecordingHandler("""{"street":"Rua","neighborhood":"Centro","city":"","state":"SP"}""");
+        var result = await Create(handler).LookupPostalCodeAsync("18010000");
+        Assert.Equal(CheckoutLoadState.Malformed, result.State);
+    }
+
+    private const string HostedCheckoutUrl ="http://127.0.0.1/v1/testing/online-payments/hosted/ref";
     private static string PaymentJson(string status, DateTimeOffset expires, string? order = null, string? qr = null, bool includePix = true, string? method = null, string? checkoutUrl = null) => JsonSerializer.Serialize(new { status, method, amount = 10.00m, currency = "BRL", expiresAt = expires, pixCopyPaste = includePix ? "000201010212" : null, qrCodePngBase64 = includePix ? qr ?? PngBase64 : null, checkoutUrl, publicOrderNumber = order });
     private static string CheckoutJson(string status) => JsonSerializer.Serialize(new { publicCheckoutId = Guid.Parse("11111111-1111-1111-1111-111111111111"), status, expiresAt = DateTimeOffset.UtcNow.AddHours(1), accessExpiresAt = DateTimeOffset.UtcNow.AddDays(30), lines = new[] { new { publicOfferId = Guid.Parse("22222222-2222-2222-2222-222222222222"), quantity = 1, presentation = "Item", unitPrice = 10m, lineTotal = 10m } }, merchandiseTotal = 10m, discountTotal = 0m, freightTotal = 0m, total = 10m, currency = "BRL", fulfillmentMethod = "pickup", pickup = new { publicPickupId = Guid.Parse("33333333-3333-3333-3333-333333333333"), displayName = "Loja", address = new { street = "Rua", number = "1", neighborhood = "Centro", city = "Sorocaba", state = "SP", postalCode = "18000-000" }, hours = "09:00", instructions = "" }, contact = new { name = "Ana", email = "ana@example.com", phone = "1" } });
     private const string PngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAAElEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";

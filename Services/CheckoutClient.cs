@@ -50,6 +50,16 @@ public sealed class CheckoutClient(
             : ShippingQuoteResult.Failure(CheckoutLoadState.Malformed, "Não foi possível validar as opções de entrega.");
     }
 
+    public async Task<PostalCodeLookupResult> LookupPostalCodeAsync(string postalCode, CancellationToken cancellationToken = default)
+    {
+        var result = await SendAsync<PostalCodeDto>(HttpMethod.Get, $"v1/storefront/postal-codes/{Uri.EscapeDataString(postalCode)}", null, null, cancellationToken);
+        if (result.State != CheckoutLoadState.Success) return PostalCodeLookupResult.Failure(result.State);
+        var x = result.Value;
+        return x is not null && !string.IsNullOrWhiteSpace(x.City) && x.State?.Trim().Length == 2
+            ? new(CheckoutLoadState.Success, new(x.Street?.Trim() ?? "", x.Neighborhood?.Trim() ?? "", x.City.Trim(), x.State.Trim().ToUpperInvariant()))
+            : PostalCodeLookupResult.Failure(CheckoutLoadState.Malformed);
+    }
+
     public async Task<CheckoutResult> CreateAsync(CheckoutCreateRequest request, string idempotencyKey, string accessToken, CancellationToken cancellationToken = default)
         => await CreateForAccountAsync(request, idempotencyKey, accessToken, null, cancellationToken);
 
@@ -338,6 +348,7 @@ public sealed class CheckoutClient(
     private sealed class ResponseDto { public Guid PublicCheckoutId { get; set; } public string? Status { get; set; } public DateTimeOffset ExpiresAt { get; set; } public DateTimeOffset AccessExpiresAt { get; set; } public List<LineDto>? Lines { get; set; } public decimal MerchandiseTotal { get; set; } public decimal DiscountTotal { get; set; } public decimal FreightTotal { get; set; } public decimal Total { get; set; } public string? Currency { get; set; } public string? FulfillmentMethod { get; set; } public PickupDto? Pickup { get; set; } public ShippingDto? Shipping { get; set; } public ContactDto? Contact { get; set; } }
     private sealed class LineDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } public string? Presentation { get; set; } public string? ImageUrl { get; set; } public decimal UnitPrice { get; set; } public decimal LineTotal { get; set; } }
     private sealed class PaymentDto { public string? Status { get; set; } public OnlinePaymentMethod? Method { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? CheckoutUrl { get; set; } public string? PublicOrderNumber { get; set; } public string? CheckoutMode { get; set; } public ChallengeDto? Challenge { get; set; } public int? Installments { get; set; } public string? FailureReason { get; set; } }
+    private sealed class PostalCodeDto { public string? Street { get; set; } public string? Neighborhood { get; set; } public string? City { get; set; } public string? State { get; set; } }
     private sealed class ShippingQuoteRequestDto { public List<LineRequestDto> Lines { get; set; } = []; public string DestinationPostalCode { get; set; } = ""; }
     private sealed class ShippingQuoteDto { public DateTimeOffset ExpiresAt { get; set; } public string? Currency { get; set; } public List<ShippingQuoteOptionDto>? Options { get; set; } }
     private sealed class ShippingQuoteOptionDto { public Guid PublicShippingQuoteId { get; set; } public string? ServiceName { get; set; } public string? CarrierName { get; set; } public decimal Price { get; set; } public bool FreeShipping { get; set; } public decimal? RegularPrice { get; set; } public int MinimumDeliveryDays { get; set; } public int MaximumDeliveryDays { get; set; } }

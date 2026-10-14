@@ -477,6 +477,27 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public async Task Checkout_address_forms_put_the_cep_first_and_never_call_viacep_from_the_browser()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = Guid.NewGuid(), ShippingEnabled = true, Currency = "BRL" })
+        };
+        using var factory = CreateCheckoutFactory(cart, offer, api);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var page = await (await client.GetAsync("/checkout")).Content.ReadAsStringAsync();
+
+        Assert.Contains("data-shipping-address-group", page);
+        Assert.Contains("data-billing-address-group", page);
+        Assert.Equal(2, System.Text.RegularExpressions.Regex.Matches(page, "data-address-details").Count);
+        Assert.True(page.IndexOf("name=\"ShippingAddress.PostalCode\"", StringComparison.Ordinal) < page.IndexOf("name=\"ShippingAddress.Street\"", StringComparison.Ordinal));
+        Assert.True(page.IndexOf("name=\"BillingAddress.PostalCode\"", StringComparison.Ordinal) < page.IndexOf("name=\"BillingAddress.Street\"", StringComparison.Ordinal));
+        Assert.DoesNotContain("viacep", page, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task Posted_checkout_reports_missing_active_address_fields_in_portuguese()
     {
         var offer = Guid.NewGuid();

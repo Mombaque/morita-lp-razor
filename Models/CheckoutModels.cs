@@ -238,6 +238,13 @@ public sealed record ShippingQuoteResult(CheckoutLoadState State, ShippingQuote?
     public static ShippingQuoteResult Failure(CheckoutLoadState state, string? message = null) => new(state, null, message);
 }
 
+public sealed record PostalCodeAddress(string Street, string Neighborhood, string City, string State);
+
+public sealed record PostalCodeLookupResult(CheckoutLoadState State, PostalCodeAddress? Address)
+{
+    public static PostalCodeLookupResult Failure(CheckoutLoadState state) => new(state, null);
+}
+
 public sealed class ShippingQuote
 {
     public DateTimeOffset ExpiresAt { get; init; }

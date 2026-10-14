@@ -175,6 +175,16 @@ builder.Services.AddRateLimiter(options =>
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 0
             }));
+    options.AddPolicy("postal-code-relay", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            ClientIdentityResolver.Resolve(httpContext, builder.Environment),
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0
+            }));
     options.AddPolicy("public-assistant-relay", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             ClientIdentityResolver.Resolve(httpContext, builder.Environment),
@@ -463,6 +473,20 @@ app.MapPost("/assistant/reset", async (HttpContext context, IPublicAssistantClie
     }
     return AssistantFailure(result.Failure, result.Message);
 }).RequireRateLimiting("public-assistant-relay").WithMetadata(new Microsoft.AspNetCore.Mvc.RequestSizeLimitAttribute(1024));
+
+app.MapGet("/address/postal-code/{postalCode}", async (string postalCode, ICheckoutClient checkout, CancellationToken cancellationToken) =>
+{
+    var digits = new string(postalCode.Where(char.IsAsciiDigit).ToArray());
+    if (postalCode.Length > 9 || digits.Length != 8 || postalCode.Any(c => !char.IsAsciiDigit(c) && c != '-')) return Results.BadRequest();
+    var result = await checkout.LookupPostalCodeAsync(digits, cancellationToken);
+    return result.State switch
+    {
+        CheckoutLoadState.Success => Results.Json(result.Address),
+        CheckoutLoadState.NotFound => Results.NotFound(),
+        CheckoutLoadState.RateLimited => Results.StatusCode(StatusCodes.Status429TooManyRequests),
+        _ => Results.StatusCode(StatusCodes.Status503ServiceUnavailable)
+    };
+}).RequireRateLimiting("postal-code-relay");
 
 static async Task<bool> ValidateAssistantRequest(HttpContext context, IAntiforgery antiforgery)
 {
