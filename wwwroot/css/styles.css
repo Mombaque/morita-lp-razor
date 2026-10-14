@@ -4748,6 +4748,16 @@ body.filter-drawer-open {
   pointer-events: none;
 }
 
+.checkout-control.is-invalid,
+.address-form input.is-invalid {
+  border-color: #ff4d4d;
+}
+
+.cep-lookup-status [data-cep-message].is-error {
+  color: #ff4d4d;
+  font-weight: 800;
+}
+
 .shipping-postal [data-quote-postal] {
   color: var(--fight-paper);
   font-weight: 600;
