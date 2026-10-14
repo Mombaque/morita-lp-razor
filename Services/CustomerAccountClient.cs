@@ -127,7 +127,7 @@ public sealed class CustomerAccountClient(
             if (response.StatusCode == HttpStatusCode.NotFound) return AccountResult<T>.Failure(AccountLoadState.NotFound);
             if (response.StatusCode == HttpStatusCode.Conflict) return AccountResult<T>.Failure(AccountLoadState.Conflict, path.Contains("/problems", StringComparison.Ordinal) ? "Este pedido já possui um relato em aberto." : "Este pedido já pertence a outra conta.");
             if (response.StatusCode == (HttpStatusCode)429) return AccountResult<T>.Failure(AccountLoadState.RateLimited, path.EndsWith("/auth/login", StringComparison.Ordinal) ? await FirstNotificationAsync(response, timeout.Token) ?? "Muitas tentativas. Aguarde um pouco." : "Muitas tentativas. Aguarde um pouco.");
-            if (response.StatusCode == HttpStatusCode.UnprocessableEntity) return AccountResult<T>.Failure(AccountLoadState.Validation, path.Contains("/problems", StringComparison.Ordinal) ? await FirstNotificationAsync(response, timeout.Token) ?? "Revise os dados informados." : "Revise os dados informados.");
+            if (response.StatusCode == HttpStatusCode.UnprocessableEntity) return AccountResult<T>.Failure(AccountLoadState.Validation, await FirstNotificationAsync(response, timeout.Token) ?? "Revise os dados informados.");
             if (response.StatusCode == HttpStatusCode.NoContent) return new(AccountLoadState.Success, default);
             if ((int)response.StatusCode >= 500) return AccountResult<T>.Failure(AccountLoadState.Unavailable, "O serviço está temporariamente indisponível.");
             if (!response.IsSuccessStatusCode) return AccountResult<T>.Failure(AccountLoadState.Unavailable);
