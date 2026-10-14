@@ -53,8 +53,8 @@ export function initAddressCep(group) {
 
   const fill = (name, value) => {
     const field = fieldByName(name);
-    if (!field || !value) return;
-    field.value = value;
+    if (!field) return;
+    field.value = value ?? '';
     field.dispatchEvent(new Event('input', { bubbles: true }));
   };
 
