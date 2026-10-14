@@ -26,6 +26,8 @@ if (form) {
   const postalInput = form.querySelector('[data-cep-input]');
   const shippingAddressGroup = form.querySelector('[data-shipping-address-group]');
   const shippingAddress = shippingAddressGroup ? initAddressCep(shippingAddressGroup) : null;
+  const billingAddressGroup = form.querySelector('[data-billing-address-group]');
+  const billingAddress = billingAddressGroup ? initAddressCep(billingAddressGroup) : null;
   const quotePostal = form.querySelector('[data-quote-postal]');
   const checkoutReady = submit?.dataset.checkoutReady === 'true';
   const initialFeedback = feedback?.textContent?.trim() ?? '';
@@ -110,6 +112,7 @@ if (form) {
     if (quotePostal) quotePostal.textContent = digits.length === 8 ? `CEP ${formatPostal(digits)}` : 'Informe o CEP no endereço de entrega.';
     if (digits.length !== 8 || digits === quotedPostal) return;
     quoteTimer = window.setTimeout(() => {
+      if (shippingAddress?.isBlocked()) return;
       quotedPostal = digits;
       void requestShippingQuote();
     }, 300);
@@ -141,7 +144,8 @@ if (form) {
     if (submitLabel) {
       submitLabel.textContent = payment === paymentMethods.card ? 'Continuar para o cartão' : 'Continuar para o PIX';
     }
-    const disabled = !checkoutReady || !method || (method === 'shipping' && !hasShippingQuote);
+    const cepBlocked = (method === 'shipping' && shippingAddress?.isBlocked()) || (method === 'pickup' && billingAddress?.isBlocked());
+    const disabled = !checkoutReady || !method || cepBlocked || (method === 'shipping' && !hasShippingQuote);
     if (submit) {
       submit.disabled = disabled;
     }
@@ -150,9 +154,11 @@ if (form) {
         ? initialFeedback || 'Não foi possível preparar o checkout. Atualize a página e tente novamente.'
         : !method
           ? 'Escolha uma forma de entrega para continuar.'
-          : method === 'shipping' && !hasShippingQuote
-            ? 'Calcule o frete e escolha uma opção de entrega.'
-            : '';
+          : cepBlocked
+            ? 'Informe um CEP válido para continuar.'
+            : method === 'shipping' && !hasShippingQuote
+              ? 'Calcule o frete e escolha uma opção de entrega.'
+              : '';
       feedback.textContent = disabled ? message : '';
       feedback.hidden = !disabled;
     }
@@ -243,9 +249,13 @@ if (form) {
     // A quote rendered by the server already matches the current CEP.
     if (form.querySelector('input[name="PublicShippingQuoteId"]')) quotedPostal = postalDigits();
   }
-  // Pickup orders ask for a billing address for the nota fiscal; the CEP fills it like the shipping address.
-  const billingAddressGroup = form.querySelector('[data-billing-address-group]');
-  if (billingAddressGroup) initAddressCep(billingAddressGroup);
+  form.addEventListener('address-cep:change', (event) => {
+    if (event.target === shippingAddressGroup && shippingAddress?.isBlocked()) {
+      window.clearTimeout(quoteTimer);
+      setQuoteStatus('Informe um CEP válido para calcular o frete.');
+    }
+    update();
+  });
   form.addEventListener('input', (event) => {
     const name = event.target?.name;
     if (name) clearFieldError(name);
