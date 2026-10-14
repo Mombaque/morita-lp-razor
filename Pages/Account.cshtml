@@ -88,7 +88,8 @@
                 </form>
                 <nav class="account-access-links" aria-label="Opções de acesso">
                     <p><a class="account-secondary-link" href="/conta?mode=forgot&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Esqueci minha senha</a></p>
-                    <p>Ainda não tem uma conta? <a class="account-secondary-link" href="/conta?mode=create&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Criar conta</a></p>
+                    <p>Ainda não tem uma conta?</p>
+                    <a class="commerce-button commerce-button-secondary account-create-button" href="/conta?mode=create&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Criar conta</a>
                     <p class="cart-estimate-note">Não confirmou o e-mail? <a class="account-secondary-link" href="/conta?mode=create&amp;returnUrl=@Uri.EscapeDataString(Model.ReturnUrl ?? "")">Cadastre-se de novo com o mesmo e-mail</a> para receber um novo código.</p>
                 </nav>
             }
