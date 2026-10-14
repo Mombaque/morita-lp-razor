@@ -634,6 +634,7 @@ public sealed class CheckoutPageTests
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Account", redirect.PageName);
         Assert.Equal("complete", redirect.RouteValues!["mode"]);
+        Assert.Equal("perfil", redirect.Fragment);
         Assert.Empty(api.Requests);
     }
 

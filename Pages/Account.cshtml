@@ -145,6 +145,10 @@
         <section id="perfil" class="account-panel" aria-labelledby="profile-heading">
             <h2 id="profile-heading">Perfil</h2>
             <p class="account-email">@Model.Profile!.Email</p>
+            @if (Model.ProfileCompletionMessage is not null)
+            {
+                <p class="validation-error" role="alert" data-account="profile-incomplete">@Model.ProfileCompletionMessage</p>
+            }
             <form method="post" asp-page-handler="SaveProfile">
                 <input type="hidden" asp-for="ReturnUrl">
                 <label asp-for="ProfileForm.Name">Nome</label>
