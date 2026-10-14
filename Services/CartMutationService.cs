@@ -35,11 +35,11 @@ public sealed class CartMutationService(ICartCookieStore cart, ICatalogClient ca
         if (!TryBuildAdd(state, publicOfferId, quantity, out var lines))
             return new(CartMutationStatus.InvalidQuantity);
 
-        var status = await CheckAvailabilityAsync(publicOfferId, lines, cancellationToken);
+        var (status, unitPrice) = await CheckAvailabilityAsync(publicOfferId, lines, cancellationToken);
         if (status != CartMutationStatus.Success)
             return new(status);
 
-        return cart.Add(publicOfferId, quantity)
+        return cart.Add(publicOfferId, quantity, unitPrice)
             ? new(CartMutationStatus.Success)
             : new(CartMutationStatus.PersistenceFailed);
     }
@@ -50,7 +50,7 @@ public sealed class CartMutationService(ICartCookieStore cart, ICatalogClient ca
         if (!TryBuildUpdate(state, publicOfferId, quantity, out var lines))
             return new(CartMutationStatus.InvalidQuantity);
 
-        var status = await CheckAvailabilityAsync(publicOfferId, lines, cancellationToken);
+        var (status, _) = await CheckAvailabilityAsync(publicOfferId, lines, cancellationToken);
         if (status != CartMutationStatus.Success)
             return new(status);
 
@@ -59,7 +59,7 @@ public sealed class CartMutationService(ICartCookieStore cart, ICatalogClient ca
             : new(CartMutationStatus.PersistenceFailed);
     }
 
-    private async Task<CartMutationStatus> CheckAvailabilityAsync(Guid publicOfferId, IReadOnlyList<CartLine> lines, CancellationToken cancellationToken)
+    private async Task<(CartMutationStatus Status, decimal? UnitPrice)> CheckAvailabilityAsync(Guid publicOfferId, IReadOnlyList<CartLine> lines, CancellationToken cancellationToken)
     {
         CatalogQuoteResult quote;
         try
@@ -68,22 +68,22 @@ public sealed class CartMutationService(ICartCookieStore cart, ICatalogClient ca
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            return CartMutationStatus.Unavailable;
+            return (CartMutationStatus.Unavailable, null);
         }
         catch (HttpRequestException)
         {
-            return CartMutationStatus.Unavailable;
+            return (CartMutationStatus.Unavailable, null);
         }
         catch (JsonException)
         {
-            return CartMutationStatus.Unavailable;
+            return (CartMutationStatus.Unavailable, null);
         }
 
         if (quote.State == CatalogLoadState.Unavailable)
-            return CartMutationStatus.Unavailable;
+            return (CartMutationStatus.Unavailable, null);
 
         var line = quote.Lines.FirstOrDefault(x => x.PublicOfferId == publicOfferId);
-        return line?.Availability?.Trim().ToLowerInvariant() switch
+        var status = line?.Availability?.Trim().ToLowerInvariant() switch
         {
             "available" => CartMutationStatus.Success,
             "insufficient" => CartMutationStatus.Insufficient,
@@ -91,6 +91,7 @@ public sealed class CartMutationService(ICartCookieStore cart, ICatalogClient ca
             "removed" => CartMutationStatus.Removed,
             _ => CartMutationStatus.Unavailable
         };
+        return (status, line?.UnitPrice);
     }
 
     private static bool TryBuildAdd(CartState state, Guid publicOfferId, int quantity, out IReadOnlyList<CartLine> lines)

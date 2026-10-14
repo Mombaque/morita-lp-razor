@@ -19,12 +19,14 @@ public sealed class CheckoutModel(
     ICustomerAccountCookieStore accountCookies,
     IOptions<StorefrontOptions>? storefrontOptions = null,
     IPaymentAttemptCookieStore? paymentAttempt = null,
-    IOrderAccessCookieStore? orderAccess = null) : PageModel
+    IOrderAccessCookieStore? orderAccess = null,
+    ICartPriceReview? priceReview = null) : PageModel
 {
     private const string IncompleteProfileMessage = "Complete seu nome, telefone e CPF ou CNPJ em Minha conta antes de continuar.";
     private bool CustomerAccountsEnabled => storefrontOptions?.Value.CustomerAccountsEnabled ?? true;
     public CartState Cart { get; private set; } = new(DateTimeOffset.UtcNow, []);
     public CatalogQuoteResult Quote { get; private set; } = CatalogQuoteResult.Unavailable();
+    public IReadOnlyList<CartPriceChange> PriceChanges { get; private set; } = [];
     public CheckoutConfigurationResult Configuration { get; private set; } = CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable);
     public CheckoutLoadState? ErrorState { get; private set; }
     public string? ErrorMessage { get; private set; }
@@ -60,6 +62,13 @@ public sealed class CheckoutModel(
     public bool Empty => Cart.Lines.Count == 0;
     public bool HasAvailableFulfillment => Configuration.State == CheckoutLoadState.Success &&
         (Configuration.Configuration?.PickupEnabled == true || Configuration.Configuration?.ShippingEnabled == true);
+    public PickupSnapshot? PickupLocation => Configuration.Configuration?.PickupEnabled == true ? Configuration.Configuration.Pickup : null;
+    public string FulfillmentIntro => (PickupLocation, Configuration.Configuration?.ShippingEnabled == true) switch
+    {
+        ({ } pickup, true) => $"Escolha retirada em {pickup.Address.City} ou calcule a entrega para qualquer CEP do Brasil.",
+        ({ } pickup, false) => $"Retire seu pedido em {pickup.Address.City}.",
+        _ => "Calcule a entrega para qualquer CEP do Brasil."
+    };
     private bool IsQuoteFragmentRequest => string.Equals(Request.Headers["X-Requested-With"].ToString(), "XMLHttpRequest", StringComparison.OrdinalIgnoreCase);
     public bool CanSubmit => !Empty && Quote.State == CatalogLoadState.Success && Configuration.State == CheckoutLoadState.Success &&
         (FulfillmentMethod == "pickup" && Configuration.Configuration?.PickupEnabled == true ||
@@ -94,6 +103,7 @@ public sealed class CheckoutModel(
         }
         if (accountCookies.Read() is null) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         await LoadAsync(cancellationToken);
+        PriceChanges = priceReview?.Acknowledge(Cart, Quote) ?? [];
         if (!AccountLoadedSuccessfully())
         {
             if (AccountWasUnauthorized()) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });

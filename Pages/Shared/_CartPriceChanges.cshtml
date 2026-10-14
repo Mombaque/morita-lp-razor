@@ -1,0 +1,14 @@
+@model IReadOnlyList<CartPriceChange>
+@if (Model.Count > 0)
+{
+    <div class="cart-price-changes" data-cart="price-changes" role="status">
+        <p><strong>@(Model.Count == 1 ? "O preço de um item mudou desde que você o adicionou." : "Os preços de alguns itens mudaram desde que você os adicionou.")</strong></p>
+        <ul>
+            @foreach (var change in Model)
+            {
+                <li data-price-change>@change.Presentation: de @CurrencyPresentation.Format(change.PreviousUnitPrice, change.Currency) para @CurrencyPresentation.Format(change.CurrentUnitPrice, change.Currency)</li>
+            }
+        </ul>
+        <p>Os valores abaixo já usam o preço atual.</p>
+    </div>
+}

@@ -4,20 +4,20 @@ using Microsoft.AspNetCore.DataProtection;
 
 namespace Morita.LP.Razor.Services;
 
-public sealed record CartLine(Guid PublicOfferId, int Quantity);
+public sealed record CartLine(Guid PublicOfferId, int Quantity, decimal? SeenUnitPrice = null);
 public sealed record CartState(DateTimeOffset IssuedAt, IReadOnlyList<CartLine> Lines);
 
 public interface ICartCookieStore
 {
     CartState Read();
-    bool Add(Guid offerId, int quantity);
+    bool Add(Guid offerId, int quantity, decimal? seenUnitPrice = null);
     bool Update(Guid offerId, int quantity);
     bool Remove(Guid offerId);
     bool Replace(IReadOnlyList<CartLine> lines);
     void Clear();
 }
 
-/// <summary>Opaque, authenticated cart persistence. Catalog data never enters the cookie.</summary>
+/// <summary>Opaque, authenticated cart persistence. The last unit price shown to the shopper is kept only to announce price changes; the API always prices the order.</summary>
 public sealed class CartCookieStore(
     IHttpContextAccessor accessor,
     IDataProtectionProvider protection,
@@ -31,7 +31,7 @@ public sealed class CartCookieStore(
     public const int MaxProtectedBytes = 3072;
     private const int Version = 1;
     private static readonly TimeSpan Lifetime = TimeSpan.FromDays(30);
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web) { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull };
     private readonly IDataProtector _protector = protection.CreateProtector("Morita.LP.Razor.Cart.v1");
     private readonly TimeProvider _timeProvider = timeProvider;
 
@@ -47,10 +47,10 @@ public sealed class CartCookieStore(
             var payload = JsonSerializer.Deserialize<Payload>(_protector.Unprotect(value), JsonOptions);
             if (payload is null || payload.Version != Version || payload.IssuedAt is null ||
                 payload.IssuedAt.Value > _timeProvider.GetUtcNow().AddMinutes(1) || _timeProvider.GetUtcNow() - payload.IssuedAt.Value > Lifetime || payload.Lines is null ||
-                payload.Lines.Count > MaxLines || payload.Lines.Any(x => x is null || x.PublicOfferId == Guid.Empty || x.Quantity is < 1 or > MaxUnitsPerLine) ||
+                payload.Lines.Count > MaxLines || payload.Lines.Any(x => x is null || x.PublicOfferId == Guid.Empty || x.Quantity is < 1 or > MaxUnitsPerLine || x.SeenUnitPrice is < 0) ||
                 payload.Lines.GroupBy(x => x.PublicOfferId).Any(g => g.Count() != 1) || payload.Lines.Sum(x => x.Quantity) > MaxTotalUnits)
                 throw new InvalidDataException();
-            return new(payload.IssuedAt.Value, payload.Lines.Select(x => new CartLine(x.PublicOfferId, x.Quantity)).ToList());
+            return new(payload.IssuedAt.Value, payload.Lines.Select(x => new CartLine(x.PublicOfferId, x.Quantity, x.SeenUnitPrice)).ToList());
         }
         catch (Exception ex) when (ex is CryptographicException or JsonException or InvalidDataException or FormatException)
         {
@@ -59,14 +59,14 @@ public sealed class CartCookieStore(
         }
     }
 
-    public bool Add(Guid offerId, int quantity)
+    public bool Add(Guid offerId, int quantity, decimal? seenUnitPrice = null)
     {
         var state = Read();
         var lines = state.Lines.ToList();
         var index = lines.FindIndex(x => x.PublicOfferId == offerId);
         var next = (index < 0 ? 0 : lines[index].Quantity) + quantity;
         if (offerId == Guid.Empty || quantity < 1 || next > MaxUnitsPerLine || (index < 0 && lines.Count >= MaxLines) || state.Lines.Sum(x => x.Quantity) + quantity > MaxTotalUnits) return false;
-        if (index < 0) lines.Add(new(offerId, quantity)); else lines[index] = new(offerId, next);
+        if (index < 0) lines.Add(new(offerId, quantity, seenUnitPrice)); else lines[index] = new(offerId, next, seenUnitPrice ?? lines[index].SeenUnitPrice);
         return Write(new(_timeProvider.GetUtcNow(), lines));
     }
 
@@ -77,7 +77,7 @@ public sealed class CartCookieStore(
         var lines = state.Lines.ToList();
         var index = lines.FindIndex(x => x.PublicOfferId == offerId);
         if (index < 0 || lines.Sum(x => x.Quantity) - lines[index].Quantity + quantity > MaxTotalUnits) return false;
-        lines[index] = new(offerId, quantity);
+        lines[index] = lines[index] with { Quantity = quantity };
         return Write(new(_timeProvider.GetUtcNow(), lines));
     }
 
@@ -91,7 +91,7 @@ public sealed class CartCookieStore(
     public bool Replace(IReadOnlyList<CartLine> lines)
     {
         if (lines is null || lines.Count is < 1 or > MaxLines ||
-            lines.Any(line => line.PublicOfferId == Guid.Empty || line.Quantity is < 1 or > MaxUnitsPerLine) ||
+            lines.Any(line => line.PublicOfferId == Guid.Empty || line.Quantity is < 1 or > MaxUnitsPerLine || line.SeenUnitPrice is < 0) ||
             lines.GroupBy(line => line.PublicOfferId).Any(group => group.Count() != 1) ||
             lines.Sum(line => (long)line.Quantity) > MaxTotalUnits)
             return false;
@@ -105,7 +105,7 @@ public sealed class CartCookieStore(
     {
         var context = accessor.HttpContext;
         if (context is null) return false;
-        var protectedValue = _protector.Protect(JsonSerializer.Serialize(new Payload(Version, state.IssuedAt, state.Lines.Select(x => new PayloadLine(x.PublicOfferId, x.Quantity)).ToList()), JsonOptions));
+        var protectedValue = _protector.Protect(JsonSerializer.Serialize(new Payload(Version, state.IssuedAt, state.Lines.Select(x => new PayloadLine(x.PublicOfferId, x.Quantity, x.SeenUnitPrice)).ToList()), JsonOptions));
         if (protectedValue.Length > MaxProtectedBytes) return false;
         context.Response.Cookies.Append(CookieName, protectedValue, CookieOptions());
         return true;
@@ -119,5 +119,5 @@ public sealed class CartCookieStore(
     };
 
     private sealed record Payload(int Version, DateTimeOffset? IssuedAt, List<PayloadLine>? Lines);
-    private sealed record PayloadLine(Guid PublicOfferId, int Quantity);
+    private sealed record PayloadLine(Guid PublicOfferId, int Quantity, decimal? SeenUnitPrice = null);
 }

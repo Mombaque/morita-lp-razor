@@ -33,6 +33,40 @@ public sealed class CartPageTests
     }
 
     [Fact]
+    public async Task Price_change_since_the_item_was_added_is_announced_once_with_both_prices()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new CartState(DateTimeOffset.UtcNow, [new(offer, 1, 189m)]));
+        var quote = new CatalogQuoteResult(CatalogLoadState.Success, "BRL", 259, [
+            new() { PublicOfferId = offer, Quantity = 1, Availability = "available", Presentation = "Rashguard Preta", ColorLabel = "Preta", SizeLabel = "A1", Currency = "BRL", UnitPrice = 259, LinePrice = 259 }
+        ]);
+        using var factory = CreateFactory(cart, quote);
+
+        var body = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync("/cart")).Content.ReadAsStringAsync());
+
+        Assert.Contains("data-cart=\"price-changes\"", body);
+        Assert.Contains("O preço de um item mudou desde que você o adicionou.", body);
+        Assert.Contains("Rashguard Preta: de R$ 189,00 para R$ 259,00", body);
+        Assert.Equal([new CartLine(offer, 1, 259m)], cart.ReplacedLines);
+    }
+
+    [Fact]
+    public async Task Unchanged_price_shows_no_price_notice()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new CartState(DateTimeOffset.UtcNow, [new(offer, 1, 189m)]));
+        var quote = new CatalogQuoteResult(CatalogLoadState.Success, "BRL", 189, [
+            new() { PublicOfferId = offer, Quantity = 1, Availability = "available", Presentation = "Rashguard Preta", Currency = "BRL", UnitPrice = 189, LinePrice = 189 }
+        ]);
+        using var factory = CreateFactory(cart, quote);
+
+        var body = await (await factory.CreateClient().GetAsync("/cart")).Content.ReadAsStringAsync();
+
+        Assert.DoesNotContain("data-cart=\"price-changes\"", body);
+        Assert.Null(cart.ReplacedLines);
+    }
+
+    [Fact]
     public async Task Mixed_statuses_render_variants_prices_and_continue_action()
     {
         var first = Guid.NewGuid();
@@ -321,10 +355,11 @@ public sealed class CartPageTests
         public int UpdateCalls { get; private set; }
         public int? LastUpdatedQuantity { get; private set; }
         public CartState Read() => state;
-        public bool Add(Guid offerId, int quantity) => true;
+        public bool Add(Guid offerId, int quantity, decimal? seenUnitPrice = null) => true;
         public bool Update(Guid offerId, int quantity) { UpdateCalls++; LastUpdatedQuantity = quantity; return UpdateResult; }
         public bool Remove(Guid offerId) => true;
-        public bool Replace(IReadOnlyList<CartLine> lines) => true;
+        public IReadOnlyList<CartLine>? ReplacedLines { get; private set; }
+        public bool Replace(IReadOnlyList<CartLine> lines) { ReplacedLines = lines; return true; }
         public void Clear() { }
     }
 

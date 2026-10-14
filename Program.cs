@@ -86,6 +86,7 @@ if (!string.IsNullOrWhiteSpace(keyDirectory))
 builder.Services.AddSingleton<ProductService>();
 builder.Services.AddScoped<ICartCookieStore, CartCookieStore>();
 builder.Services.AddScoped<ICartMutationService, CartMutationService>();
+builder.Services.AddScoped<ICartPriceReview, CartPriceReview>();
 builder.Services.AddScoped<ICheckoutDraftCookieStore, CheckoutDraftCookieStore>();
 builder.Services.AddScoped<ICheckoutAccessCookieStore, CheckoutAccessCookieStore>();
 builder.Services.AddScoped<IPaymentAttemptCookieStore, PaymentAttemptCookieStore>();

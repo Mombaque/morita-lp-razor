@@ -1476,6 +1476,23 @@ body {
   opacity: .75;
 }
 
+.cart-price-changes {
+  background: rgba(60, 249, 174, .08);
+  border-left: 3px solid var(--fight-green);
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+}
+
+.cart-price-changes p,
+.cart-price-changes ul {
+  margin: 0;
+}
+
+.cart-price-changes ul {
+  margin-block: .5rem;
+  padding-left: 1.25rem;
+}
+
 .cart-indicator span {
   display: inline-block;
   min-width: 1.3em;

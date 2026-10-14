@@ -37,6 +37,33 @@ public sealed class CartCookieStoreTests
     }
 
     [Fact]
+    public void Seen_unit_price_round_trips_survives_quantity_updates_and_legacy_lines_still_read()
+    {
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var context = new DefaultHttpContext();
+        var store = Create(provider, context);
+        var offer = Guid.NewGuid();
+
+        Assert.True(store.Add(offer, 1, 189m));
+        CarryCookie(context);
+        Assert.True(store.Update(offer, 3));
+        CarryCookie(context);
+        var protector = provider.CreateProtector("Morita.LP.Razor.Cart.v1");
+        using var json = JsonDocument.Parse(protector.Unprotect(CookieValueFrom(context.Request.Headers.Cookie.ToString())));
+
+        Assert.Equal(new[] { "publicOfferId", "quantity", "seenUnitPrice" }, json.RootElement.GetProperty("lines")[0].EnumerateObject().Select(x => x.Name));
+        Assert.Equal(new CartLine(offer, 3, 189m), store.Read().Lines.Single());
+
+        var legacy = new DefaultHttpContext();
+        legacy.Request.Headers.Cookie = $"{CartCookieStore.CookieName}={Protect(provider, new { version = 1, issuedAt = Now, lines = new[] { new { publicOfferId = offer, quantity = 2 } } })}";
+        Assert.Equal(new CartLine(offer, 2), Create(provider, legacy).Read().Lines.Single());
+
+        var negative = new DefaultHttpContext();
+        negative.Request.Headers.Cookie = $"{CartCookieStore.CookieName}={Protect(provider, new { version = 1, issuedAt = Now, lines = new[] { new { publicOfferId = offer, quantity = 2, seenUnitPrice = -1m } } })}";
+        Assert.Empty(Create(provider, negative).Read().Lines);
+    }
+
+    [Fact]
     public void Tampered_malformed_unsupported_expired_and_future_cookies_are_discarded()
     {
         var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
@@ -104,7 +131,7 @@ public sealed class CartCookieStoreTests
             var store = Create(firstProvider, context, "Production");
             for (var i = 0; i < 20; i++)
             {
-                Assert.True(store.Add(Guid.NewGuid(), 1));
+                Assert.True(store.Add(Guid.NewGuid(), 1, 99999.99m));
                 if (i < 19) CarryCookie(context);
             }
             var setCookie = context.Response.Headers.SetCookie.ToString();
@@ -116,7 +143,9 @@ public sealed class CartCookieStoreTests
             var secondProvider = DataProtectionProvider.Create(directory, c => c.SetApplicationName("Morita.LP.Razor"));
             context = new DefaultHttpContext();
             context.Request.Headers.Cookie = $"{CartCookieStore.CookieName}={CookieValueFrom(setCookie)}";
-            Assert.Equal(20, Create(secondProvider, context, "Production").Read().Lines.Count);
+            var restored = Create(secondProvider, context, "Production").Read().Lines;
+            Assert.Equal(20, restored.Count);
+            Assert.All(restored, line => Assert.Equal(99999.99m, line.SeenUnitPrice));
         }
         finally { directory.Delete(true); }
     }

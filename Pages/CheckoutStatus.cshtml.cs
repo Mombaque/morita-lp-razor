@@ -144,7 +144,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
             return Page();
         }
 
-        if (!cart.Replace(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity)).ToList()))
+        if (!cart.Replace(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity, line.UnitPrice)).ToList()))
         {
             await LoadOwnedAsync(cancellationToken);
             Message = "Não foi possível restaurar os itens deste checkout. Volte aos produtos e monte o carrinho novamente.";

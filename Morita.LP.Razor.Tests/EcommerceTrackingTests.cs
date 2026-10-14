@@ -144,7 +144,7 @@ public sealed class EcommerceTrackingTests
     private sealed class FixedCart : ICartCookieStore
     {
         public CartState Read() => new(DateTimeOffset.UtcNow, [new CartLine(Offer, 2)]);
-        public bool Add(Guid offerId, int quantity) => true;
+        public bool Add(Guid offerId, int quantity, decimal? seenUnitPrice = null) => true;
         public bool Update(Guid offerId, int quantity) => true;
         public bool Remove(Guid offerId) => true;
         public bool Replace(IReadOnlyList<CartLine> lines) => true;
