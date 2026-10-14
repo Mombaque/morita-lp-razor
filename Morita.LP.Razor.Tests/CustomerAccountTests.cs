@@ -382,6 +382,24 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Login_lockout_shows_the_api_message_and_an_empty_429_keeps_the_generic_one()
+    {
+        var cookie = Store(DataProtectionProvider.Create(Directory.CreateTempSubdirectory()), new DefaultHttpContext(), Now);
+        const string lockout = "Muitas tentativas de entrar com este e-mail. Aguarde até uma hora ou redefina sua senha.";
+        var handler = new StatusHandler((HttpStatusCode)429, new[] { new { message = lockout } });
+        var client = CreateClient(handler, cookie);
+
+        var locked = await client.LoginAsync("ana@example.com", "Senha1234");
+        handler.Body = "";
+        var throttled = await client.LoginAsync("ana@example.com", "Senha1234");
+
+        Assert.Equal(AccountLoadState.RateLimited, locked.State);
+        Assert.Equal(lockout, locked.Message);
+        Assert.Equal(AccountLoadState.RateLimited, throttled.State);
+        Assert.Equal("Muitas tentativas. Aguarde um pouco.", throttled.Message);
+    }
+
+    [Fact]
     public async Task Account_client_forwards_session_and_maps_rate_limit_and_clears_on_401()
     {
         var cookieContext = new DefaultHttpContext();

@@ -99,7 +99,7 @@
         }
     }
     <p>Pedido criado em <time datetime="@Model.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(Model.CreatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
-    @if (Model.FulfillmentUpdatedAt is { } updatedAt)
+    @if (Model.Shipment is null && Model.FulfillmentUpdatedAt is { } updatedAt)
     {
         <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@TimePresentation.ToStoreTime(updatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
     }

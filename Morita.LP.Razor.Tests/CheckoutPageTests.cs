@@ -430,6 +430,53 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public async Task Checkout_offers_the_configured_pickup_location_and_announces_price_changes()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1, 8m)]));
+        var pickup = new PickupSnapshot
+        {
+            PublicPickupId = Guid.NewGuid(),
+            DisplayName = "Morita Fight — Paulista",
+            Address = new() { Street = "Av. Paulista", Number = "1000", Neighborhood = "Bela Vista", City = "São Paulo", State = "SP", PostalCode = "01310100" },
+            Hours = "Seg a sex 10h-20h"
+        };
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = pickup.PublicPickupId, ShippingEnabled = true, Currency = "BRL", Pickup = pickup })
+        };
+        using var factory = CreateCheckoutFactory(cart, offer, api);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var page = System.Net.WebUtility.HtmlDecode(await (await client.GetAsync("/checkout")).Content.ReadAsStringAsync());
+
+        Assert.Contains("Escolha retirada em São Paulo ou calcule a entrega para qualquer CEP do Brasil.", page);
+        Assert.Contains("<strong>Retirar em Morita Fight — Paulista</strong><small>Av. Paulista, 1000 · Bela Vista, São Paulo/SP</small> <small>Seg a sex 10h-20h</small>", page);
+        Assert.DoesNotContain("Escolha retirada em Sorocaba", page);
+        Assert.DoesNotContain("429 · Sorocaba", page);
+        Assert.Contains("Kimono: de R$ 8,00 para R$ 10,00", page);
+    }
+
+    [Fact]
+    public async Task Pickup_only_checkout_names_the_pickup_city()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var pickup = new PickupSnapshot { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Campinas", State = "SP", PostalCode = "13010000" } };
+        var api = new RecordingCheckout
+        {
+            Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = true, PublicPickupId = pickup.PublicPickupId, ShippingEnabled = false, Currency = "BRL", Pickup = pickup })
+        };
+        using var factory = CreateCheckoutFactory(cart, offer, api);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var page = System.Net.WebUtility.HtmlDecode(await (await client.GetAsync("/checkout")).Content.ReadAsStringAsync());
+
+        Assert.Contains("<p data-checkout=\"fulfillment-intro\">Retire seu pedido em Campinas.</p>", page);
+        Assert.DoesNotContain("data-cart=\"price-changes\"", page);
+    }
+
+    [Fact]
     public async Task Posted_checkout_reports_missing_active_address_fields_in_portuguese()
     {
         var offer = Guid.NewGuid();
@@ -1081,7 +1128,7 @@ public sealed class CheckoutPageTests
     {
         public CartState Read() => state;
         public int ClearCalls { get; private set; }
-        public bool Add(Guid offerId, int quantity) => true;
+        public bool Add(Guid offerId, int quantity, decimal? seenUnitPrice = null) => true;
         public bool Update(Guid offerId, int quantity) => true;
         public bool Remove(Guid offerId) => true;
         public bool Replace(IReadOnlyList<CartLine> lines) => true;

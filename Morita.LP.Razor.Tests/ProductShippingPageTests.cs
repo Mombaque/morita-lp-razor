@@ -222,7 +222,7 @@ public sealed class ProductShippingPageTests
     private sealed class FixedCart(CartState state) : ICartCookieStore
     {
         public CartState Read() => state;
-        public bool Add(Guid offerId, int quantity) => true;
+        public bool Add(Guid offerId, int quantity, decimal? seenUnitPrice = null) => true;
         public bool Update(Guid offerId, int quantity) => true;
         public bool Remove(Guid offerId) => true;
         public bool Replace(IReadOnlyList<CartLine> lines) => true;

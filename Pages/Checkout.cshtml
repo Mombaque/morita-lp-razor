@@ -8,7 +8,7 @@
 }
 <main class="checkout-shell commerce-checkout" data-checkout="page">
   <a class="back-link" href="/cart">← Voltar ao carrinho</a>
-  <header class="checkout-heading"><p class="fight-label">Checkout seguro</p><h1>Como você quer receber?</h1><p>Escolha retirada em Sorocaba ou calcule a entrega para qualquer CEP do Brasil.</p></header>
+  <header class="checkout-heading"><p class="fight-label">Checkout seguro</p><h1>Como você quer receber?</h1><p data-checkout="fulfillment-intro">@Model.FulfillmentIntro</p></header>
   @if (Model.Empty)
   {
     <div class="catalog-state" data-checkout="empty"><p>Seu carrinho está vazio.</p><a class="commerce-button commerce-button-primary" href="/products">Ver produtos</a></div>
@@ -20,6 +20,7 @@
   else
   {
      @if (Model.ErrorMessage is not null) { <p class="validation-error" data-checkout="error" data-field-errors="@(ViewData.ModelState.IsValid ? null : "true")" role="alert">@Model.ErrorMessage</p> } @if (Model.ProfileIncomplete) { <p class="validation-error" data-checkout="profile-incomplete" role="alert">Complete seu nome, telefone e CPF ou CNPJ em <a href="/conta?mode=complete&amp;returnUrl=%2Fcheckout#perfil">Minha conta</a> antes de continuar.</p> } else if (Model.AccountMessage is not null) { <p class="account-status" role="status">@Model.AccountMessage</p> }
+    <partial name="_CartPriceChanges" model="Model.PriceChanges" />
     <form method="post" class="checkout-layout" data-fulfillment-form>
       <div class="checkout-form-column">
         <div asp-validation-summary="All" class="validation-error" role="alert"></div>
@@ -32,9 +33,9 @@
               {
                 <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" type="radio" value="shipping"><span><strong>Receber no meu endereço</strong><small>Entrega com prazo e valor calculados pelo CEP</small><em>Todo o Brasil</em></span></label>
               }
-              @if (Model.Configuration.Configuration?.PickupEnabled == true)
+              @if (Model.PickupLocation is { } pickup)
               {
-                <label class="fulfillment-choice"><input asp-for="FulfillmentMethod" id="pickup-method" type="radio" value="pickup"><span><strong>Retirar na Morita</strong><small>Rua Coronel Nogueira Padilha, 429 · Sorocaba</small><em>Grátis</em></span></label>
+                <label class="fulfillment-choice" data-checkout="pickup-choice"><input asp-for="FulfillmentMethod" id="pickup-method" type="radio" value="pickup"><span><strong>Retirar em @pickup.DisplayName</strong><small>@pickup.Address.Street, @pickup.Address.Number · @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</small>@if (!string.IsNullOrWhiteSpace(pickup.Hours)) { <small>@pickup.Hours</small> }<em>Grátis</em></span></label>
               }
             </div>
             @if (Model.Configuration.Configuration?.ShippingEnabled != true && Model.Configuration.Configuration?.PickupEnabled == true)

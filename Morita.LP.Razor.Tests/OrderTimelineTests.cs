@@ -75,6 +75,31 @@ public sealed class OrderTimelineTests
     }
 
     [Fact]
+    public async Task Delivered_shipping_order_page_uses_the_shipment_times_instead_of_the_order_update_time()
+    {
+        var confirmedAt = new DateTimeOffset(2026, 10, 13, 18, 57, 0, TimeSpan.Zero);
+        var deliveredAt = new DateTimeOffset(2026, 10, 13, 19, 26, 0, TimeSpan.Zero);
+        var shipment = new PublicShipment { Status = "Delivered", CarrierName = "Sandbox", ServiceName = "1", UpdatedAt = deliveredAt, ShippedAt = deliveredAt, DeliveredAt = deliveredAt };
+        using var factory = Create(Order("shipping", "pending", shipment, confirmedAt));
+
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync($"/order/{OrderNumber}")).Content.ReadAsStringAsync());
+
+        Assert.Contains("Entregue em <time", html);
+        Assert.DoesNotContain("Entrega atualizada em", html);
+    }
+
+    [Fact]
+    public async Task Pickup_order_page_shows_the_order_update_time()
+    {
+        var readyAt = new DateTimeOffset(2026, 10, 13, 18, 57, 0, TimeSpan.Zero);
+        using var factory = Create(Order("pickup", "ReadyForPickup", fulfillmentUpdatedAt: readyAt));
+
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync($"/order/{OrderNumber}")).Content.ReadAsStringAsync());
+
+        Assert.Contains("Entrega atualizada em <time datetime=\"2026-10-13T18:57:00.0000000+00:00\">13/10/2026 15:57</time>", html);
+    }
+
+    [Fact]
     public void Pickup_order_ready_for_pickup_is_the_current_step()
     {
         var steps = OrderTimeline.Build(Order("pickup", "ReadyForPickup"));
@@ -121,7 +146,7 @@ public sealed class OrderTimelineTests
         Assert.DoesNotContain("data-order-timeline", html);
     }
 
-    private static PublicOrder Order(string method, string fulfillment, PublicShipment? shipment = null) => new()
+    private static PublicOrder Order(string method, string fulfillment, PublicShipment? shipment = null, DateTimeOffset? fulfillmentUpdatedAt = null) => new()
     {
         PublicOrderNumber = OrderNumber,
         PaymentStatus = "converted",
@@ -130,6 +155,7 @@ public sealed class OrderTimelineTests
         Amount = 100,
         Currency = "BRL",
         CreatedAt = DateTimeOffset.UtcNow.AddDays(-2),
+        FulfillmentUpdatedAt = fulfillmentUpdatedAt,
         Shipment = shipment,
         Lines = [new PublicOrderLine { Description = "Kimono", Presentation = "Kimono · Azul · A2", Quantity = 1, UnitPrice = 100, Total = 100 }]
     };

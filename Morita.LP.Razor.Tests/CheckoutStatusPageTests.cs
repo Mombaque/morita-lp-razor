@@ -519,7 +519,7 @@ public sealed class CheckoutStatusPageTests
 
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Checkout", redirect.PageName);
-        Assert.Equal(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity)), cart.ReplacedLines);
+        Assert.Equal(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity, line.UnitPrice)), cart.ReplacedLines);
     }
 
     [Fact]
@@ -688,7 +688,7 @@ public sealed class CheckoutStatusPageTests
 
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Checkout", redirect.PageName);
-        Assert.Equal(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity)), cart.ReplacedLines);
+        Assert.Equal(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity, line.UnitPrice)), cart.ReplacedLines);
     }
 
     [Fact]
@@ -848,7 +848,7 @@ public sealed class CheckoutStatusPageTests
     }
     private sealed class FakeAccess(Guid id) : ICheckoutAccessCookieStore { public CheckoutAccess? Read(Guid value) => value == id ? new(value, new string('t', 32), DateTimeOffset.UtcNow, DateTimeOffset.UtcNow.AddDays(30)) : null; public bool Write(CheckoutResponse c, string t) => true; public void Clear() { } }
     private sealed class FakeAttempt : IPaymentAttemptCookieStore { public PaymentAttempt? Read(Guid id) => null; public PaymentAttempt Ensure(Guid id) => new(id, new string('i', 32), DateTimeOffset.UtcNow); public PaymentAttempt Rotate(Guid id) => new(id, new string('r', 32), DateTimeOffset.UtcNow); public void Clear(Guid id) { } }
-    private sealed class FakeCart(CartState? initial = null) : ICartCookieStore { private CartState state = initial ?? new(DateTimeOffset.UtcNow, []); public IReadOnlyList<CartLine>? ReplacedLines { get; private set; } public CartState Read() => state; public bool Add(Guid id, int quantity) => true; public bool Update(Guid id, int quantity) => true; public bool Remove(Guid id) => true; public bool Replace(IReadOnlyList<CartLine> lines) { ReplacedLines = lines; state = new(DateTimeOffset.UtcNow, lines); return true; } public void Clear() { } }
+    private sealed class FakeCart(CartState? initial = null) : ICartCookieStore { private CartState state = initial ?? new(DateTimeOffset.UtcNow, []); public IReadOnlyList<CartLine>? ReplacedLines { get; private set; } public CartState Read() => state; public bool Add(Guid id, int quantity, decimal? seenUnitPrice = null) => true; public bool Update(Guid id, int quantity) => true; public bool Remove(Guid id) => true; public bool Replace(IReadOnlyList<CartLine> lines) { ReplacedLines = lines; state = new(DateTimeOffset.UtcNow, lines); return true; } public void Clear() { } }
     private sealed class FakeOrderAccess : IOrderAccessCookieStore { public string? Number; public OrderAccess? Read(string n) => null; public bool Write(string n, string t) { Number = n; return true; } public void Clear() { } }
     private sealed class TestUrlHelper(ActionContext actionContext) : IUrlHelper
     {
