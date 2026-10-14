@@ -190,6 +190,19 @@ public sealed class CustomerAccountTests
     }
 
     [Fact]
+    public async Task Registration_validation_failure_surfaces_the_api_message()
+    {
+        var handler = new StatusHandler(HttpStatusCode.UnprocessableEntity, new[] { new { message = "O telefone informado é inválido." } });
+        var result = await CreateClient(handler, new SessionCookieStub()).RegisterAsync("ana@example.com", "Ana", "123", "Senha1234", true, "customer-account-v1");
+        Assert.Equal(AccountLoadState.Validation, result.State);
+        Assert.Equal("O telefone informado é inválido.", result.Message);
+
+        handler.Body = "";
+        var fallback = await CreateClient(handler, new SessionCookieStub()).RegisterAsync("ana@example.com", "Ana", "123", "Senha1234", true, "customer-account-v1");
+        Assert.Equal("Revise os dados informados.", fallback.Message);
+    }
+
+    [Fact]
     public async Task Account_page_saves_the_marketing_preference()
     {
         var client = new AccountStub();
