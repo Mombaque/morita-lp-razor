@@ -1,3 +1,5 @@
+import { initAddressCep } from './address-cep.js';
+
 const form = document.querySelector('[data-fulfillment-form]');
 
 if (form) {
@@ -22,7 +24,8 @@ if (form) {
   const summaryAmounts = form.querySelector('[data-merchandise-amount]');
   const summaryDetails = form.querySelector('[data-summary-details]');
   const postalInput = form.querySelector('[data-cep-input]');
-  const postalStatus = form.querySelector('[data-cep-status]');
+  const shippingAddressGroup = form.querySelector('[data-shipping-address-group]');
+  const shippingAddress = shippingAddressGroup ? initAddressCep(shippingAddressGroup) : null;
   const quotePostal = form.querySelector('[data-quote-postal]');
   const checkoutReady = submit?.dataset.checkoutReady === 'true';
   const initialFeedback = feedback?.textContent?.trim() ?? '';
@@ -46,6 +49,7 @@ if (form) {
       if (field) field.value = values[key] ?? '';
     });
     if (addressControls) addressControls.hidden = choice?.dataset.newAddress !== 'true';
+    shippingAddress?.sync();
   };
 
   const setQuoteStatus = (message, role = 'status') => {
@@ -98,40 +102,6 @@ if (form) {
     });
   };
 
-  const setField = (name, value) => {
-    const field = form.querySelector(`[name="${name}"]`);
-    if (!field) return;
-    field.value = value ?? '';
-    if (field.value) clearFieldError(name);
-  };
-
-  let lastLookup = '';
-  const lookupPostalCode = async (digits) => {
-    if (digits === lastLookup) return;
-    lastLookup = digits;
-    if (postalStatus) postalStatus.textContent = 'Buscando endereço...';
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { headers: { Accept: 'application/json' } });
-      const address = response.ok ? await response.json() : null;
-      // Ignore a lookup that finished after the shopper moved on to another CEP.
-      if (postalDigits() !== digits) return;
-      if (!address || address.erro) {
-        if (postalStatus) postalStatus.textContent = 'CEP não encontrado. Confira o número ou preencha o endereço.';
-        return;
-      }
-      setField(addressFieldNames.street, address.logradouro);
-      setField(addressFieldNames.neighborhood, address.bairro);
-      setField(addressFieldNames.city, address.localidade);
-      setField(addressFieldNames.state, address.uf);
-      if (postalStatus) postalStatus.textContent = `${address.localidade}/${address.uf}`;
-      const number = form.querySelector(`[name="${addressFieldNames.number}"]`);
-      if (address.logradouro && number && !number.value) number.focus();
-    } catch {
-      // Address lookup is a convenience; the shopper can still type every field.
-      if (postalStatus) postalStatus.textContent = '';
-    }
-  };
-
   let quotedPostal = '';
   let quoteTimer = 0;
   const scheduleQuote = () => {
@@ -154,7 +124,6 @@ if (form) {
       setQuoteStatus(digits.length === 8 ? 'Calculando frete...' : 'Informe o CEP completo para calcular o frete.');
       update();
     }
-    if (digits.length === 8) void lookupPostalCode(digits);
     scheduleQuote();
   };
 
@@ -275,37 +244,8 @@ if (form) {
     if (form.querySelector('input[name="PublicShippingQuoteId"]')) quotedPostal = postalDigits();
   }
   // Pickup orders ask for a billing address for the nota fiscal; the CEP fills it like the shipping address.
-  const billingPostal = form.querySelector('[data-billing-postal-code]');
-  const billingStatus = form.querySelector('[data-billing-cep-status]');
-  let lastBillingLookup = '';
-  const lookupBillingPostalCode = async () => {
-    const digits = (billingPostal?.value ?? '').replace(/\D/g, '').slice(0, 8);
-    if (digits.length !== 8 || digits === lastBillingLookup) return;
-    lastBillingLookup = digits;
-    if (billingStatus) billingStatus.textContent = 'Buscando endereço...';
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${digits}/json/`, { headers: { Accept: 'application/json' } });
-      const address = response.ok ? await response.json() : null;
-      if (!address || address.erro) {
-        if (billingStatus) billingStatus.textContent = 'CEP não encontrado. Confira o número ou preencha o endereço.';
-        return;
-      }
-      setField('BillingAddress.Street', address.logradouro);
-      setField('BillingAddress.Neighborhood', address.bairro);
-      setField('BillingAddress.City', address.localidade);
-      setField('BillingAddress.State', address.uf);
-      if (billingStatus) billingStatus.textContent = `${address.localidade}/${address.uf}`;
-    } catch {
-      if (billingStatus) billingStatus.textContent = '';
-    }
-  };
-  if (billingPostal) {
-    billingPostal.addEventListener('input', () => {
-      const digits = billingPostal.value.replace(/\D/g, '').slice(0, 8);
-      billingPostal.value = formatPostal(digits);
-      lookupBillingPostalCode();
-    });
-  }
+  const billingAddressGroup = form.querySelector('[data-billing-address-group]');
+  if (billingAddressGroup) initAddressCep(billingAddressGroup);
   form.addEventListener('input', (event) => {
     const name = event.target?.name;
     if (name) clearFieldError(name);

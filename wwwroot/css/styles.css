@@ -4718,8 +4718,31 @@ body.filter-drawer-open {
   margin: 0 0 .75rem;
 }
 
-.address-grid .cep-lookup-status a {
+.address-grid .cep-lookup-status a,
+.address-form .cep-lookup-status a {
   color: var(--fight-green);
+}
+
+.address-form .cep-lookup-status {
+  font-size: .85rem;
+  margin: 0;
+}
+
+.address-details {
+  display: contents;
+}
+
+.address-details[hidden] {
+  display: none;
+}
+
+.address-details input[readonly],
+.address-details select.is-locked {
+  opacity: .7;
+}
+
+.address-details select.is-locked {
+  pointer-events: none;
 }
 
 .shipping-postal [data-quote-postal] {
