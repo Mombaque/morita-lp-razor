@@ -190,7 +190,7 @@ if (offerForm) {
     const quantity = Number(quantityInput?.value);
 
     if (!selectedOffer) {
-      showValidationMessage('Selecione uma oferta para adicionar ao carrinho.');
+      showValidationMessage('Selecione cor e tamanho para adicionar ao carrinho.');
       offerInputs.find((input) => !input.disabled)?.focus();
       return;
     }
@@ -253,13 +253,42 @@ if (offerForm) {
 
   offerForm.addEventListener('input', () => showValidationMessage(''));
 
+  const stepper = offerForm.querySelector('[data-quantity-stepper]');
+  const syncStepper = () => {
+    if (!stepper || !quantityInput) return;
+    const value = Number.parseInt(quantityInput.value, 10);
+    const max = Number(quantityInput.max) || 10;
+    stepper.querySelector('[data-quantity-step="-1"]').disabled = Number.isFinite(value) && value <= 1;
+    stepper.querySelector('[data-quantity-step="1"]').disabled = Number.isFinite(value) && value >= max;
+  };
+  stepper?.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-quantity-step]');
+    if (!button || button.disabled || !quantityInput) return;
+    const max = Number(quantityInput.max) || 10;
+    const current = Number.parseInt(quantityInput.value, 10) || 1;
+    quantityInput.value = String(Math.min(max, Math.max(1, current + Number(button.dataset.quantityStep))));
+    quantityInput.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  quantityInput?.addEventListener('input', syncStepper);
+  syncStepper();
+
   const updateOffer = (input) => {
     if (!live || input.disabled) return;
     const price = input.dataset.price;
     const currency = input.dataset.currency || 'BRL';
     const formatted = price ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency }).format(Number(price)) : 'Preço sob consulta';
-    const presentation = input.closest('label')?.getAttribute('aria-label') || 'Oferta selecionada';
-    live.textContent = `${presentation}. ${formatted}.${input.dataset.lowStock === 'true' ? '' : ' Disponível.'}`;
+    const lowStock = input.dataset.lowStock === 'true';
+    const presentation = live.querySelector('[data-live-presentation]');
+    const row = live.querySelector('[data-live-row]');
+    const priceLabel = live.querySelector('[data-live-price]');
+    const availability = live.querySelector('[data-live-availability]');
+    if (presentation) presentation.textContent = input.closest('label')?.dataset.presentation || 'Oferta selecionada';
+    if (priceLabel) priceLabel.textContent = formatted;
+    if (availability) {
+      availability.textContent = lowStock ? 'Últimas unidades' : 'Disponível';
+      availability.classList.toggle('is-low-stock', lowStock);
+    }
+    if (row) row.hidden = false;
     const detailPrice = document.querySelector('[data-detail-price] .product-price');
     if (detailPrice) detailPrice.textContent = formatted;
     setGalleryVariant(input.dataset.variantKey);

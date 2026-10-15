@@ -5691,8 +5691,8 @@ html.lightbox-open {
 .stock-alert-message.is-error { color: #ff4d4d; }
 
 .size-guide, .shipping-estimate { border: 1px solid #343434; border-top: 2px solid #3CF9AE; background: #111; margin: 1rem 0; max-width: 34rem; padding: .8rem 1rem; }
-.size-guide summary { cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-size: 1.05rem; letter-spacing: .04em; text-transform: uppercase; }
-.size-guide summary:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 3px; }
+.size-guide summary, .shipping-estimate summary { cursor: pointer; font-family: 'Barlow Condensed', sans-serif; font-size: 1.05rem; letter-spacing: .04em; text-transform: uppercase; }
+.size-guide summary:focus-visible, .shipping-estimate summary:focus-visible { outline: 2px solid #3CF9AE; outline-offset: 3px; }
 .size-guide h2, .shipping-estimate h2 { margin: .8rem 0 .5rem; font-family: 'Barlow Condensed', sans-serif; font-size: 1.05rem; letter-spacing: .04em; text-transform: uppercase; }
 .size-guide-scroll { overflow-x: auto; margin-top: .6rem; }
 .size-guide table { border-collapse: collapse; width: 100%; font-size: .9rem; }
@@ -5771,3 +5771,32 @@ html.lightbox-open {
 .review-stars input:focus-visible + label { outline: 2px solid #3CF9AE; outline-offset: 2px; }
 .review-comment { display: grid; gap: .3rem; }
 .review-comment textarea { width: 100%; box-sizing: border-box; background: #0a0a0a; color: #f5f5f5; border: 1px solid #343434; padding: .5rem; }
+
+/* Product buy box: one panel for the choice, a summary for the decision, secondary cards below. */
+.offer-boundary.buy-box { background: #111; border: 1px solid #343434; border-top: 2px solid #3CF9AE; margin: 1.5rem 0 1rem; max-width: 34rem; padding: 1.1rem 1rem 1rem; }
+.buy-box .buy-box-step + .buy-box-step { border-top: 1px solid rgba(243, 240, 232, .12); }
+.buy-box .buy-box-step { border: 0; margin: 0; min-width: 0; padding: .95rem 0; }
+.buy-box .buy-box-step:first-child { padding-top: 0; }
+.buy-box .buy-box-step legend, .buy-box-step-label { align-items: baseline; color: var(--fight-paper); display: flex; font-family: 'Barlow Condensed', sans-serif; font-size: .85rem; font-weight: 800; gap: .55rem; letter-spacing: .1em; margin: 0 0 .65rem; padding: 0; text-transform: uppercase; width: 100%; }
+.buy-box .buy-box-step legend { float: left; }
+.buy-box .buy-box-step legend + * { clear: both; }
+.buy-box-step-number { color: #3CF9AE; }
+.buy-box .detail-variant-matrix { border-top: 0; margin-top: 0; padding-top: 0; }
+.buy-box .detail-variant-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.buy-box .offer-size-choice input { cursor: pointer; height: 100%; inset: 0; margin: 0; opacity: 0; position: absolute; width: 100%; }
+.buy-box .offer-size-choice input:disabled { cursor: not-allowed; }
+.buy-box .offer-size-choice:has(input:checked) > span::before { content: "✓ "; }
+.buy-box-quantity { align-items: center; display: flex; flex-wrap: wrap; gap: .75rem; }
+.buy-box-quantity-hint { color: #a6aaa5; font-size: .85rem; }
+.buy-box-summary { background: #0b0c0b; border: 1px solid rgba(60, 249, 174, .35); margin-top: .35rem; padding: .9rem 1rem 1rem; }
+.buy-box .live-offer { color: var(--fight-paper); display: grid; gap: .35rem; min-height: 0; }
+.live-offer-presentation { color: #a6aaa5; font-family: 'Barlow Condensed', sans-serif; font-size: .85rem; letter-spacing: .06em; text-transform: uppercase; }
+.live-offer-row { align-items: center; display: flex; flex-wrap: wrap; gap: .5rem .75rem; justify-content: space-between; }
+.live-offer-row[hidden] { display: none; }
+.live-offer-price { color: #3CF9AE; font-family: 'Barlow Condensed', sans-serif; font-size: 1.75rem; font-weight: 800; line-height: 1; }
+.live-offer-badge { border: 1px solid #3CF9AE; color: #3CF9AE; font-family: 'Barlow Condensed', sans-serif; font-size: .75rem; font-weight: 800; letter-spacing: .08em; padding: .2rem .5rem; text-transform: uppercase; }
+.live-offer-badge::before { content: "● "; }
+.live-offer-badge.is-low-stock { border-color: #fbbf24; color: #fbbf24; }
+.buy-box .primary-cta { margin-top: .9rem; width: 100%; }
+.shipping-estimate[open] summary { margin-bottom: .75rem; }
+.detail-copy > .shipping-estimate, .detail-copy > .stock-alert { margin-top: 1rem; }

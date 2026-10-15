@@ -47,9 +47,9 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
         var availableOffers = Product.Variants.SelectMany(v => v.Offers).Where(o => string.Equals(o.Availability, "available", StringComparison.OrdinalIgnoreCase)).ToList();
         SelectedOfferId = publicOfferId ?? (availableOffers.Count == 1 ? availableOffers[0].PublicOfferId : null);
         SelectedOffer = SelectedOfferId is null ? null : Product.Variants.SelectMany(v => v.Offers).FirstOrDefault(o => o.PublicOfferId == SelectedOfferId);
-        if (publicOfferId is not null && SelectedOffer is null) ModelState.AddModelError("publicOfferId", "Selecione uma oferta válida.");
+        if (publicOfferId is not null && SelectedOffer is null) ModelState.AddModelError("publicOfferId", "Selecione uma cor e um tamanho válidos.");
         if (SelectedOffer is not null && !string.Equals(SelectedOffer.Availability, "available", StringComparison.OrdinalIgnoreCase))
-            ModelState.AddModelError("publicOfferId", "A oferta selecionada está indisponível.");
+            ModelState.AddModelError("publicOfferId", "A cor e o tamanho selecionados estão indisponíveis.");
         var url = $"{BaseUrl}/products/{Uri.EscapeDataString(Product.Slug ?? slug)}";
         var seller = new Dictionary<string, object?> { ["@type"] = "Organization", ["name"] = "Morita Fight", ["url"] = $"{BaseUrl}/" };
         var offers = Product.Variants.SelectMany(v => v.Offers).Select(o => new Dictionary<string, object?>
@@ -147,7 +147,7 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
         SelectedOfferId = publicOfferId;
         SelectedOffer = Product?.Variants.SelectMany(v => v.Offers).FirstOrDefault(x => x.PublicOfferId == publicOfferId);
         if (Product is null || SelectedOffer is null || !string.Equals(SelectedOffer.Availability, "available", StringComparison.OrdinalIgnoreCase))
-            ModelState.AddModelError("publicOfferId", "A oferta selecionada está indisponível.");
+            ModelState.AddModelError("publicOfferId", "A cor e o tamanho selecionados estão indisponíveis.");
         if (quantity is < 1 or > CartCookieStore.MaxUnitsPerLine)
             ModelState.AddModelError("quantity", $"A quantidade deve estar entre 1 e {CartCookieStore.MaxUnitsPerLine} unidades.");
         if (ModelState.IsValid)
@@ -203,8 +203,8 @@ public class ProductModel(ICatalogClient client, IConfiguration configuration, I
     private static string MutationMessage(CartMutationStatus status) => status switch
     {
         CartMutationStatus.Insufficient => "A quantidade solicitada não está disponível. Reduza a quantidade e tente novamente.",
-        CartMutationStatus.Inactive => "Esta oferta está inativa e não pode ser adicionada.",
-        CartMutationStatus.Removed => "Esta oferta foi removida e não pode ser adicionada.",
+        CartMutationStatus.Inactive => "Esta opção está inativa e não pode ser adicionada.",
+        CartMutationStatus.Removed => "Esta opção foi removida e não pode ser adicionada.",
         CartMutationStatus.Unavailable => "Não foi possível confirmar a disponibilidade agora. Seus itens foram preservados; tente novamente.",
         CartMutationStatus.PersistenceFailed => "Não foi possível adicionar este item. Seus itens foram preservados; tente novamente.",
         _ => "A quantidade deve estar entre 1 e 10 unidades."

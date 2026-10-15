@@ -35,6 +35,12 @@ public sealed class ProductShippingPageTests
         Assert.Matches("<th scope=\"row\">A2</th>\\s*<td>1,70-1,80</td>", html);
         Assert.Contains("Medidas do corpo.", html);
         Assert.Contains("data-shipping-estimate-form", html);
+        Assert.Contains("<details class=\"shipping-estimate\" data-shipping-estimate>", html);
+        Assert.Contains("<summary id=\"shipping-estimate-title\">Calcular frete</summary>", html);
+        Assert.Contains("class=\"offer-boundary buy-box\"", html);
+        Assert.Contains("data-quantity-stepper", html);
+        Assert.Contains("class=\"buy-box-summary\"", html);
+        Assert.DoesNotContain("Escolha a combinação exata de cor e tamanho.", html);
     }
 
     [Fact]

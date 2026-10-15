@@ -101,10 +101,9 @@
                         @if (sizeGuide.Note is not null) { <p class="size-guide-note">@sizeGuide.Note</p> }
                     </details>
                 }
-                <form class="offer-boundary" method="post" asp-page-handler="Add" data-offer-form novalidate>
-                    <fieldset aria-describedby="offer-validation-message">
-                        <legend>Escolha uma oferta</legend>
-                        <p>Escolha a combinação exata de cor e tamanho.</p>
+                <form class="offer-boundary buy-box" method="post" asp-page-handler="Add" data-offer-form novalidate>
+                    <fieldset class="buy-box-step" aria-describedby="offer-validation-message">
+                        <legend><span class="buy-box-step-number" aria-hidden="true">01</span> Cor e tamanho</legend>
                         <div class="detail-variant-matrix">
                             @for (var variantIndex = 0; variantIndex < p.Variants.Count; variantIndex++) {
                                 var variant = p.Variants[variantIndex];
@@ -129,15 +128,32 @@
                             }
                         </div>
                     </fieldset>
-                    <label class="quantity-label">Quantidade <input type="number" name="quantity" min="1" max="@CartCookieStore.MaxUnitsPerLine" value="@Model.Quantity" aria-describedby="quantity-help"></label>
-                    <p id="quantity-help">Escolha de 1 a @CartCookieStore.MaxUnitsPerLine unidades.</p>
-                    <p class="live-offer" aria-live="polite">@(!selectedOfferIsAvailable ? "Selecione uma oferta para ver preço e disponibilidade." : $"Oferta selecionada: {Model.SelectedOffer!.ColorLabel ?? "Cor única"} / {Model.SelectedOffer.SizeLabel ?? "Tamanho único"}.{(Model.SelectedOffer.LowStock ? " Últimas unidades!" : "")}")</p>
-                    <p id="offer-validation-message" class="offer-validation-message" role="alert" aria-live="assertive" hidden="@(string.IsNullOrWhiteSpace(offerError) ? "hidden" : null)">@offerError</p>
-                    <button class="button primary-cta" type="submit" data-cart="add">Adicionar ao carrinho</button>
+                    <div class="buy-box-step">
+                        <label class="buy-box-step-label" for="offer-quantity"><span class="buy-box-step-number" aria-hidden="true">02</span> Quantidade</label>
+                        <div class="buy-box-quantity">
+                            <div class="cart-quantity-stepper" data-quantity-stepper>
+                                <button class="cart-quantity-button" type="button" data-quantity-step="-1" aria-label="Diminuir quantidade" aria-controls="offer-quantity">−</button>
+                                <input class="cart-quantity-input" id="offer-quantity" type="number" name="quantity" min="1" max="@CartCookieStore.MaxUnitsPerLine" value="@Model.Quantity" inputmode="numeric" aria-describedby="quantity-help">
+                                <button class="cart-quantity-button" type="button" data-quantity-step="1" aria-label="Aumentar quantidade" aria-controls="offer-quantity">+</button>
+                            </div>
+                            <span id="quantity-help" class="buy-box-quantity-hint">máx. @CartCookieStore.MaxUnitsPerLine unidades</span>
+                        </div>
+                    </div>
+                    <div class="buy-box-summary">
+                        <div class="live-offer" aria-live="polite" aria-atomic="true">
+                            <span class="live-offer-presentation" data-live-presentation>@(!selectedOfferIsAvailable ? "Selecione cor e tamanho para ver preço e disponibilidade." : $"{Model.SelectedOffer!.ColorLabel ?? "Cor única"} / {Model.SelectedOffer.SizeLabel ?? "Tamanho único"}")</span>
+                            <span class="live-offer-row" data-live-row hidden="@(selectedOfferIsAvailable ? null : "hidden")">
+                                <strong class="live-offer-price" data-live-price>@(selectedOfferIsAvailable && Model.SelectedOffer!.UnitPrice is { } selectedPrice ? CurrencyPresentation.Format(selectedPrice, Model.SelectedOffer.Currency) : null)</strong>
+                                <span class="live-offer-badge@(selectedOfferIsAvailable && Model.SelectedOffer!.LowStock ? " is-low-stock" : "")" data-live-availability>@(selectedOfferIsAvailable && Model.SelectedOffer!.LowStock ? "Últimas unidades" : "Disponível")</span>
+                            </span>
+                        </div>
+                        <p id="offer-validation-message" class="offer-validation-message" role="alert" aria-live="assertive" hidden="@(string.IsNullOrWhiteSpace(offerError) ? "hidden" : null)">@offerError</p>
+                        <button class="button primary-cta" type="submit" data-cart="add">Adicionar ao carrinho</button>
+                    </div>
                 </form>
                 @if (p.Availability == "available") {
-                    <section class="shipping-estimate" data-shipping-estimate aria-labelledby="shipping-estimate-title">
-                        <h2 id="shipping-estimate-title">Calcular frete</h2>
+                    <details class="shipping-estimate" data-shipping-estimate open="@(Model.ShippingEstimate is not null || Model.ShippingEstimateError is not null ? "open" : null)">
+                        <summary id="shipping-estimate-title">Calcular frete</summary>
                         <form method="post" asp-page-handler="QuoteShipping" asp-route-slug="@p.Slug" class="shipping-estimate-form" data-shipping-estimate-form novalidate>
                             <input type="hidden" name="publicOfferId" value="@Model.SelectedOfferId" data-estimate-offer>
                             <input type="hidden" name="quantity" value="@Model.Quantity" data-estimate-quantity>
@@ -155,7 +171,7 @@
                                 <p class="shipping-estimate-note">Estimativa para esta opção e quantidade. O valor final é confirmado no checkout.</p>
                             }
                         </div>
-                    </section>
+                    </details>
                 }
                 @{
                     var soldOut = p.Variants.SelectMany(variant => variant.Offers.Select(offer => (Variant: variant, Offer: offer)))
@@ -184,7 +200,7 @@
                     </details>
                 }
                 @if (StorefrontOptions.Value.PublicAssistantEnabled) { <button class="button" type="button" data-assistant-open data-assistant-product="@p.Slug">Perguntar sobre este produto</button> }
-                <noscript><p>Escolha uma oferta para adicionar ao carrinho.</p></noscript>
+                <noscript><p>Escolha cor e tamanho para adicionar ao carrinho.</p></noscript>
             </section>
         </div>
         @if (Model.Reviews is { Items.Count: > 0 } reviewPage) {

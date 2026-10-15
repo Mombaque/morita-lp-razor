@@ -40,7 +40,8 @@ public sealed class ProductLowStockTests
 
         var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync($"/products/kimono?publicOfferId={LowOffer}")).Content.ReadAsStringAsync());
 
-        Assert.Contains("Oferta selecionada: Azul / A1. Últimas unidades!", html);
+        Assert.Contains("data-live-presentation>Azul / A1</span>", html);
+        Assert.Contains("class=\"live-offer-badge is-low-stock\" data-live-availability>Últimas unidades</span>", html);
     }
 
     private static WebApplicationFactory<Program> Create() =>
