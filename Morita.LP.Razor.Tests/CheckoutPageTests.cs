@@ -524,8 +524,8 @@ public sealed class CheckoutPageTests
 
         Assert.Equal(System.Net.HttpStatusCode.OK, posted.StatusCode);
         Assert.Empty(api.Requests);
-        Assert.Contains("Informe o endereço de cobrança.", body);
-        Assert.Contains("Informe o número do endereço.", body);
+        Assert.Contains("Informe um CEP válido para preencher o endereço.", body);
+        Assert.DoesNotContain("Informe o número do endereço.", body);
         Assert.Contains("data-checkout=\"error\" data-field-errors=\"true\"", body);
         Assert.DoesNotMatch(@">\s*The \w+ field is required\.\s*<", body);
     }
@@ -640,7 +640,7 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
-    public async Task Profile_without_a_document_redirects_to_complete_the_account()
+    public async Task Profile_without_a_document_asks_for_it_in_the_checkout_instead_of_leaving()
     {
         var offer = Guid.NewGuid();
         var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
@@ -652,9 +652,51 @@ public sealed class CheckoutPageTests
 
         var result = await page.OnPostAsync(CancellationToken.None);
 
+        Assert.IsType<PageResult>(result);
+        Assert.True(page.DocumentRequired);
+        Assert.True(page.ModelState.ContainsKey(nameof(CheckoutModel.Document)));
+        Assert.Null(account.UpdatedDocument);
+        Assert.Empty(api.Requests);
+    }
+
+    [Fact]
+    public async Task Document_entered_in_the_checkout_is_saved_to_the_account_before_the_reservation()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout { CreateResults = new Queue<CheckoutResult>([SuccessfulCheckout()]) };
+        var account = new RecordingAccount { ProfileResult = new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Phone = "15999999999" }) };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+        page.FulfillmentMethod = "pickup";
+        page.Document = "529.982.247-25";
+
+        await page.OnPostAsync(CancellationToken.None);
+
+        Assert.Equal("52998224725", account.UpdatedDocument);
+        Assert.Single(api.Requests);
+    }
+
+    [Fact]
+    public async Task Profile_without_a_phone_returns_to_the_same_checkout_choices_after_completing_the_account()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var account = new RecordingAccount { ProfileResult = new AccountResult<CustomerAccountProfile>(AccountLoadState.Success, new() { Email = "customer@example.com", Name = "Customer", Document = "529.982.247-25" }) };
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        context.Request.Method = "POST";
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, account, new RecordingAccountCookie());
+        page.FulfillmentMethod = "pickup";
+
+        var result = await page.OnPostAsync(CancellationToken.None);
+
         var redirect = Assert.IsType<RedirectToPageResult>(result);
         Assert.Equal("/Account", redirect.PageName);
         Assert.Equal("complete", redirect.RouteValues!["mode"]);
+        Assert.Equal("/checkout?fulfillment=pickup&paymentMethod=pix", redirect.RouteValues["returnUrl"]);
         Assert.Equal("perfil", redirect.Fragment);
         Assert.Empty(api.Requests);
     }
@@ -686,7 +728,8 @@ public sealed class CheckoutPageTests
         Assert.Equal([homeId, workId], page.SavedAddresses.Select(address => address.PublicAddressId));
         Assert.Equal(homeId, page.SelectedAddressId);
         Assert.Equal("Rua Amorita", page.ShippingAddress.Street);
-        Assert.Equal("Complete seu nome, telefone e CPF ou CNPJ em Minha conta antes de continuar.", page.AccountMessage);
+        Assert.Null(page.AccountMessage);
+        Assert.True(page.DocumentRequired);
     }
 
     [Fact]
@@ -1207,6 +1250,8 @@ public sealed class CheckoutPageTests
         public override Task<AccountResult<IReadOnlyList<CustomerAccountAddress>>> GetAddressesAsync(string token, CancellationToken cancellationToken = default) { AddressReads++; return Task.FromResult(AddressesResult ?? new AccountResult<IReadOnlyList<CustomerAccountAddress>>(AccountLoadState.Success, [address])); }
         public override Task<AccountResult<CustomerAccountAddress>> CreateAddressAsync(string token, CustomerAccountAddress savedAddress, CancellationToken cancellationToken = default) { CreateAddressCalls++; return Task.FromResult(CreateAddressResult); }
         public override Task<AccountResult<bool>> SetDefaultAddressAsync(string token, Guid id, CancellationToken cancellationToken = default) => Task.FromResult(SetDefaultAddressResult);
+        public string? UpdatedDocument { get; private set; }
+        public override Task<AccountResult<bool>> UpdateProfileAsync(string token, string? name, string? phone, string? document, CancellationToken cancellationToken = default) { UpdatedDocument = document; return Task.FromResult(new AccountResult<bool>(AccountLoadState.Success, true)); }
     }
 
     private class NoopAccount : ICustomerAccountClient

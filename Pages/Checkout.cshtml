@@ -19,11 +19,11 @@
   }
   else
   {
-     @if (Model.ErrorMessage is not null) { <p class="validation-error" data-checkout="error" data-field-errors="@(ViewData.ModelState.IsValid ? null : "true")" role="alert">@Model.ErrorMessage</p> } @if (Model.ProfileIncomplete) { <p class="validation-error" data-checkout="profile-incomplete" role="alert">Complete seu nome, telefone e CPF ou CNPJ em <a href="/conta?mode=complete&amp;returnUrl=%2Fcheckout#perfil">Minha conta</a> antes de continuar.</p> } else if (Model.AccountMessage is not null) { <p class="account-status" role="status">@Model.AccountMessage</p> }
+     @if (Model.ErrorMessage is not null) { <p class="validation-error" data-checkout="error" data-field-errors="@(ViewData.ModelState.IsValid ? null : "true")" role="alert">@Model.ErrorMessage</p> } @if (Model.ProfileIncomplete) { <p class="validation-error" data-checkout="profile-incomplete" role="alert">Complete seu nome e telefone em <a href="/conta?mode=complete&amp;returnUrl=%2Fcheckout#perfil">Minha conta</a> antes de continuar.</p> } else if (Model.AccountMessage is not null) { <p class="account-status" role="status">@Model.AccountMessage</p> }
     <partial name="_CartPriceChanges" model="Model.PriceChanges" />
     <form method="post" class="checkout-layout" data-fulfillment-form>
       <div class="checkout-form-column">
-        <div asp-validation-summary="All" class="validation-error" role="alert"></div>
+        <div asp-validation-summary="ModelOnly" class="validation-error" role="alert"></div>
         <section class="checkout-step" aria-labelledby="fulfillment-heading">
           <div class="checkout-step-number">01</div>
           <div class="checkout-step-content">
@@ -35,7 +35,7 @@
               }
               @if (Model.PickupLocation is { } pickup)
               {
-                <label class="fulfillment-choice" data-checkout="pickup-choice"><input asp-for="FulfillmentMethod" id="pickup-method" type="radio" value="pickup"><span><strong>Retirar em @pickup.DisplayName</strong><small>@pickup.Address.Street, @pickup.Address.Number · @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</small>@if (!string.IsNullOrWhiteSpace(pickup.Hours)) { <small>@pickup.Hours</small> }<em>Grátis</em></span></label>
+                <label class="fulfillment-choice" data-checkout="pickup-choice"><input asp-for="FulfillmentMethod" id="pickup-method" type="radio" value="pickup"><span><strong>Retirar em @pickup.DisplayName</strong><small>@pickup.Address.Street, @pickup.Address.Number · @pickup.Address.Neighborhood, @pickup.Address.City/@pickup.Address.State</small>@if (AccountPresentation.HasPickupText(pickup.Hours)) { <small>@pickup.Hours</small> }@if (AccountPresentation.HasPickupText(pickup.Instructions)) { <small>@pickup.Instructions</small> }<em>Grátis</em></span></label>
               }
             </div>
             @if (Model.Configuration.Configuration?.ShippingEnabled != true && Model.Configuration.Configuration?.PickupEnabled == true)
@@ -51,7 +51,7 @@
                      <div><p class="fight-label">Onde entregar</p><h3 id="delivery-address-heading">Endereço de entrega</h3></div>
                      <p>Escolha um endereço salvo ou informe um novo.</p>
                    </div>
-                   @if (Model.SavedAddresses.Count > 0) { <fieldset class="saved-addresses"><legend>Endereço salvo</legend><label><input asp-for="SelectedAddressId" type="radio" value="" data-new-address="true"> Usar outro endereço</label>@foreach (var address in Model.SavedAddresses) { <label><input asp-for="SelectedAddressId" type="radio" value="@address.PublicAddressId" data-saved-address="true" data-recipient="@address.Recipient" data-street="@address.Street" data-number="@address.Number" data-complement="@address.Complement" data-neighborhood="@address.Neighborhood" data-city="@address.City" data-state="@address.State" data-postal-code="@address.PostalCode"> @address.Label — @address.Street, @address.Number, @address.City/@address.State@(address.IsDefault ? " · Padrão" : "")</label> }</fieldset> }
+                   @if (Model.SavedAddresses.Count > 0) { <fieldset class="saved-addresses"><legend>Endereço salvo</legend><span asp-validation-for="SelectedAddressId" class="validation-error"></span><label><input asp-for="SelectedAddressId" type="radio" value="" data-new-address="true"> Usar outro endereço</label>@foreach (var address in Model.SavedAddresses) { <label><input asp-for="SelectedAddressId" type="radio" value="@address.PublicAddressId" data-saved-address="true" data-recipient="@address.Recipient" data-street="@address.Street" data-number="@address.Number" data-complement="@address.Complement" data-neighborhood="@address.Neighborhood" data-city="@address.City" data-state="@address.State" data-postal-code="@address.PostalCode"> @address.Label — @address.Street, @address.Number, @address.City/@address.State@(address.IsDefault ? " · Padrão" : "")</label> }</fieldset> }
                    <div class="address-grid" data-shipping-address-group>
                     <label class="checkout-field cep" asp-for="ShippingAddress.PostalCode">CEP<input class="checkout-control" asp-for="ShippingAddress.PostalCode" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" maxlength="9" data-cep-input></label>
                     <p class="cart-estimate-note cep-lookup-status" role="status" aria-live="polite"><span data-cep-message></span> <a href="https://buscacepinter.correios.com.br/app/endereco/index.php" target="_blank" rel="noopener">Não sei meu CEP</a></p>
@@ -117,6 +117,13 @@
                      <label class="checkout-field">UF<select class="checkout-control" asp-for="BillingAddress.State" autocomplete="billing address-level1" data-address-field="state"><option value="">UF</option>@foreach (var state in AccountModel.BrazilianStates) { <option value="@state.Code" selected="@(string.Equals(Model.BillingAddress?.State, state.Code, StringComparison.OrdinalIgnoreCase) ? "selected" : null)">@state.Code</option> }</select><span asp-validation-for="BillingAddress.State" class="validation-error"></span></label>
                     </div>
                   </div>
+                  @if (Model.OfferBillingAddressSave)
+                  {
+                    <label class="checkout-check" asp-for="SaveBillingAddress" data-billing-save>
+                      <input class="checkout-check-input" asp-for="SaveBillingAddress">
+                      <span>Guardar este endereço na minha conta</span>
+                    </label>
+                  }
                 </section>
               </div>
             }
@@ -130,10 +137,15 @@
             <label class="checkout-field">Nome<input class="checkout-control" asp-for="Contact.Name" autocomplete="name" readonly="readonly"></label><span asp-validation-for="Contact.Name" class="validation-error"></span>
             <label class="checkout-field">E-mail<input class="checkout-control" asp-for="Contact.Email" autocomplete="email" type="email" readonly="readonly"></label><span asp-validation-for="Contact.Email" class="validation-error"></span>
             <label class="checkout-field">Telefone<input class="checkout-control" asp-for="Contact.Phone" autocomplete="tel" inputmode="tel" readonly="readonly"></label><span asp-validation-for="Contact.Phone" class="validation-error"></span>
+            @if (Model.DocumentRequired)
+            {
+              <label class="checkout-field" data-checkout="document">CPF ou CNPJ<input class="checkout-control" asp-for="Document" autocomplete="off" inputmode="numeric" placeholder="000.000.000-00" maxlength="18"><span asp-validation-for="Document" class="validation-error"></span></label>
+              <p class="cart-estimate-note">Usado na nota fiscal. Fica salvo na sua conta para as próximas compras.</p>
+            }
             <p class="cart-estimate-note">Esses dados vêm da sua conta. Para alterá-los, <a href="/conta#perfil">acesse o seu perfil</a>.</p>
             @if (Model.OfferMarketingConsent)
             {
-              <label class="account-check checkout-marketing-consent"><input type="checkbox" asp-for="MarketingConsent"><span>Quero receber novidades, ofertas e lembretes de compras não concluídas por e-mail. Posso cancelar quando quiser.</span></label>
+              <label class="checkout-check checkout-marketing-consent"><input class="checkout-check-input" type="checkbox" asp-for="MarketingConsent"><span>Quero receber novidades, ofertas e lembretes de compras não concluídas por e-mail. Posso cancelar quando quiser.</span></label>
             }
           </div>
         </section>

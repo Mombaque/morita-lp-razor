@@ -170,7 +170,7 @@ const startPaymentPolling = (flow) => {
         window.location.assign(result.redirectUrl || result.url);
         return;
       }
-      if (terminalStatuses.has(result.status) || (card.dataset.awaitingCode === 'true' && result.awaitingCode === false) || (card.dataset.paymentStatus === 'unknown' && result.status && result.status !== 'unknown')) {
+      if (terminalStatuses.has(result.status) || (card.dataset.awaitingCode === 'true' && result.awaitingCode === false) || (result.status && result.status !== card.dataset.paymentStatus)) {
         try {
           await refreshPaymentFlow(flow);
         } catch {
@@ -194,7 +194,7 @@ const startPaymentPolling = (flow) => {
     await poll();
     if (stopped) return;
     checkButton.disabled = false;
-    if (checkStatus) checkStatus.textContent = 'Ainda não recebemos a confirmação. Se você já pagou, aguarde alguns instantes.';
+    if (checkStatus) checkStatus.textContent = 'Ainda não recebemos a confirmação do banco. Se você já pagou, não pague de novo: a confirmação pode levar até 1 minuto e esta página atualiza sozinha.';
   });
 
   stopActivePolling?.();

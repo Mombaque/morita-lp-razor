@@ -107,6 +107,7 @@
                     <div class="pix-payment-layout">
                         <div class="pix-instructions">
                             <p class="pix-instructions-title">Pague pelo app do seu banco</p>
+                            <p class="pix-amount" data-pix-amount>Valor a pagar <strong>@CurrencyPresentation.Format(payment.Amount, payment.Currency)</strong></p>
                             <ol>
                                 <li>Abra o app do seu banco.</li>
                                 <li>Escaneie o QR Code ou copie o código PIX.</li>
@@ -121,7 +122,7 @@
                             <p class="pix-copy-status" data-copy-pix-status role="status" aria-live="polite"></p>
                             <p class="pix-expiry" data-expires-at="@payment.ExpiresAt.ToString("O")">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@TimePresentation.ToStoreTime(payment.ExpiresAt).ToString("dd/MM/yyyy HH:mm")</time>. <span data-pix-countdown aria-live="off"></span></p>
                             <button class="commerce-button commerce-button-primary" type="button" data-check-payment>Já paguei, verificar agora</button>
-                            <p class="cart-estimate-note" data-check-payment-status role="status" aria-live="polite">A confirmação costuma levar alguns segundos. Esta página atualiza sozinha.</p>
+                            <p class="cart-estimate-note" data-check-payment-status role="status" aria-live="polite">Depois de pagar, a confirmação costuma levar até 1 minuto. Esta página atualiza sozinha e mostra o pedido assim que o pagamento for confirmado.</p>
                         </div>
                     </div>
                 }
