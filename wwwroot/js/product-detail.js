@@ -190,7 +190,7 @@ if (offerForm) {
     const quantity = Number(quantityInput?.value);
 
     if (!selectedOffer) {
-      showValidationMessage('Selecione uma oferta para adicionar ao carrinho.');
+      showValidationMessage('Selecione cor e tamanho para adicionar ao carrinho.');
       offerInputs.find((input) => !input.disabled)?.focus();
       return;
     }

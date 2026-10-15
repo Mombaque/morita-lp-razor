@@ -102,7 +102,6 @@
                     </details>
                 }
                 <form class="offer-boundary buy-box" method="post" asp-page-handler="Add" data-offer-form novalidate>
-                    <p class="buy-box-title">Escolha sua oferta</p>
                     <fieldset class="buy-box-step" aria-describedby="offer-validation-message">
                         <legend><span class="buy-box-step-number" aria-hidden="true">01</span> Cor e tamanho</legend>
                         <div class="detail-variant-matrix">
@@ -201,7 +200,7 @@
                     </details>
                 }
                 @if (StorefrontOptions.Value.PublicAssistantEnabled) { <button class="button" type="button" data-assistant-open data-assistant-product="@p.Slug">Perguntar sobre este produto</button> }
-                <noscript><p>Escolha uma oferta para adicionar ao carrinho.</p></noscript>
+                <noscript><p>Escolha cor e tamanho para adicionar ao carrinho.</p></noscript>
             </section>
         </div>
         @if (Model.Reviews is { Items.Count: > 0 } reviewPage) {
