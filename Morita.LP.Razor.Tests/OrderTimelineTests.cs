@@ -96,7 +96,8 @@ public sealed class OrderTimelineTests
 
         var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync($"/order/{OrderNumber}")).Content.ReadAsStringAsync());
 
-        Assert.Contains("Entrega atualizada em <time datetime=\"2026-10-13T18:57:00.0000000+00:00\">13/10/2026 15:57</time>", html);
+        Assert.Contains("Retirada atualizada em <time datetime=\"2026-10-13T18:57:00.0000000+00:00\">13/10/2026 15:57</time>", html);
+        Assert.DoesNotContain("Entrega atualizada em", html);
     }
 
     [Fact]
@@ -144,6 +145,62 @@ public sealed class OrderTimelineTests
         var html = await (await factory.CreateClient().GetAsync($"/order/{OrderNumber}")).Content.ReadAsStringAsync();
 
         Assert.DoesNotContain("data-order-timeline", html);
+    }
+
+    [Fact]
+    public async Task Paid_pickup_order_page_says_preparing_and_explains_the_next_step_without_placeholder_text()
+    {
+        var order = new PublicOrder
+        {
+            PublicOrderNumber = OrderNumber,
+            PaymentStatus = "converted",
+            FulfillmentStatus = "Pending",
+            FulfillmentMethod = "pickup",
+            Amount = 50,
+            Currency = "BRL",
+            CreatedAt = DateTimeOffset.UtcNow,
+            PickupDisplayName = "Morita",
+            PickupAddress = new() { Street = "Rua A", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" },
+            PickupHours = "Seg a sexta, 10h às 19h",
+            PickupInstructions = ".",
+            Lines = [new PublicOrderLine { Description = "Protetor", Presentation = "Protetor", Quantity = 1, UnitPrice = 50, Total = 50 }]
+        };
+        using var factory = Create(order);
+
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync($"/order/{OrderNumber}")).Content.ReadAsStringAsync());
+
+        Assert.Contains("Status: <strong>Em preparação</strong>", html);
+        Assert.DoesNotContain("Aguardando preparação", html);
+        Assert.Contains("data-order-next-step>Próximo passo: avisaremos por e-mail quando o pedido estiver pronto para retirada.", html);
+        Assert.DoesNotContain("<p>.</p>", html);
+    }
+
+    [Fact]
+    public async Task Picked_up_order_page_says_picked_up_instead_of_delivered()
+    {
+        using var factory = Create(Order("pickup", "PickedUp"));
+
+        var html = WebUtility.HtmlDecode(await (await factory.CreateClient().GetAsync($"/order/{OrderNumber}")).Content.ReadAsStringAsync());
+
+        Assert.Contains("<h1>Pedido retirado</h1>", html);
+    }
+
+    [Theory]
+    [InlineData(".", false)]
+    [InlineData(" - ", false)]
+    [InlineData("", false)]
+    [InlineData("Falar no balcão", true)]
+    public void Pickup_text_without_letters_or_digits_is_not_shown(string value, bool expected)
+    {
+        Assert.Equal(expected, AccountPresentation.HasPickupText(value));
+    }
+
+    [Fact]
+    public void Code_expiry_states_the_duration_and_the_store_time()
+    {
+        var now = new DateTimeOffset(2026, 10, 15, 16, 42, 0, TimeSpan.Zero);
+
+        Assert.Equal("O código vale por 10 minutos (até 13:52).", AccountPresentation.CodeExpiry(now.AddMinutes(10), now));
     }
 
     private static PublicOrder Order(string method, string fulfillment, PublicShipment? shipment = null, DateTimeOffset? fulfillmentUpdatedAt = null) => new()

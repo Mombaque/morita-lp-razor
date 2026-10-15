@@ -262,4 +262,9 @@ if (form) {
   });
   update();
   if (methodInputs.find((input) => input.checked)?.value === 'shipping') scheduleQuote();
+  const firstInvalid = [...form.querySelectorAll('.input-validation-error')].find((field) => !field.closest('[hidden]'));
+  if (firstInvalid && document.querySelector('[data-checkout="error"][data-field-errors]')) {
+    firstInvalid.scrollIntoView({ block: 'center' });
+    firstInvalid.focus({ preventScroll: true });
+  }
 }

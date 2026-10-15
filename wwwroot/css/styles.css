@@ -5800,3 +5800,54 @@ html.lightbox-open {
 .buy-box .primary-cta { margin-top: .9rem; width: 100%; }
 .shipping-estimate[open] summary { margin-bottom: .75rem; }
 .detail-copy > .shipping-estimate, .detail-copy > .stock-alert { margin-top: 1rem; }
+
+.commerce-checkout .validation-error a,
+.commerce-checkout .account-status a,
+.commerce-checkout .cart-estimate-note a {
+  color: var(--fight-green);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pix-amount {
+  color: var(--fight-muted);
+  margin: .6rem 0 0;
+}
+
+.pix-amount strong {
+  color: var(--fight-green);
+  display: block;
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 1.8rem;
+  line-height: 1.1;
+}
+
+.order-next-step {
+  border-left: 3px solid var(--fight-green);
+  color: var(--fight-paper);
+  margin-top: .75rem;
+  padding-left: .75rem;
+}
+
+.account-field-hint {
+  color: var(--fight-muted);
+  display: block;
+  font-size: .8rem;
+  margin: .35rem 0 .75rem;
+}
+
+.address-grid > .validation-error,
+.checkout-contact > .validation-error,
+.saved-addresses > .validation-error {
+  color: #ffb3aa;
+  font-size: .75rem;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.address-grid > .validation-error:empty,
+.checkout-contact > .validation-error:empty,
+.saved-addresses > .validation-error:empty {
+  display: none;
+}

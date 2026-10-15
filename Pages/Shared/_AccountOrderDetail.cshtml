@@ -2,7 +2,7 @@
 <section class="account-panel order-detail" aria-labelledby="selected-order-heading">
     <h2 id="selected-order-heading">Detalhes do pedido @Model.PublicOrderNumber</h2>
     <p>Pagamento: <strong class="@AccountPresentation.PaymentStatusClass(Model.PaymentStatus)">@AccountPresentation.PaymentStatus(Model.PaymentStatus)</strong></p>
-    <p>Status: <strong>@AccountPresentation.FulfillmentStatus(AccountPresentation.EffectiveFulfillmentStatus(Model))</strong> · @AccountPresentation.FulfillmentMethod(Model.FulfillmentMethod)</p>
+    <p>Status: <strong>@AccountPresentation.FulfillmentStatus(Model.FulfillmentMethod, AccountPresentation.EffectiveFulfillmentStatus(Model))</strong> · @AccountPresentation.FulfillmentMethod(Model.FulfillmentMethod)</p>
     @{ var timeline = OrderTimeline.Build(Model); }
     @if (timeline.Count > 0)
     {
@@ -68,8 +68,11 @@
     {
         <h3>Retirada</h3>
         <p><strong>@Model.PickupDisplayName</strong><br>@pickup.Street, @pickup.Number - @pickup.Neighborhood, @pickup.City/@pickup.State</p>
-        <p>@Model.PickupHours</p>
-        @if (!string.IsNullOrWhiteSpace(Model.PickupInstructions))
+        @if (AccountPresentation.HasPickupText(Model.PickupHours))
+        {
+            <p>@Model.PickupHours</p>
+        }
+        @if (AccountPresentation.HasPickupText(Model.PickupInstructions))
         {
             <p>@Model.PickupInstructions</p>
         }
@@ -101,7 +104,7 @@
     <p>Pedido criado em <time datetime="@Model.CreatedAt.ToString("O")">@TimePresentation.ToStoreTime(Model.CreatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
     @if (Model.Shipment is null && Model.FulfillmentUpdatedAt is { } updatedAt)
     {
-        <p>Entrega atualizada em <time datetime="@updatedAt.ToString("O")">@TimePresentation.ToStoreTime(updatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
+        <p>@(Model.FulfillmentMethod == "pickup" ? "Retirada atualizada em" : "Entrega atualizada em") <time datetime="@updatedAt.ToString("O")">@TimePresentation.ToStoreTime(updatedAt).ToString("dd/MM/yyyy HH:mm")</time>.</p>
     }
     <p><strong>Total: @CurrencyPresentation.Format(Model.Amount, Model.Currency)</strong></p>
     @if (ReviewClient.IsValidToken(Model.ReviewToken))

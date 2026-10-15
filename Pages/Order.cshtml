@@ -7,7 +7,8 @@
     var fulfillmentStatus = Model.Order is null ? null : AccountPresentation.EffectiveFulfillmentStatus(Model.Order);
     var heading = (paymentStatus, fulfillmentStatus) switch
     {
-        (_, "delivered" or "pickedup") => "Pedido entregue",
+        (_, "pickedup") => "Pedido retirado",
+        (_, "delivered") => "Pedido entregue",
         ("refunded" or "refundpending", _) => "Pagamento estornado",
         ("cancelled" or "failed" or "expired", _) or (_, "cancelled") => "Pedido cancelado",
         ("converted" or "approved", _) => "Pedido confirmado",
@@ -30,7 +31,11 @@
             <p class="fight-label">Pedido Morita</p>
             <h1>@heading</h1>
             <p class="order-number">Número do pedido: <strong>@Model.Order.PublicOrderNumber</strong></p>
-            <p>@AccountPresentation.PaymentStatus(Model.Order.PaymentStatus) · @AccountPresentation.FulfillmentStatus(fulfillmentStatus)</p>
+            <p>@AccountPresentation.PaymentStatus(Model.Order.PaymentStatus) · @AccountPresentation.FulfillmentStatus(Model.Order.FulfillmentMethod, fulfillmentStatus)</p>
+            @if (AccountPresentation.NextStep(Model.Order.FulfillmentMethod, paymentStatus, fulfillmentStatus) is { } nextStep)
+            {
+                <p class="order-next-step" data-order-next-step>@nextStep</p>
+            }
         </header>
         <partial name="_AccountOrderDetail" model="Model.Order" />
         <p class="checkout-status-actions">

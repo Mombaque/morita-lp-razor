@@ -37,6 +37,33 @@ public static class AccountPresentation
         _ => "Em atualização"
     };
 
+    public static string FulfillmentStatus(string? method, string? status) =>
+        string.Equals(status, "pending", StringComparison.OrdinalIgnoreCase)
+            ? string.Equals(method, "pickup", StringComparison.OrdinalIgnoreCase) ? "Em preparação" : "Preparando envio"
+            : FulfillmentStatus(status);
+
+    public static string? NextStep(string? method, string? paymentStatus, string? fulfillmentStatus)
+    {
+        if (paymentStatus?.ToLowerInvariant() is not ("converted" or "approved")) return null;
+        var pickup = string.Equals(method, "pickup", StringComparison.OrdinalIgnoreCase);
+        return fulfillmentStatus?.ToLowerInvariant() switch
+        {
+            "pending" or "preparingpickup" when pickup => "Próximo passo: avisaremos por e-mail quando o pedido estiver pronto para retirada. Não é preciso vir à loja antes disso.",
+            "pending" or "awaitinglabel" or "labelpurchasepending" or "labelpurchased" when !pickup => "Próximo passo: avisaremos por e-mail com o código de rastreio assim que o pedido for despachado.",
+            _ => null
+        };
+    }
+
+    public static string CodeExpiry(DateTimeOffset? expiresAt, DateTimeOffset now)
+    {
+        if (expiresAt is not { } expiry) return "O código vale por alguns minutos.";
+        var minutes = Math.Max(1, (int)Math.Ceiling((expiry - now).TotalMinutes));
+        return $"O código vale por {minutes} {(minutes == 1 ? "minuto" : "minutos")} (até {TimePresentation.ToStoreTime(expiry):HH:mm}).";
+    }
+
+    public static bool HasPickupText(string? value) =>
+        !string.IsNullOrWhiteSpace(value) && value.Any(char.IsLetterOrDigit);
+
     public static string EffectiveFulfillmentStatus(string? method, string? fulfillmentStatus, string? shipmentStatus) =>
         string.Equals(method, "shipping", StringComparison.OrdinalIgnoreCase) &&
         !string.Equals(fulfillmentStatus, "cancelled", StringComparison.OrdinalIgnoreCase) &&

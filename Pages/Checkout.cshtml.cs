@@ -22,7 +22,7 @@ public sealed class CheckoutModel(
     IOrderAccessCookieStore? orderAccess = null,
     ICartPriceReview? priceReview = null) : PageModel
 {
-    private const string IncompleteProfileMessage = "Complete seu nome, telefone e CPF ou CNPJ em Minha conta antes de continuar.";
+    private const string IncompleteProfileMessage = "Complete seu nome e telefone em Minha conta antes de continuar.";
     private bool CustomerAccountsEnabled => storefrontOptions?.Value.CustomerAccountsEnabled ?? true;
     public CartState Cart { get; private set; } = new(DateTimeOffset.UtcNow, []);
     public CatalogQuoteResult Quote { get; private set; } = CatalogQuoteResult.Unavailable();
@@ -49,6 +49,10 @@ public sealed class CheckoutModel(
     public string? SavedAddressLabel { get; set; } = "Meu endereço";
     [BindProperty] public bool SetSavedAddressDefault { get; set; }
     [BindProperty] public bool SaveShippingAddress { get; set; }
+    [BindProperty] public bool SaveBillingAddress { get; set; }
+    [BindProperty] public string? Document { get; set; }
+    public bool DocumentRequired => LoadedProfile is { } profile && string.IsNullOrWhiteSpace(profile.Document);
+    public bool OfferBillingAddressSave => AccountPrefilled && Configuration.Configuration?.ShippingEnabled == true && SavedAddresses.Count == 0;
     [BindProperty] public bool MarketingConsent { get; set; }
     public bool OfferMarketingConsent => LoadedProfile is { MarketingEmails: false };
     public IReadOnlyList<OnlinePaymentMethod> AvailablePaymentMethods =>
@@ -116,8 +120,8 @@ public sealed class CheckoutModel(
             ErrorMessage = "Nenhuma forma de entrega está disponível no momento.";
             return Page();
         }
-        FulfillmentMethod = Configuration.Configuration?.ShippingEnabled == true ? "shipping" : "pickup";
-        PaymentMethod = StorefrontOnlinePayments.DefaultMethod(AvailablePaymentMethods) ?? OnlinePaymentMethod.Pix;
+        FulfillmentMethod = RequestedFulfillment(Request.Query["fulfillment"]) ?? (Configuration.Configuration?.ShippingEnabled == true ? "shipping" : "pickup");
+        PaymentMethod = RequestedPaymentMethod(Request.Query["paymentMethod"]) ?? StorefrontOnlinePayments.DefaultMethod(AvailablePaymentMethods) ?? OnlinePaymentMethod.Pix;
         draft.Ensure(); return Page();
     }
 
@@ -162,7 +166,8 @@ public sealed class CheckoutModel(
         if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "checkout-create")) { ErrorState = CheckoutLoadState.RateLimited; ErrorMessage = "Muitas tentativas. Aguarde um pouco."; await LoadQuoteAsync(cancellationToken); return Page(); }
         await LoadQuoteAsync(cancellationToken);
         ValidateFulfillment();
-        if (!ModelState.IsValid || !CanSubmit) { ErrorState = !CanSubmit && Quote.State == CatalogLoadState.Unavailable ? CheckoutLoadState.Unavailable : CheckoutLoadState.Validation; ErrorMessage ??= !ModelState.IsValid ? "Confira os dados informados." : FulfillmentMethod == "shipping" ? "Calcule o frete e escolha uma opção de entrega." : "Os itens do carrinho não estão disponíveis para reserva."; if (FulfillmentMethod == "shipping") await LoadShippingQuotesAsync(cancellationToken); return Page(); }
+        ValidateDocument();
+        if (!ModelState.IsValid || !CanSubmit) { ErrorState = !CanSubmit && Quote.State == CatalogLoadState.Unavailable ? CheckoutLoadState.Unavailable : CheckoutLoadState.Validation; ErrorMessage ??= !ModelState.IsValid ? "Confira os campos destacados abaixo." : FulfillmentMethod == "shipping" ? "Calcule o frete e escolha uma opção de entrega." : "Os itens do carrinho não estão disponíveis para reserva."; if (FulfillmentMethod == "shipping") await LoadShippingQuotesAsync(cancellationToken); return Page(); }
         var credentials = draft.Ensure();
         var fulfillment = FulfillmentMethod == "pickup"
             ? new CheckoutFulfillment("pickup", Configuration.Configuration!.PublicPickupId)
@@ -174,6 +179,7 @@ public sealed class CheckoutModel(
             });
         var session = LoadedSession;
         if (session is null || LoadedProfile is null) return AccountFailureResult();
+        if (DocumentRequired && await SaveDocumentAsync(session, cancellationToken) is { } documentFailure) return documentFailure;
         var billingAddress = FulfillmentMethod == "pickup" ? ToCheckoutAddress(BillingAddress) : null;
         var result = await checkout.CreateForAccountAsync(new(Cart.Lines, new CheckoutContact { Name = LoadedProfile.Name!.Trim(), Email = LoadedProfile.Email, Phone = LoadedProfile.Phone!.Trim() }, fulfillment, billingAddress), credentials.IdempotencyKey, credentials.AccessToken, session.Token, cancellationToken);
         if (result.State == CheckoutLoadState.Unauthorized)
@@ -198,23 +204,9 @@ public sealed class CheckoutModel(
                 if (consent.State == AccountLoadState.Unauthorized) accountCookies.Clear();
             }
             if (SaveShippingAddress && FulfillmentMethod == "shipping" && SelectedAddressId is null && SavedAddresses.Count < 10)
-            {
-                var created = await account.CreateAddressAsync(session.Token, new CustomerAccountAddress { Label = string.IsNullOrWhiteSpace(SavedAddressLabel) ? "Meu endereço" : SavedAddressLabel.Trim(), Recipient = ShippingAddress.Recipient.Trim(), Street = ShippingAddress.Street.Trim(), Number = ShippingAddress.Number.Trim(), Complement = string.IsNullOrWhiteSpace(ShippingAddress.Complement) ? null : ShippingAddress.Complement.Trim(), Neighborhood = ShippingAddress.Neighborhood.Trim(), City = ShippingAddress.City.Trim(), State = ShippingAddress.State.Trim().ToUpperInvariant(), PostalCode = ShippingAddress.PostalCode.Trim(), CountryCode = "BR" }, cancellationToken);
-                if (created.Value is not { } address)
-                {
-                    if (created.State == AccountLoadState.Unauthorized) accountCookies.Clear();
-                    TempData["CheckoutAccountMessage"] = "Reserva criada. Não foi possível salvar o novo endereço; sua compra não foi afetada.";
-                }
-                else if (SetSavedAddressDefault)
-                {
-                    var defaultResult = await account.SetDefaultAddressAsync(session.Token, address.PublicAddressId, cancellationToken);
-                    if (!defaultResult.Value)
-                    {
-                        if (defaultResult.State == AccountLoadState.Unauthorized) accountCookies.Clear();
-                        TempData["CheckoutAccountMessage"] = "Reserva criada. O endereço foi salvo, mas não foi possível defini-lo como padrão.";
-                    }
-                }
-            }
+                await SaveAddressAsync(session, ShippingAddress, ShippingAddress.Recipient, SetSavedAddressDefault, cancellationToken);
+            if (SaveBillingAddress && FulfillmentMethod == "pickup" && OfferBillingAddressSave)
+                await SaveAddressAsync(session, BillingAddress, LoadedProfile.Name ?? "", true, cancellationToken);
             return await StartPaymentAsync(result.Checkout.PublicCheckoutId, credentials.AccessToken, cancellationToken)
                 ?? RedirectToPage("/CheckoutStatus", new
                 {
@@ -269,8 +261,53 @@ public sealed class CheckoutModel(
     }
     public bool ProfileIncomplete => string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal);
     private bool AccountLoadedSuccessfully() => LoadedSession is not null && LoadedProfile is not null;
-    private bool ProfileNeedsCompletion() => LoadedProfile?.ReadyForCheckout != true;
-    private RedirectToPageResult CompleteProfileRedirect() => RedirectToPage("/Account", null, new { mode = "complete", returnUrl = "/checkout" }, "perfil");
+    private bool ProfileNeedsCompletion() => LoadedProfile is not { } profile || string.IsNullOrWhiteSpace(profile.Name) || string.IsNullOrWhiteSpace(profile.Phone);
+    private RedirectToPageResult CompleteProfileRedirect() => RedirectToPage("/Account", null, new { mode = "complete", returnUrl = CheckoutReturnUrl() }, "perfil");
+    private string CheckoutReturnUrl() => HttpMethods.IsPost(Request.Method) && RequestedFulfillment(FulfillmentMethod) is { } method
+        ? $"/checkout?fulfillment={method}&paymentMethod={PaymentMethod.ToWireValue()}"
+        : "/checkout";
+    private string? RequestedFulfillment(string? value) => value switch
+    {
+        "pickup" when Configuration.Configuration?.PickupEnabled == true => "pickup",
+        "shipping" when Configuration.Configuration?.ShippingEnabled == true => "shipping",
+        _ => null
+    };
+    private OnlinePaymentMethod? RequestedPaymentMethod(string? value) =>
+        AvailablePaymentMethods.Cast<OnlinePaymentMethod?>().FirstOrDefault(method => string.Equals(method!.Value.ToWireValue(), value, StringComparison.OrdinalIgnoreCase));
+    private void ValidateDocument()
+    {
+        if (!DocumentRequired) return;
+        if (string.IsNullOrWhiteSpace(Document)) ModelState.AddModelError(nameof(Document), "Informe seu CPF ou CNPJ para a nota fiscal.");
+        else if (!BuyerDocument.IsValid(Document)) ModelState.AddModelError(nameof(Document), "Informe um CPF ou CNPJ válido.");
+    }
+    private async Task<IActionResult?> SaveDocumentAsync(CustomerAccountSession session, CancellationToken cancellationToken)
+    {
+        var result = await account.UpdateProfileAsync(session.Token, LoadedProfile!.Name, LoadedProfile.Phone, BuyerDocument.Normalize(Document), cancellationToken);
+        if (result.State == AccountLoadState.Success) return null;
+        if (result.State == AccountLoadState.Unauthorized)
+        {
+            accountCookies.Clear();
+            return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
+        }
+        ErrorState = ToCheckoutState(result.State);
+        ErrorMessage = result.Message ?? "Não foi possível salvar seu CPF ou CNPJ. Tente novamente.";
+        return Page();
+    }
+    private async Task SaveAddressAsync(CustomerAccountSession session, ShippingAddressInput input, string recipient, bool makeDefault, CancellationToken cancellationToken)
+    {
+        var created = await account.CreateAddressAsync(session.Token, new CustomerAccountAddress { Label = string.IsNullOrWhiteSpace(SavedAddressLabel) ? "Meu endereço" : SavedAddressLabel.Trim(), Recipient = recipient.Trim(), Street = input.Street.Trim(), Number = input.Number.Trim(), Complement = string.IsNullOrWhiteSpace(input.Complement) ? null : input.Complement.Trim(), Neighborhood = input.Neighborhood.Trim(), City = input.City.Trim(), State = input.State.Trim().ToUpperInvariant(), PostalCode = input.PostalCode.Trim(), CountryCode = "BR" }, cancellationToken);
+        if (created.Value is not { } address)
+        {
+            if (created.State == AccountLoadState.Unauthorized) accountCookies.Clear();
+            TempData["CheckoutAccountMessage"] = "Reserva criada. Não foi possível salvar o novo endereço; sua compra não foi afetada.";
+            return;
+        }
+        if (!makeDefault) return;
+        var defaultResult = await account.SetDefaultAddressAsync(session.Token, address.PublicAddressId, cancellationToken);
+        if (defaultResult.Value) return;
+        if (defaultResult.State == AccountLoadState.Unauthorized) accountCookies.Clear();
+        TempData["CheckoutAccountMessage"] = "Reserva criada. O endereço foi salvo, mas não foi possível defini-lo como padrão.";
+    }
     private IActionResult QuoteShippingResult() => IsQuoteFragmentRequest ? Partial("_CheckoutShippingQuote", this) : Page();
     private bool AccountWasUnauthorized() => ErrorState == CheckoutLoadState.Unauthorized;
     private IActionResult AccountFailureResult() => AccountWasUnauthorized()
@@ -377,12 +414,16 @@ public sealed class CheckoutModel(
     }
     private void ValidateAddress(ShippingAddressInput address, string prefix, string streetMessage)
     {
+        if (!ValidPostalCode(address.PostalCode))
+        {
+            ModelState.AddModelError($"{prefix}.PostalCode", "Informe um CEP válido para preencher o endereço.");
+            return;
+        }
         Required(address.Street, $"{prefix}.Street", streetMessage);
         Required(address.Number, $"{prefix}.Number", "Informe o número do endereço.");
         Required(address.Neighborhood, $"{prefix}.Neighborhood", "Informe o bairro.");
         Required(address.City, $"{prefix}.City", "Informe a cidade.");
         if (!BrazilianStates.Contains(Clean(address.State).ToUpperInvariant())) ModelState.AddModelError($"{prefix}.State", "Informe uma UF brasileira válida.");
-        if (!ValidPostalCode(address.PostalCode)) ModelState.AddModelError($"{prefix}.PostalCode", "Informe um CEP brasileiro válido.");
     }
     // The billing address carries the buyer's name, so its recipient comes from the account profile.
     private CheckoutAddress ToCheckoutAddress(ShippingAddressInput address) => new()

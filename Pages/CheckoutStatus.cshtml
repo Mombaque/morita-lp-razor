@@ -109,8 +109,11 @@
                     </div>
                     <p class="checkout-fulfillment-primary">@pickup.DisplayName</p>
                     <address class="checkout-address">@pickup.Address.Street, @pickup.Address.Number<br>@pickup.Address.Neighborhood<br>@pickup.Address.City/@pickup.Address.State</address>
-                    <p class="checkout-fulfillment-note">@pickup.Hours</p>
-                    @if (!string.IsNullOrWhiteSpace(pickup.Instructions))
+                    @if (AccountPresentation.HasPickupText(pickup.Hours))
+                    {
+                        <p class="checkout-fulfillment-note">@pickup.Hours</p>
+                    }
+                    @if (AccountPresentation.HasPickupText(pickup.Instructions))
                     {
                         <p class="checkout-fulfillment-note">@pickup.Instructions</p>
                     }
