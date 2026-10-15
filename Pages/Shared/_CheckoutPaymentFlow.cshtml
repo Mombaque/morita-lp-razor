@@ -118,6 +118,7 @@
                             <label for="pix-copy">Código PIX</label>
                             <textarea id="pix-copy" readonly rows="4">@payment.PixCopyPaste</textarea>
                             <button class="commerce-button commerce-button-secondary" type="button" data-copy-pix>Copiar código PIX</button>
+                            <p class="pix-copy-status" data-copy-pix-status role="status" aria-live="polite"></p>
                             <p class="pix-expiry" data-expires-at="@payment.ExpiresAt.ToString("O")">Expira em <time datetime="@payment.ExpiresAt.ToString("O")">@TimePresentation.ToStoreTime(payment.ExpiresAt).ToString("dd/MM/yyyy HH:mm")</time>. <span data-pix-countdown aria-live="off"></span></p>
                             <button class="commerce-button commerce-button-primary" type="button" data-check-payment>Já paguei, verificar agora</button>
                             <p class="cart-estimate-note" data-check-payment-status role="status" aria-live="polite">A confirmação costuma levar alguns segundos. Esta página atualiza sozinha.</p>

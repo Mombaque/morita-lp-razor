@@ -79,6 +79,8 @@ document.querySelectorAll('[data-cart="quantity-stepper"]').forEach((stepper) =>
   });
 });
 
+document.querySelector('[data-cart="line-message"]')?.closest('[data-cart="line"]')?.scrollIntoView({ block: 'center' });
+
 document.querySelectorAll('[data-cart="update"]').forEach((button) => { button.hidden = true; });
 
 document.querySelectorAll('form[data-confirm]').forEach((form) => {
