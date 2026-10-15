@@ -1,4 +1,3 @@
-const form = document.querySelector('#catalog-filter-form');
 const drawer = document.querySelector('[data-filter-drawer]');
 const backdrop = document.querySelector('[data-filter-backdrop]');
 const openButton = document.querySelector('[data-filter-open]');
@@ -8,7 +7,7 @@ const sortForm = sortControl?.form;
 
 sortControl?.addEventListener('change', () => sortForm?.requestSubmit());
 
-if (form && drawer && backdrop && openButton && closeButton) {
+if (drawer && backdrop && openButton && closeButton) {
   let lastFocusedElement = null;
 
   const focusableElements = () => [...drawer.querySelectorAll(
@@ -51,6 +50,7 @@ if (form && drawer && backdrop && openButton && closeButton) {
 
   openButton.addEventListener('click', openDrawer);
   closeButton.addEventListener('click', () => closeDrawer());
+  drawer.querySelectorAll('[data-filter-close-secondary]').forEach((button) => button.addEventListener('click', () => closeDrawer()));
   backdrop.addEventListener('click', () => closeDrawer());
 
   window.addEventListener('popstate', () => {

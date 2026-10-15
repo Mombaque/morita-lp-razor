@@ -184,11 +184,16 @@ public sealed class CartPageTests
         ]));
 
         Assert.Equal(HttpStatusCode.Redirect, mutation.StatusCode);
+        Assert.EndsWith($"#cart-line-{offer:D}", mutation.Headers.Location?.OriginalString);
         Assert.Equal(0, cart.UpdateCalls);
         Assert.Equal(state.Lines, cart.Read().Lines);
         var responseBody = await (await client.GetAsync("/cart")).Content.ReadAsStringAsync();
         Assert.Contains("A quantidade solicitada n", responseBody);
         Assert.Contains("Reduza a quantidade", responseBody);
+        Assert.Contains($"id=\"cart-line-{offer:D}\"", responseBody);
+        Assert.Contains("data-cart=\"line-message\"", responseBody);
+        Assert.Contains("aria-invalid=\"true\"", responseBody);
+        Assert.DoesNotContain("data-cart=\"message\"", responseBody);
     }
 
     [Fact]

@@ -45,6 +45,19 @@ public sealed class CatalogSectionViewModel
 
     public bool HasFacetFilters => !string.IsNullOrWhiteSpace(Category) || BrandId.HasValue;
 
+    public IReadOnlyList<CatalogSectionFilterChip> ActiveFilterChips
+    {
+        get
+        {
+            var chips = new List<CatalogSectionFilterChip>();
+            if (!string.IsNullOrWhiteSpace(Category))
+                chips.Add(new(SelectedCategoryLabel ?? Category, CategoryUrl(null)));
+            if (BrandId.HasValue)
+                chips.Add(new(SelectedBrandLabel ?? "Marca", BrandUrl(null)));
+            return chips;
+        }
+    }
+
     public string CategoryUrl(string? category) => BuildUrl(category, BrandId, Sort);
 
     public string BrandUrl(int? brandId) => BuildUrl(Category, brandId, Sort);
@@ -102,3 +115,5 @@ public sealed class CatalogSectionViewModel
 }
 
 public sealed record CatalogSortOption(string Value, string Label);
+
+public sealed record CatalogSectionFilterChip(string Label, string RemoveUrl);

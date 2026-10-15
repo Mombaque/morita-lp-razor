@@ -95,7 +95,10 @@ public sealed class StorefrontTests : IClassFixture<WebApplicationFactory<Progra
         var body = await (await _client.GetAsync(path)).Content.ReadAsStringAsync();
 
         Assert.Contains("class=\"catalog-header\"", body);
-        Assert.Contains("class=\"catalog-filter-area\"", body);
+        Assert.Contains("data-filter-open", body);
+        Assert.Contains("data-filter-drawer", body);
+        Assert.Contains("data-catalog-filter=\"category\"", body);
+        Assert.DoesNotContain("class=\"catalog-filter-area\"", body);
         Assert.Contains("Categorias", body);
         Assert.Contains("Marcas", body);
         Assert.Contains("data-catalog-sort", body);

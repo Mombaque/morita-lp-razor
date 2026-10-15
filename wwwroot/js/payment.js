@@ -203,19 +203,46 @@ const startPaymentPolling = (flow) => {
   schedule();
 };
 
+const selectPixCode = (field) => {
+  field.focus({ preventScroll: true });
+  field.select();
+  field.setSelectionRange(0, field.value.length);
+};
+
+const copyPixCode = async (field) => {
+  try {
+    await navigator.clipboard.writeText(field.value);
+    return true;
+  } catch {
+    selectPixCode(field);
+    try {
+      return document.execCommand('copy');
+    } catch {
+      return false;
+    }
+  }
+};
+
 const bindCopyButton = (flow) => {
   const copy = flow.querySelector('[data-copy-pix]');
-  const label = copy?.textContent ?? '';
-  copy?.addEventListener('click', async () => {
-    const value = flow.querySelector('#pix-copy')?.value;
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
-      copy.textContent = 'Código copiado';
-    } catch {
-      copy.textContent = 'Selecione e copie o código';
-    }
-    window.setTimeout(() => { copy.textContent = label; }, 3000);
+  const field = flow.querySelector('#pix-copy');
+  const status = flow.querySelector('[data-copy-pix-status]');
+  if (!copy || !field) return;
+  const label = copy.textContent;
+  let resetTimer = 0;
+  copy.addEventListener('click', async () => {
+    if (!field.value) return;
+    window.clearTimeout(resetTimer);
+    const copied = await copyPixCode(field);
+    copy.classList.toggle('is-copied', copied);
+    if (copied) copy.textContent = 'Copiado!';
+    else selectPixCode(field);
+    if (status) status.textContent = copied ? 'Código PIX copiado.' : 'Toque e segure o código para copiar.';
+    resetTimer = window.setTimeout(() => {
+      copy.textContent = label;
+      copy.classList.remove('is-copied');
+      if (status) status.textContent = '';
+    }, 3000);
   });
 };
 

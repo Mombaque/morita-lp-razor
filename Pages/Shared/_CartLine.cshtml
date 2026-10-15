@@ -9,9 +9,11 @@
         "removed" => "Oferta removida",
         _ => "Oferta indisponível"
     };
+    var lineMessage = ViewData["CartLineMessage"] as string;
+    var hasLineMessage = !string.IsNullOrWhiteSpace(lineMessage);
     var colorSize = string.Join(" / ", new[] { Model.ColorLabel, Model.SizeLabel }.Where(x => !string.IsNullOrWhiteSpace(x)));
 }
-<article class="cart-line @(available ? "" : "cart-line-unavailable")" data-cart="line" data-offer-id="@Model.PublicOfferId">
+<article id="@CartModel.CartLineAnchor(Model.PublicOfferId)" class="cart-line @(available ? "" : "cart-line-unavailable")" data-cart="line" data-offer-id="@Model.PublicOfferId">
     @if (!string.IsNullOrWhiteSpace(Model.ImageUrl))
     {
         <img src="@Model.ImageUrl" alt="" loading="lazy">
@@ -30,6 +32,10 @@
         {
             <p class="cart-line-status" role="alert">@statusMessage</p>
         }
+        @if (hasLineMessage)
+        {
+            <p class="cart-line-error" id="cart-line-message-@Model.PublicOfferId" data-cart="line-message" role="alert">@lineMessage</p>
+        }
         @if (available || status == "insufficient")
         {
             <form class="cart-quantity-form" method="post" asp-page-handler="Update">
@@ -37,7 +43,7 @@
                 <label class="cart-quantity-label" for="quantity-@Model.PublicOfferId">Quantidade</label>
                 <div class="cart-quantity-stepper" data-cart="quantity-stepper">
                     <button class="cart-quantity-button" type="button" data-cart="quantity-decrement" aria-label="Diminuir quantidade" aria-controls="quantity-@Model.PublicOfferId">−</button>
-                    <input class="cart-quantity-input" id="quantity-@Model.PublicOfferId" type="number" name="quantity" min="1" max="@CartCookieStore.MaxUnitsPerLine" value="@Model.Quantity" inputmode="numeric" data-cart="quantity-input">
+                    <input class="cart-quantity-input" id="quantity-@Model.PublicOfferId" type="number" name="quantity" min="1" max="@CartCookieStore.MaxUnitsPerLine" value="@Model.Quantity" inputmode="numeric" data-cart="quantity-input" aria-invalid="@(hasLineMessage ? "true" : null)" aria-describedby="@(hasLineMessage ? $"cart-line-message-{Model.PublicOfferId}" : null)">
                     <button class="cart-quantity-button" type="button" data-cart="quantity-increment" aria-label="Aumentar quantidade" aria-controls="quantity-@Model.PublicOfferId">+</button>
                 </div>
                 <button class="button cart-button-primary" type="submit" data-cart="update">Atualizar</button>

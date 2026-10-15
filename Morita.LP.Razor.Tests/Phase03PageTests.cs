@@ -95,7 +95,10 @@ public sealed class Phase03PageTests
         Assert.Contains("href=\"/jiu-jitsu?category=kimonos&amp;brandId=4&amp;sort=price-desc\"", html);
         Assert.Contains("href=\"/jiu-jitsu?category=kimonos&amp;sort=price-desc\"", html);
         Assert.Contains("href=\"/jiu-jitsu?brandId=4&amp;sort=price-desc\"", html);
-        Assert.Contains("Limpar filtros", html);
+        Assert.Contains("href=\"/jiu-jitsu?sort=price-desc\">Limpar</a>", html);
+        Assert.Contains("catalog-filter-count\">2", html);
+        Assert.Contains("aria-label=\"Remover filtro Kimonos\"", html);
+        Assert.Contains("aria-label=\"Remover filtro In The Guard\"", html);
     }
 
     [Fact]

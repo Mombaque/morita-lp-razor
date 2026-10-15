@@ -13,6 +13,13 @@ public sealed class CartModel(ICartCookieStore cart, ICatalogClient client, ICar
     public IReadOnlyList<CartPriceChange> PriceChanges { get; private set; } = [];
     public bool IsEmpty => State.Lines.Count == 0;
     public string? MutationMessage => TempData["CartMessage"] as string;
+    public Guid? MutationOfferId => TempData["CartMessageOfferId"] switch
+    {
+        Guid offerId => offerId,
+        string value when Guid.TryParse(value, out var offerId) => offerId,
+        _ => null
+    };
+    public bool HasLineMutationMessage => MutationOfferId is { } offerId && Quote.Lines.Any(x => x.PublicOfferId == offerId);
 
     public async Task OnGetAsync(CancellationToken cancellationToken)
     {
@@ -30,10 +37,14 @@ public sealed class CartModel(ICartCookieStore cart, ICatalogClient client, ICar
     public async Task<IActionResult> OnPostUpdateAsync(Guid publicOfferId, int quantity, CancellationToken cancellationToken)
     {
         var result = await cartMutations.UpdateAsync(publicOfferId, quantity, cancellationToken);
-        if (!result.Succeeded)
-            TempData["CartMessage"] = GetMutationMessage(result.Status);
-        return RedirectToPage();
+        if (result.Succeeded)
+            return RedirectToPage();
+        TempData["CartMessage"] = GetMutationMessage(result.Status);
+        TempData["CartMessageOfferId"] = publicOfferId;
+        return RedirectToPage(null, null, null, CartLineAnchor(publicOfferId));
     }
+
+    public static string CartLineAnchor(Guid publicOfferId) => $"cart-line-{publicOfferId:D}";
 
     public IActionResult OnPostRemove(Guid publicOfferId)
     {

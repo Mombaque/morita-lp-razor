@@ -6,7 +6,7 @@
 }
 <main class="cart-shell" data-cart="page">
     <h1>Seu carrinho</h1>
-    @if (!string.IsNullOrWhiteSpace(Model.MutationMessage))
+    @if (!string.IsNullOrWhiteSpace(Model.MutationMessage) && !Model.HasLineMutationMessage)
     {
         <p class="validation-error" data-cart="message" role="alert">@Model.MutationMessage</p>
     }
@@ -33,7 +33,7 @@
             <section class="cart-lines" aria-label="Itens do carrinho">
                 @foreach (var line in Model.Quote.Lines)
                 {
-                    <partial name="_CartLine" model="line" />
+                    <partial name="_CartLine" model="line" view-data="@(new ViewDataDictionary(ViewData) { ["CartLineMessage"] = line.PublicOfferId == Model.MutationOfferId ? Model.MutationMessage : null })" />
                 }
             </section>
             <aside class="cart-summary" aria-label="Resumo do carrinho">
