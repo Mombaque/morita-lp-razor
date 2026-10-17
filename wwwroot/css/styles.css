@@ -2990,6 +2990,7 @@ a.product-variant-more:focus-visible {
 
   .commerce-footer {
     grid-template-columns: 1fr;
+    padding-bottom: 6.5rem;
   }
 }
 

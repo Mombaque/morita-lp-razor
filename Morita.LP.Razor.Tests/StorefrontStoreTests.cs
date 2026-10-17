@@ -20,7 +20,7 @@ public sealed class StorefrontStoreTests
         LegalName = "Morita Artigos Esportivos LTDA",
         Cnpj = "11.222.333/0001-81",
         ContactEmail = "contato@morita.test",
-        Address = new StorefrontStoreAddress { Street = "Rua Coronel Nogueira Padilha", Number = "429", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" }
+        Address = new StorefrontStoreAddress { Street = "Rua Coronel Nogueira Padilha", Number = "429", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000000" }
     };
 
     [Fact]
