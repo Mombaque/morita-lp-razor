@@ -1,0 +1,70 @@
+name: Roll Back Storefront
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: GitHub Environment and deployment target
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      image_ref:
+        description: Full registry.fly.io image digest from a known-good release
+        required: true
+        type: string
+      confirmation:
+        description: Type ROLLBACK to confirm
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.target }}
+    concurrency:
+      group: morita-storefront-deploy-${{ inputs.target }}
+      cancel-in-progress: false
+    env:
+      FLY_APP_NAME: ${{ vars.FLY_APP_NAME }}
+      FLY_CONFIG: ${{ vars.FLY_CONFIG || 'fly.toml' }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+    steps:
+      - name: Checkout deployment configuration
+        uses: actions/checkout@v4
+
+      - name: Validate rollback
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          test "${{ inputs.confirmation }}" = "ROLLBACK" || { echo "Rollback confirmation is invalid" >&2; exit 1; }
+          test -n "$FLY_APP_NAME" || { echo "FLY_APP_NAME is not configured for ${{ inputs.target }}" >&2; exit 1; }
+          test -n "$FLY_API_TOKEN" || { echo "FLY_API_TOKEN is not configured for ${{ inputs.target }}" >&2; exit 1; }
+          [[ "$IMAGE_REF" =~ ^registry\.fly\.io/${FLY_APP_NAME}@sha256:[0-9a-f]{64}$ ]] || { echo "image_ref must be an immutable digest for $FLY_APP_NAME" >&2; exit 1; }
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Deploy known-good image
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: flyctl deploy --config "$FLY_CONFIG" --app "$FLY_APP_NAME" --image "$IMAGE_REF"
+
+      - name: Write rollback summary
+        if: ${{ always() }}
+        env:
+          IMAGE_REF: ${{ inputs.image_ref }}
+        run: |
+          {
+            echo "## Storefront rollback"
+            echo "- Target: \`${{ inputs.target }}\`"
+            echo "- Fly app: \`$FLY_APP_NAME\`"
+            echo "- Image: \`$IMAGE_REF\`"
+            echo "- Status: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,89 @@
+name: Deploy Storefront
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_sha:
+        description: Full commit SHA from main that passed staging
+        required: true
+        type: string
+      target:
+        description: GitHub Environment and deployment target
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    with:
+      release_sha: ${{ inputs.release_sha }}
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.target }}
+    concurrency:
+      group: morita-storefront-deploy-${{ inputs.target }}
+      cancel-in-progress: false
+    env:
+      FLY_APP_NAME: ${{ vars.FLY_APP_NAME }}
+      FLY_CONFIG: ${{ vars.FLY_CONFIG || 'fly.toml' }}
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha }}
+          fetch-depth: 0
+
+      - name: Validate deployment configuration
+        run: |
+          [[ "${{ inputs.release_sha }}" =~ ^[0-9a-f]{40}$ ]] || { echo "release_sha must be a full lowercase commit SHA" >&2; exit 1; }
+          release_sha=$(git rev-parse HEAD)
+          test "$release_sha" = "${{ inputs.release_sha }}" || { echo "Checked out SHA does not match release_sha" >&2; exit 1; }
+          git fetch origin main
+          git merge-base --is-ancestor "$release_sha" origin/main || { echo "release_sha is not reachable from main" >&2; exit 1; }
+          test -n "$FLY_APP_NAME" || { echo "FLY_APP_NAME is not configured for ${{ inputs.target }}" >&2; exit 1; }
+          test -n "$FLY_API_TOKEN" || { echo "FLY_API_TOKEN is not configured for ${{ inputs.target }}" >&2; exit 1; }
+          test -f "$FLY_CONFIG" || { echo "$FLY_CONFIG does not exist" >&2; exit 1; }
+          echo "RELEASE_SHA=$release_sha" >> "$GITHUB_ENV"
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Deploy
+        run: flyctl deploy --remote-only --config "$FLY_CONFIG" --app "$FLY_APP_NAME"
+
+      - name: Write deployment summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## Storefront deployment"
+            echo "- Commit SHA: \`$RELEASE_SHA\`"
+            echo "- Deployment target: \`${{ inputs.target }}\`"
+            echo "- Fly app: \`$FLY_APP_NAME\`"
+            echo "- Workflow run: [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${{ job.status }}" = "success" ]; then
+            if release_details=$(flyctl releases --app "$FLY_APP_NAME" --json 2>/dev/null | jq '.[0]'); then
+              {
+                echo "### Fly release"
+                echo '```json'
+                echo "$release_details"
+                echo '```'
+              } >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "- Fly release details: unavailable" >> "$GITHUB_STEP_SUMMARY"
+            fi
+          else
+            echo "- Fly release: deployment did not complete" >> "$GITHUB_STEP_SUMMARY"
+          fi

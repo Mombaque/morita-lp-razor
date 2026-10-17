@@ -5,6 +5,11 @@ on:
     branches:
       - main
   pull_request:
+  workflow_call:
+    inputs:
+      release_sha:
+        required: false
+        type: string
 
 jobs:
   build:
@@ -13,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.release_sha || github.sha }}
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -20,10 +27,15 @@ jobs:
           dotnet-version: 8.0.x
 
       - name: Restore
-        run: dotnet restore Morita.LP.Razor.csproj
+        run: |
+          dotnet restore Morita.LP.Razor.csproj
+          dotnet restore Morita.LP.Razor.Tests/Morita.LP.Razor.Tests.csproj
 
       - name: Build
         run: dotnet build Morita.LP.Razor.csproj -c Release --no-restore
+
+      - name: Test
+        run: dotnet test Morita.LP.Razor.Tests/Morita.LP.Razor.Tests.csproj -c Release --no-restore
 
       - name: Setup Flyctl
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'

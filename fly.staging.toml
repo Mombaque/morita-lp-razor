@@ -1,0 +1,43 @@
+app = 'morita-staging-storefront'
+primary_region = 'gru'
+
+[build]
+
+[env]
+  ASPNETCORE_ENVIRONMENT = "Production"
+  CanonicalBaseUrl = "https://morita-staging-storefront.fly.dev/"
+  CatalogApi__BaseUrl = "https://morita-staging-api.fly.dev"
+  CatalogApi__CacheSeconds = "30"
+  Storefront__DataProtectionKeyDirectory = "/var/morita/data-protection-keys"
+  Storefront__PrivacyPolicyUrl = "https://morita-staging-storefront.fly.dev/privacidade"
+  Storefront__PublicAssistantEnabled = "false"
+  Sentry__Environment = "staging"
+
+[[mounts]]
+  source = "data_protection"
+  destination = "/var/morita/data-protection-keys"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'requests'
+    soft_limit = 150
+    hard_limit = 200
+
+  [[http_service.checks]]
+    grace_period = '10s'
+    interval = '30s'
+    method = 'GET'
+    path = '/health'
+    timeout = '5s'
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
