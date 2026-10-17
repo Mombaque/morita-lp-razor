@@ -1,0 +1,53 @@
+@page "/termos"
+@model TermosModel
+@{
+    ViewData["Title"] = "Termos de Uso e Compra | Morita";
+    ViewData["Description"] = "Condições de uso do site e de compra na loja online da Morita.";
+    ViewData["BodyClass"] = "commerce-page legal-page";
+}
+
+<main class="legal-main" data-legal="termos">
+    <p class="fight-label">Loja online</p>
+    <h1>Termos de Uso e Compra</h1>
+    <p class="legal-updated">Última atualização: 17 de outubro de 2026</p>
+
+    <section>
+        <h2>Quem vende</h2>
+        <p>As vendas deste site são feitas por @Model.StoreName, com loja física na @Model.AddressLine.</p>
+    </section>
+
+    <section>
+        <h2>Conta de cliente</h2>
+        <p>Para comprar é preciso criar uma conta com e-mail confirmado. Você é responsável por manter sua senha em sigilo e por manter nome, telefone, CPF ou CNPJ e endereços corretos, pois eles são usados no pedido e na nota fiscal.</p>
+    </section>
+
+    <section>
+        <h2>Preços, estoque e reserva</h2>
+        <p>Preços e disponibilidade podem mudar sem aviso até a finalização da compra. Ao iniciar o pagamento, os itens ficam reservados por 30 minutos. Se o pagamento não for concluído nesse prazo, a reserva é liberada e os itens voltam a ficar disponíveis. O pedido só é confirmado depois que o pagamento é aprovado.</p>
+    </section>
+
+    <section>
+        <h2>Pagamento</h2>
+        <p>Aceitamos PIX e cartão, processados pelo Mercado Pago. O PIX deve ser pago dentro do prazo exibido no checkout. Pagamentos com cartão estão sujeitos à aprovação do emissor.</p>
+    </section>
+
+    <section>
+        <h2>Entrega e retirada</h2>
+        <p>Você pode retirar o pedido na loja ou receber pelos Correios ou transportadoras. O valor e o prazo do frete são calculados no checkout pelo CEP de entrega e começam a contar depois da aprovação do pagamento e da separação do pedido. Na retirada, avisamos por e-mail quando o pedido estiver pronto; apresente o código de retirada no balcão.</p>
+    </section>
+
+    <section>
+        <h2>Cancelamento, trocas e devoluções</h2>
+        <p>Você pode cancelar um pagamento pendente pelo próprio site. Depois da compra, trocas, devoluções e o direito de arrependimento seguem a nossa <a href="/trocas-e-devolucoes">Política de Trocas e Devoluções</a>.</p>
+    </section>
+
+    <section>
+        <h2>Privacidade</h2>
+        <p>O uso dos seus dados pessoais está descrito na <a href="/privacidade">Política de Privacidade</a>.</p>
+    </section>
+
+    <section>
+        <h2>Atendimento</h2>
+        <partial name="_LegalContact" model="Model" />
+    </section>
+</main>
