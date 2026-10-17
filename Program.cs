@@ -214,6 +214,10 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseWhen(
+    context => HttpMethods.IsGet(context.Request.Method) && context.Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase),
+    branch => branch.UseStatusCodePagesWithReExecute("/erro/{0}"));
+
 if (!app.Environment.IsEnvironment("E2E"))
     app.UseWhen(context => !context.Request.Path.Equals("/health"), branch => branch.UseHttpsRedirection());
 app.UseResponseCompression();

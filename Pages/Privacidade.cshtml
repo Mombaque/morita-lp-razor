@@ -1,0 +1,64 @@
+@page "/privacidade"
+@model PrivacidadeModel
+@{
+    ViewData["Title"] = "Política de Privacidade | Morita";
+    ViewData["Description"] = "Como a Morita coleta, usa e protege os dados enviados pelo site e pela loja online, de acordo com a LGPD.";
+    ViewData["BodyClass"] = "commerce-page legal-page";
+}
+
+<main class="legal-main" data-legal="privacidade">
+    <p class="fight-label">LGPD</p>
+    <h1>Política de Privacidade</h1>
+    <p class="legal-updated">Última atualização: 17 de outubro de 2026</p>
+
+    <section>
+        <h2>Quem somos</h2>
+        <p>Este site e a loja online pertencem a @Model.StoreName, loja de artes marciais localizada na @Model.AddressLine. A Morita é a controladora dos dados pessoais tratados por meio deste site.</p>
+    </section>
+
+    <section>
+        <h2>Quais dados coletamos</h2>
+        <ul>
+            <li><strong>Conta de cliente:</strong> nome, e-mail, telefone, CPF ou CNPJ, endereços salvos e senha. A senha é guardada apenas de forma criptografada (hash) e nunca é visível para a equipe.</li>
+            <li><strong>Pedidos:</strong> produtos, valores, forma de entrega, endereço de entrega ou de cobrança e o histórico do pedido, incluindo trocas, devoluções e problemas relatados.</li>
+            <li><strong>Pagamentos:</strong> o pagamento por PIX ou cartão é processado pelo Mercado Pago. Não recebemos nem guardamos o número completo do cartão; guardamos apenas a situação e os identificadores do pagamento.</li>
+            <li><strong>Consultas de produtos e avisos:</strong> nome, WhatsApp, produtos de interesse e medidas informadas para a escolha do tamanho, além do e-mail informado para avisos de volta ao estoque.</li>
+            <li><strong>Navegação no site:</strong> páginas visitadas, cliques, página de origem e parâmetros de campanha. Nosso servidor também registra o endereço IP e o tipo de navegador.</li>
+            <li><strong>Cookies:</strong> cookies essenciais guardam o carrinho, a sessão da sua conta e o andamento do checkout. O Google Tag Manager e o Google Ads podem usar cookies para medir visitas e conversões dos anúncios.</li>
+        </ul>
+    </section>
+
+    <section>
+        <h2>Para que usamos os dados</h2>
+        <ul>
+            <li>Criar e proteger sua conta, inclusive confirmar o e-mail e recuperar a senha.</li>
+            <li>Reservar os produtos, processar o pagamento, emitir a nota fiscal, separar, enviar ou entregar o pedido na retirada.</li>
+            <li>Enviar e-mails sobre o pedido: confirmação, retirada, envio, entrega, lembretes e pedidos de avaliação.</li>
+            <li>Atender trocas, devoluções, reembolsos e problemas relatados.</li>
+            <li>Enviar novidades e ofertas somente quando você autorizar, com descadastro em todos os e-mails.</li>
+            <li>Entender como o site é usado, medir campanhas e proteger o site contra fraudes e abusos.</li>
+        </ul>
+        <p>Tratamos os dados para executar o contrato de compra, cumprir obrigações legais e fiscais, com base no seu consentimento (por exemplo, e-mails de ofertas e consultas de produtos) e no legítimo interesse da Morita em manter o site seguro e melhorá-lo.</p>
+    </section>
+
+    <section>
+        <h2>Com quem compartilhamos</h2>
+        <p>Não vendemos seus dados. Compartilhamos apenas o necessário com fornecedores que operam a loja em nosso nome: hospedagem do site, Mercado Pago (pagamentos), Melhor Envio e transportadoras (cotação, etiqueta e rastreio do frete), serviço de envio de e-mails, emissão de nota fiscal junto à Secretaria da Fazenda, as ferramentas do Google citadas acima e as ferramentas internas usadas pela equipe para receber avisos de pedidos.</p>
+    </section>
+
+    <section>
+        <h2>Por quanto tempo guardamos</h2>
+        <p>Guardamos os dados da conta enquanto ela estiver ativa. Dados de pedidos e notas fiscais são mantidos pelo prazo exigido pela legislação fiscal e de defesa do consumidor. Dados de checkouts não pagos são apagados automaticamente após o período de retenção. Depois disso, os dados são excluídos ou anonimizados.</p>
+    </section>
+
+    <section>
+        <h2>Seus direitos</h2>
+        <p>De acordo com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018), você pode pedir a confirmação de que tratamos seus dados, o acesso, a correção, a exclusão ou a portabilidade deles, informações sobre o compartilhamento e a revogação do consentimento a qualquer momento. Alguns dados podem ser mantidos quando a lei exigir, como os de notas fiscais.</p>
+        <partial name="_LegalContact" model="Model" />
+    </section>
+
+    <section>
+        <h2>Alterações</h2>
+        <p>Esta política pode ser atualizada quando o site ou o atendimento mudarem. A data da última atualização fica sempre no topo desta página.</p>
+    </section>
+</main>

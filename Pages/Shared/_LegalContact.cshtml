@@ -1,0 +1,2 @@
+@model Morita.LP.Razor.Pages.LegalPageModel
+<p>Fale com a gente pelo <a href="@Morita.LP.Razor.Pages.LegalPageModel.WhatsAppUrl" target="_blank" rel="noopener noreferrer">WhatsApp @Morita.LP.Razor.Pages.LegalPageModel.WhatsAppDisplay</a>@if (!string.IsNullOrWhiteSpace(Model.ContactEmail)) { <text>, pelo e-mail <a href="mailto:@Model.ContactEmail">@Model.ContactEmail</a></text> } ou na loja, na @Model.AddressLine.</p>
