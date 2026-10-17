@@ -1,0 +1,58 @@
+name: Deploy Storefront Staging
+
+on:
+  push:
+    branches:
+      - ecommerce-implementation
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    with:
+      release_sha: ${{ github.sha }}
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment:
+      name: staging
+    concurrency:
+      group: morita-storefront-deploy-staging
+      cancel-in-progress: false
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        run: test -n "$FLY_API_TOKEN" || { echo "FLY_API_TOKEN is not configured for staging" >&2; exit 1; }
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@ed8efb33836e8b2096c7fd3ba1c8afe303ebbff1
+
+      - name: Deploy
+        run: flyctl deploy --remote-only --config fly.staging.toml
+
+      - name: Check health
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            curl --fail --silent --show-error --max-time 30 https://morita-staging-storefront.fly.dev/health && exit 0
+            sleep 10
+          done
+          echo "Staging storefront health check failed" >&2
+          exit 1
+
+      - name: Write deployment summary
+        if: ${{ always() }}
+        run: |
+          {
+            echo "## Storefront staging deployment"
+            echo "- Commit SHA: \`${{ github.sha }}\`"
+            echo "- Fly app: \`morita-staging-storefront\`"
+            echo "- Status: \`${{ job.status }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
