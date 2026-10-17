@@ -16,6 +16,7 @@ jobs:
 
   deploy:
     needs: ci
+    if: vars.STAGING_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment:
       name: staging
