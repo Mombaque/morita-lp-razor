@@ -13,6 +13,7 @@ using Morita.LP.Razor.Models;
 using Morita.LP.Razor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.WebHost.AddStorefrontErrorTracking(builder.Configuration, builder.Environment);
 
 // Add services to the container.
 builder.Services.AddRazorPages();
