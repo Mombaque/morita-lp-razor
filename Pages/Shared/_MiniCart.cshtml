@@ -1,3 +1,5 @@
+@inject Morita.LP.Razor.Services.IStoreInfoClient StoreInfo
+@{ var miniCartStore = await StoreInfo.GetAsync(Context.RequestAborted); }
 <div class="mini-cart-backdrop" data-mini-cart-backdrop hidden></div>
 <aside class="mini-cart" id="mini-cart" role="dialog" aria-modal="true" aria-labelledby="mini-cart-heading" aria-hidden="true" tabindex="-1" inert data-mini-cart>
     <div class="mini-cart-header">
@@ -14,7 +16,7 @@
     </div>
     <p class="mini-cart-count" data-mini-cart-count></p>
     <div class="mini-cart-actions">
-        <a class="commerce-button commerce-button-primary" href="/checkout">Finalizar compra</a>
+        @if (miniCartStore?.CheckoutPaused != true) { <a class="commerce-button commerce-button-primary" href="/checkout">Finalizar compra</a> }
         <a class="commerce-button commerce-button-secondary" href="/cart">Ver carrinho</a>
         <button type="button" class="mini-cart-continue" data-mini-cart-close>Continuar comprando</button>
     </div>

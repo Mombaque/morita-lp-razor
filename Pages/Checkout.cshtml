@@ -9,7 +9,11 @@
 <main class="checkout-shell commerce-checkout" data-checkout="page">
   <a class="back-link" href="/cart">← Voltar ao carrinho</a>
   <header class="checkout-heading"><p class="fight-label">Checkout seguro</p><h1>Como você quer receber?</h1><p data-checkout="fulfillment-intro">@Model.FulfillmentIntro</p></header>
-  @if (Model.Empty)
+  @if (Model.CheckoutPaused)
+  {
+    <div class="catalog-state catalog-unavailable" data-checkout="paused" role="alert"><h2>Compras pausadas</h2><p>@Model.ErrorMessage</p><a class="commerce-button commerce-button-secondary" href="https://wa.me/5515981079332">Falar no WhatsApp</a></div>
+  }
+  else if (Model.Empty)
   {
     <div class="catalog-state" data-checkout="empty"><p>Seu carrinho está vazio.</p><a class="commerce-button commerce-button-primary" href="/products">Ver produtos</a></div>
   }

@@ -2771,6 +2771,21 @@ a.product-variant-more:focus-visible {
   text-decoration: none;
 }
 
+.commerce-footer .commerce-footer-legal {
+  border-top: 1px solid var(--fight-line);
+  font-size: .78rem;
+  grid-column: 1 / -1;
+  padding-top: 1.25rem;
+}
+
+.checkout-paused-banner {
+  background: var(--fight-green);
+  color: var(--fight-black);
+  font-weight: 600;
+  padding: .75rem clamp(1rem, 3vw, 2.5rem);
+  text-align: center;
+}
+
 @media (max-width: 980px) {
   .catalog-header {
     gap: 2rem;

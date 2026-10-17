@@ -104,6 +104,12 @@ builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, 
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
+builder.Services.AddHttpClient<IStoreInfoClient, StoreInfoClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient("catalog-image-proxy", (serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
