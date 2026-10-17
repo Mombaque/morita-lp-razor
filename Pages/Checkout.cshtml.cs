@@ -20,7 +20,8 @@ public sealed class CheckoutModel(
     IOptions<StorefrontOptions>? storefrontOptions = null,
     IPaymentAttemptCookieStore? paymentAttempt = null,
     IOrderAccessCookieStore? orderAccess = null,
-    ICartPriceReview? priceReview = null) : PageModel
+    ICartPriceReview? priceReview = null,
+    IStoreInfoClient? storeInfo = null) : PageModel
 {
     private const string IncompleteProfileMessage = "Complete seu nome e telefone em Minha conta antes de continuar.";
     private bool CustomerAccountsEnabled => storefrontOptions?.Value.CustomerAccountsEnabled ?? true;
@@ -30,6 +31,7 @@ public sealed class CheckoutModel(
     public CheckoutConfigurationResult Configuration { get; private set; } = CheckoutConfigurationResult.Failure(CheckoutLoadState.Unavailable);
     public CheckoutLoadState? ErrorState { get; private set; }
     public string? ErrorMessage { get; private set; }
+    public bool CheckoutPaused { get; private set; }
     public string? AccountMessage { get; private set; }
     public bool AccountPrefilled { get; private set; }
     private CustomerAccountProfile? LoadedProfile { get; set; }
@@ -105,6 +107,7 @@ public sealed class CheckoutModel(
             Cart = cart.Read();
             return Page();
         }
+        if (await PausedAsync(cancellationToken)) return Page();
         if (accountCookies.Read() is null) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         await LoadAsync(cancellationToken);
         PriceChanges = priceReview?.Acknowledge(Cart, Quote) ?? [];
@@ -123,6 +126,16 @@ public sealed class CheckoutModel(
         FulfillmentMethod = RequestedFulfillment(Request.Query["fulfillment"]) ?? (Configuration.Configuration?.ShippingEnabled == true ? "shipping" : "pickup");
         PaymentMethod = RequestedPaymentMethod(Request.Query["paymentMethod"]) ?? StorefrontOnlinePayments.DefaultMethod(AvailablePaymentMethods) ?? OnlinePaymentMethod.Pix;
         draft.Ensure(); return Page();
+    }
+
+    private async Task<bool> PausedAsync(CancellationToken cancellationToken)
+    {
+        if (storeInfo is null || await storeInfo.GetAsync(cancellationToken) is not { CheckoutPaused: true } store) return false;
+        Cart = cart.Read();
+        CheckoutPaused = true;
+        ErrorState = CheckoutLoadState.Unavailable;
+        ErrorMessage = store.PausedMessage;
+        return true;
     }
 
     public async Task<IActionResult> OnPostQuoteShippingAsync(CancellationToken cancellationToken)
@@ -151,6 +164,7 @@ public sealed class CheckoutModel(
         ViewData["Robots"] = "noindex,nofollow";
         Cart = cart.Read();
         if (!CustomerAccountsEnabled) { accountCookies.Clear(); ErrorState = CheckoutLoadState.Unavailable; ErrorMessage = "O checkout exige uma conta de cliente."; return Page(); }
+        if (await PausedAsync(cancellationToken)) return Page();
         if (accountCookies.Read() is null) return RedirectToPage("/Account", new { mode = "signin", returnUrl = "/checkout" });
         await LoadConfigurationAsync(cancellationToken);
         if (!await LoadAccountAsync(cancellationToken)) return AccountFailureResult();

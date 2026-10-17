@@ -1,0 +1,49 @@
+@page "/trocas-e-devolucoes"
+@model TrocasEDevolucoesModel
+@{
+    ViewData["Title"] = "Trocas e Devoluções | Morita";
+    ViewData["Description"] = "Como trocar, devolver ou se arrepender de uma compra feita na loja online da Morita.";
+    ViewData["BodyClass"] = "commerce-page legal-page";
+}
+
+<main class="legal-main" data-legal="trocas">
+    <p class="fight-label">Pós-venda</p>
+    <h1>Trocas e Devoluções</h1>
+    <p class="legal-updated">Última atualização: 17 de outubro de 2026</p>
+    <p>Esta política vale para as compras feitas no site de @Model.StoreName.</p>
+
+    <section>
+        <h2>Direito de arrependimento</h2>
+        <p>Nas compras feitas pelo site, você pode desistir em até 7 dias corridos a partir do recebimento ou da retirada do pedido, conforme o artigo 49 do Código de Defesa do Consumidor. Nesse caso, devolvemos o valor total pago, incluindo o frete.</p>
+    </section>
+
+    <section>
+        <h2>Troca de tamanho ou modelo</h2>
+        <p>Trocas de tamanho, cor ou modelo podem ser pedidas no mesmo prazo de 7 dias, sujeitas à disponibilidade em estoque. O produto deve estar sem sinais de uso, com etiquetas e na embalagem original.</p>
+    </section>
+
+    <section>
+        <h2>Produto com defeito ou avaria</h2>
+        <p>Se o produto chegar danificado, diferente do pedido ou apresentar defeito, avise a gente o quanto antes. A garantia legal é de 90 dias para produtos duráveis, conforme o artigo 26 do Código de Defesa do Consumidor. Avaliamos o caso e oferecemos conserto, troca pelo mesmo produto ou a devolução do valor.</p>
+    </section>
+
+    <section>
+        <h2>Como pedir</h2>
+        <ol>
+            <li>Entre em <a href="/conta">Minha conta</a> e abra o pedido.</li>
+            <li>Em "Trocas, devoluções e problemas", escolha as peças e descreva o motivo.</li>
+            <li>A equipe responde com as instruções de envio ou de entrega na loja.</li>
+        </ol>
+        <p>Se preferir, também atendemos pelo WhatsApp.</p>
+    </section>
+
+    <section>
+        <h2>Reembolso</h2>
+        <p>O reembolso é feito pela mesma forma de pagamento usada na compra. No PIX, o valor volta para a conta de origem. No cartão, o estorno aparece na fatura conforme o prazo do emissor do cartão.</p>
+    </section>
+
+    <section>
+        <h2>Atendimento</h2>
+        <partial name="_LegalContact" model="Model" />
+    </section>
+</main>

@@ -105,6 +105,12 @@ builder.Services.AddHttpClient<ICatalogClient, CatalogClient>((serviceProvider, 
     client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
     client.Timeout = Timeout.InfiniteTimeSpan;
 }).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
+builder.Services.AddHttpClient<IStoreInfoClient, StoreInfoClient>((serviceProvider, client) =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
+    client.Timeout = Timeout.InfiniteTimeSpan;
+}).AddHttpMessageHandler<StorefrontApiHeadersHandler>();
 builder.Services.AddHttpClient("catalog-image-proxy", (serviceProvider, client) =>
 {
     var options = serviceProvider.GetRequiredService<IOptions<CatalogApiOptions>>().Value;
@@ -208,6 +214,10 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+
+app.UseWhen(
+    context => HttpMethods.IsGet(context.Request.Method) && context.Request.Headers.Accept.ToString().Contains("text/html", StringComparison.OrdinalIgnoreCase),
+    branch => branch.UseStatusCodePagesWithReExecute("/erro/{0}"));
 
 if (!app.Environment.IsEnvironment("E2E"))
     app.UseWhen(context => !context.Request.Path.Equals("/health"), branch => branch.UseHttpsRedirection());

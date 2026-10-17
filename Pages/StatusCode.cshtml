@@ -1,0 +1,22 @@
+@page "/erro/{code:int}"
+@model StatusCodeModel
+@{
+    ViewData["Title"] = (Model.NotFound ? "Página não encontrada" : "Algo deu errado") + " | Morita";
+    ViewData["Robots"] = "noindex,nofollow";
+    ViewData["BodyClass"] = "commerce-page legal-page";
+}
+
+<main class="legal-main" data-error-page="@Model.Code">
+    <p class="fight-label">Erro @Model.Code</p>
+    @if (Model.NotFound)
+    {
+        <h1>Página não encontrada</h1>
+        <p>O endereço pode ter mudado ou o produto não está mais disponível.</p>
+    }
+    else
+    {
+        <h1>Algo deu errado</h1>
+        <p>Não conseguimos atender esta solicitação agora. Tente de novo em alguns instantes.</p>
+    }
+    <p><a class="commerce-button commerce-button-primary" href="/products">Ver produtos</a> <a class="commerce-button commerce-button-secondary" href="/">Voltar para o início</a></p>
+</main>

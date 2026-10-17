@@ -2,6 +2,7 @@
 @inject Microsoft.Extensions.Options.IOptions<Morita.LP.Razor.Configuration.StorefrontOptions> StorefrontOptions
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @inject Morita.LP.Razor.Services.ICustomerAccountCookieStore CustomerAccountCookies
+@inject Morita.LP.Razor.Services.IStoreInfoClient StoreInfo
 @{
     var canonicalBase = Configuration["CanonicalBaseUrl"] ?? "https://moritafight.com.br/";
     var title = ViewData["Title"] ?? "Morita - Equipamentos para Artes Marciais em Sorocaba";
@@ -16,6 +17,7 @@
     var googleTagManagerId = Configuration["Analytics:GoogleTagManagerId"];
     var googleAdsId = Configuration["Analytics:GoogleAdsId"];
     var googleAdsPurchaseConversion = Configuration["Analytics:GoogleAdsPurchaseConversion"];
+    var store = await StoreInfo.GetAsync(Context.RequestAborted);
 }
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -103,6 +105,8 @@
         </nav>
     </header>
 
+    @if (store?.CheckoutPaused == true) { <div class="checkout-paused-banner" role="status" data-checkout-paused>@store.PausedMessage</div> }
+
     @RenderBody()
 
     <partial name="_MiniCart" />
@@ -112,7 +116,9 @@
     <footer class="commerce-footer">
         <div><img src="~/images/logo.png" alt="Morita Fight"><p>Equipamento para quem leva o treino a sério.</p></div>
         <div><strong>Loja</strong><a href="/products">Catálogo</a><a href="/jiu-jitsu">Jiu-Jitsu</a><a href="/muay-thai">Muay Thai</a><a href="/kids">Infantil</a></div>
+        <div><strong>Ajuda</strong><a href="/trocas-e-devolucoes">Trocas e devoluções</a><a href="/termos">Termos de uso e compra</a><a href="/privacidade">Política de privacidade</a></div>
         <div><strong>Visite</strong><a href="https://maps.app.goo.gl/pNYYiMimWGa4actz7">Rua Coronel Nogueira Padilha, 429<br>Sorocaba, SP</a><a href="https://wa.me/5515981079332">WhatsApp (15) 98107-9332</a><a href="https://www.instagram.com/morita.fight/" target="_blank" rel="noopener noreferrer">Instagram @@morita.fight</a>@if(customerAccountsEnabled && !customerSignedIn){<a href="/conta?mode=signin">Entrar</a><a href="/conta?mode=create">Criar conta</a>}</div>
+        @if (store?.HasLegalIdentity == true) { <p class="commerce-footer-legal" data-store-legal>@store.LegalName · CNPJ @store.Cnpj@if (store.Address is not null) { <text> · @store.Address.Line</text> }@if (!string.IsNullOrWhiteSpace(store.ContactEmail)) { <text> · </text><a href="mailto:@store.ContactEmail">@store.ContactEmail</a> }</p> }
     </footer>
 
     <script src="~/js/site.js" asp-append-version="true"></script>
