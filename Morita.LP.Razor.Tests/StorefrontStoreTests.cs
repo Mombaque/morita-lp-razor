@@ -60,6 +60,8 @@ public sealed class StorefrontStoreTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("data-checkout=\"paused\"", html);
         Assert.Contains(StorefrontStore.DefaultCheckoutPausedMessage, html);
+        Assert.Contains("<h1>Compras pausadas</h1>", html);
+        Assert.DoesNotContain("Como você quer receber?", html);
     }
 
     [Fact]
