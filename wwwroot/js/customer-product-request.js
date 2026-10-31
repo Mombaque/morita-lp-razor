@@ -2,7 +2,7 @@ import { ADULT_KIMONO_SIZE_CHART, KIDS_KIMONO_SIZE_CHART, suggestKimonoSize } fr
 
 const API_BASE_URL = window.API_BASE_URL || (window.location.hostname === 'localhost'
   ? 'http://localhost:5001'
-  : 'https://morita-api-1nnj.onrender.com');
+  : 'https://morita-api.fly.dev');
 
 const WHATSAPP_PHONE = window.MORITA_WHATSAPP_PHONE || '5515981079332';
 
