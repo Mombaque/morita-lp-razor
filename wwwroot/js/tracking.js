@@ -1,5 +1,52 @@
 const GOOGLE_ADS_CONTACT_CONVERSION = 'AW-17391563568/47KdCNHtgLEcELDm-ORA';
 const USAGE_EVENT_ENDPOINT = '/analytics/website-usage-event';
+const VISITOR_ID_KEY = 'morita-visitor-id';
+const SESSION_KEY = 'morita-visit-session';
+const SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+
+function createBrowserId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function getVisitorId() {
+  try {
+    const stored = window.localStorage.getItem(VISITOR_ID_KEY);
+    if (stored) return stored;
+
+    const visitorId = createBrowserId();
+    window.localStorage.setItem(VISITOR_ID_KEY, visitorId);
+    return visitorId;
+  } catch {
+    return undefined;
+  }
+}
+
+function getSessionId() {
+  try {
+    const now = Date.now();
+    const stored = JSON.parse(window.localStorage.getItem(SESSION_KEY) || 'null');
+    const session = stored?.id && now - stored.lastSeenAt < SESSION_IDLE_TIMEOUT_MS
+      ? stored
+      : { id: createBrowserId() };
+
+    window.localStorage.setItem(SESSION_KEY, JSON.stringify({ id: session.id, lastSeenAt: now }));
+    return session.id;
+  } catch {
+    return undefined;
+  }
+}
+
+function getExternalReferrer() {
+  if (!document.referrer) return undefined;
+
+  try {
+    return new URL(document.referrer).host === window.location.host ? undefined : document.referrer;
+  } catch {
+    return undefined;
+  }
+}
 
 function getPageCategory() {
   const path = window.location.pathname;
@@ -32,12 +79,14 @@ function getUtmPayload() {
 function toWebsiteUsagePayload(eventName, payload) {
   return {
     eventName,
+    visitorId: getVisitorId(),
+    sessionId: getSessionId(),
     eventCategory: payload.event_category,
     pagePath: payload.page_path || window.location.pathname,
     pageTitle: payload.page_title || document.title,
     destinationUrl: payload.destination_url || undefined,
     selectedCategory: payload.selected_category || undefined,
-    referrer: document.referrer || undefined,
+    referrer: getExternalReferrer(),
     ...getUtmPayload(),
   };
 }
