@@ -80,6 +80,7 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("172.16.0.0"), 12));
     options.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(IPAddress.Parse("fdaa::"), 16));
 });
+builder.Services.AddHsts(options => options.MaxAge = TimeSpan.FromDays(365));
 var dataProtection = builder.Services.AddDataProtection().SetApplicationName("Morita.LP.Razor");
 var keyDirectory = builder.Configuration[$"{StorefrontOptions.SectionName}:DataProtectionKeyDirectory"];
 if (!string.IsNullOrWhiteSpace(keyDirectory))
@@ -208,10 +209,10 @@ var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 app.UseForwardedHeaders();
+app.UseStorefrontSecurityHeaders();
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
 
