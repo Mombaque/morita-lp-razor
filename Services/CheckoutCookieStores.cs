@@ -23,6 +23,8 @@ public interface ICheckoutAccessCookieStore
     CheckoutAccess? Read(Guid publicCheckoutId);
     bool Write(CheckoutResponse checkout, string token);
     void Clear();
+    // Forgets one checkout and keeps access to the others on this device.
+    void Remove(Guid publicCheckoutId) => Clear();
 }
 
 public interface IPaymentAttemptCookieStore
@@ -80,40 +82,91 @@ public sealed class CheckoutDraftCookieStore(IHttpContextAccessor accessor, IDat
     private sealed record Payload(int Version, DateTimeOffset IssuedAt, string IdempotencyKey, string AccessToken);
 }
 
+// Keeps the access tokens of this device's most recent checkouts, so starting a second checkout, or opening
+// an older checkout link, never locks the shopper out of a reservation that is still waiting for payment.
+// Only a cookie that fails decryption or validation is deleted; asking for another checkout is not tampering.
 public sealed class CheckoutAccessCookieStore(IHttpContextAccessor accessor, IDataProtectionProvider protection, IHostEnvironment environment, TimeProvider timeProvider) : ICheckoutAccessCookieStore
 {
     public const string CookieName = "morita_checkout_access";
     public const int MaxProtectedBytes = 2048;
+    public const int MaxEntries = 3;
+    private static readonly JsonSerializerOptions ReadOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions WriteOptions = new() { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault };
     private readonly IDataProtector protector = protection.CreateProtector("Morita.LP.Razor.CheckoutAccess.v1");
-    public CheckoutAccess? Read(Guid publicCheckoutId)
+
+    public CheckoutAccess? Read(Guid publicCheckoutId) =>
+        publicCheckoutId == Guid.Empty ? null : ReadAll().FirstOrDefault(entry => entry.PublicCheckoutId == publicCheckoutId);
+
+    public bool Write(CheckoutResponse checkout, string token)
     {
-        if (accessor.HttpContext is not { } context || !context.Request.Cookies.TryGetValue(CookieName, out var value)) return null;
+        var now = timeProvider.GetUtcNow();
+        if (checkout.PublicCheckoutId == Guid.Empty || string.IsNullOrWhiteSpace(token) || token.Length < 32 || token.Length > 200 || checkout.AccessExpiresAt <= now) return false;
+        var entries = ReadAll()
+            .Where(entry => entry.PublicCheckoutId != checkout.PublicCheckoutId)
+            .Prepend(new CheckoutAccess(checkout.PublicCheckoutId, token, now, checkout.AccessExpiresAt))
+            .Take(MaxEntries)
+            .ToList();
+        // The newest checkout must always fit; older ones are dropped first when the cookie would grow too large.
+        while (entries.Count > 0)
+        {
+            if (TryAppend(entries)) return true;
+            if (entries.Count == 1) return false;
+            entries.RemoveAt(entries.Count - 1);
+        }
+        return false;
+    }
+
+    public void Remove(Guid publicCheckoutId)
+    {
+        var entries = ReadAll();
+        var remaining = entries.Where(entry => entry.PublicCheckoutId != publicCheckoutId).ToList();
+        if (remaining.Count == entries.Count) return;
+        if (remaining.Count == 0 || !TryAppend(remaining)) Clear();
+    }
+
+    public void Clear() => accessor.HttpContext?.Response.Cookies.Delete(CookieName, Options());
+
+    private List<CheckoutAccess> ReadAll()
+    {
+        if (accessor.HttpContext is not { } context || !context.Request.Cookies.TryGetValue(CookieName, out var value)) return [];
         try
         {
             if (value.Length > MaxProtectedBytes) throw new InvalidDataException();
-            var payload = JsonSerializer.Deserialize<Payload>(protector.Unprotect(value));
+            var payload = JsonSerializer.Deserialize<Payload>(protector.Unprotect(value), ReadOptions) ?? throw new InvalidDataException();
+            // Version 1 cookies, written before this store kept several checkouts, hold a single entry at the top level.
+            List<Entry?> stored = payload.Version switch
+            {
+                1 => [new Entry(payload.PublicCheckoutId, payload.Token, payload.IssuedAt, payload.AccessExpiresAt)],
+                2 when payload.Entries is { Count: > 0 and <= MaxEntries } list => list,
+                _ => throw new InvalidDataException()
+            };
             var now = timeProvider.GetUtcNow();
-            if (payload is null || payload.Version != 1 || payload.PublicCheckoutId != publicCheckoutId || payload.IssuedAt > now.AddMinutes(1) || now - payload.IssuedAt > TimeSpan.FromDays(30) || payload.AccessExpiresAt < now || string.IsNullOrWhiteSpace(payload.Token) || payload.Token.Length < 32 || payload.Token.Length > 200) throw new InvalidDataException();
-            return new(payload.PublicCheckoutId, payload.Token, payload.IssuedAt, payload.AccessExpiresAt);
+            var valid = stored.Where(entry => Valid(entry, now)).Select(entry => new CheckoutAccess(entry!.PublicCheckoutId, entry.Token!, entry.IssuedAt, entry.AccessExpiresAt)).ToList();
+            if (valid.Count == 0) throw new InvalidDataException();
+            return valid;
         }
         catch (Exception ex) when (ex is CryptographicException or JsonException or InvalidDataException or FormatException)
         {
             context.Response.Cookies.Delete(CookieName, Options());
-            return null;
+            return [];
         }
     }
-    public bool Write(CheckoutResponse checkout, string token)
+
+    private static bool Valid(Entry? entry, DateTimeOffset now) =>
+        entry is not null && entry.PublicCheckoutId != Guid.Empty && entry.IssuedAt <= now.AddMinutes(1) && now - entry.IssuedAt <= TimeSpan.FromDays(30) &&
+        entry.AccessExpiresAt >= now && !string.IsNullOrWhiteSpace(entry.Token) && entry.Token.Length is >= 32 and <= 200;
+
+    private bool TryAppend(IReadOnlyList<CheckoutAccess> entries)
     {
-        if (checkout.PublicCheckoutId == Guid.Empty || string.IsNullOrWhiteSpace(token) || token.Length < 32 || token.Length > 200 || checkout.AccessExpiresAt <= timeProvider.GetUtcNow()) return false;
-        var issued = timeProvider.GetUtcNow();
-        var value = protector.Protect(JsonSerializer.Serialize(new Payload(1, checkout.PublicCheckoutId, token, issued, checkout.AccessExpiresAt)));
+        var value = protector.Protect(JsonSerializer.Serialize(new Payload(2, Guid.Empty, null, default, default, entries.Select(entry => (Entry?)new Entry(entry.PublicCheckoutId, entry.Token, entry.IssuedAt, entry.AccessExpiresAt)).ToList()), WriteOptions));
         if (value.Length > MaxProtectedBytes) return false;
-        accessor.HttpContext?.Response.Cookies.Append(CookieName, value, Options(checkout.AccessExpiresAt));
+        accessor.HttpContext?.Response.Cookies.Append(CookieName, value, Options(entries.Max(entry => entry.AccessExpiresAt)));
         return true;
     }
-    public void Clear() => accessor.HttpContext?.Response.Cookies.Delete(CookieName, Options());
+
     private CookieOptions Options(DateTimeOffset? expires = null) => new() { HttpOnly = true, SameSite = SameSiteMode.Lax, Secure = !environment.IsDevelopment() && !environment.IsEnvironment("E2E"), IsEssential = true, Path = "/checkout", Expires = expires ?? timeProvider.GetUtcNow().AddDays(30) };
-    private sealed record Payload(int Version, Guid PublicCheckoutId, string Token, DateTimeOffset IssuedAt, DateTimeOffset AccessExpiresAt);
+    private sealed record Payload(int Version, Guid PublicCheckoutId, string? Token, DateTimeOffset IssuedAt, DateTimeOffset AccessExpiresAt, List<Entry?>? Entries = null);
+    private sealed record Entry(Guid PublicCheckoutId, string? Token, DateTimeOffset IssuedAt, DateTimeOffset AccessExpiresAt);
 }
 
 public sealed class PaymentAttemptCookieStore(IHttpContextAccessor accessor, IDataProtectionProvider protection, IHostEnvironment environment, TimeProvider timeProvider) : IPaymentAttemptCookieStore
@@ -130,8 +183,9 @@ public sealed class PaymentAttemptCookieStore(IHttpContextAccessor accessor, IDa
             if (value.Length > MaxProtectedBytes) throw new InvalidDataException();
             var payload = JsonSerializer.Deserialize<Payload>(protector.Unprotect(value));
             var now = timeProvider.GetUtcNow();
-            if (payload is null || payload.Version != 1 || payload.PublicCheckoutId != checkoutId || payload.IssuedAt > now.AddMinutes(1) || now - payload.IssuedAt > Lifetime || payload.IdempotencyKey.Length < 32 || payload.IdempotencyKey.Length > 128) throw new InvalidDataException();
-            return new(checkoutId, payload.IdempotencyKey, payload.IssuedAt);
+            if (payload is null || payload.Version != 1 || payload.PublicCheckoutId == Guid.Empty || payload.IssuedAt > now.AddMinutes(1) || now - payload.IssuedAt > Lifetime || payload.IdempotencyKey.Length < 32 || payload.IdempotencyKey.Length > 128) throw new InvalidDataException();
+            // An attempt for another checkout is still valid for that checkout; leave it in place.
+            return payload.PublicCheckoutId == checkoutId ? new(checkoutId, payload.IdempotencyKey, payload.IssuedAt) : null;
         }
         catch (Exception ex) when (ex is CryptographicException or JsonException or InvalidDataException or FormatException or NullReferenceException)
         { context.Response.Cookies.Delete(CookieName, Options()); return null; }
@@ -164,8 +218,9 @@ public sealed class OrderAccessCookieStore(IHttpContextAccessor accessor, IDataP
             if (value.Length > MaxProtectedBytes) throw new InvalidDataException();
             var payload = JsonSerializer.Deserialize<Payload>(protector.Unprotect(value));
             var now = timeProvider.GetUtcNow();
-            if (payload is null || payload.Version != 1 || !string.Equals(payload.PublicOrderNumber, publicOrderNumber, StringComparison.OrdinalIgnoreCase) || payload.IssuedAt > now.AddMinutes(1) || payload.ExpiresAt < now || payload.Token.Length < 32 || payload.Token.Length > 200) throw new InvalidDataException();
-            return new(payload.PublicOrderNumber, payload.Token, payload.IssuedAt, payload.ExpiresAt);
+            if (payload is null || payload.Version != 1 || !IsValidOrderNumber(payload.PublicOrderNumber ?? "") || payload.IssuedAt > now.AddMinutes(1) || payload.ExpiresAt < now || payload.Token.Length < 32 || payload.Token.Length > 200) throw new InvalidDataException();
+            // Opening another order's link must not revoke this device's access to the order it holds.
+            return string.Equals(payload.PublicOrderNumber, publicOrderNumber, StringComparison.OrdinalIgnoreCase) ? new(payload.PublicOrderNumber!, payload.Token, payload.IssuedAt, payload.ExpiresAt) : null;
         }
         catch (Exception ex) when (ex is CryptographicException or JsonException or InvalidDataException or FormatException or NullReferenceException)
         { context.Response.Cookies.Delete(CookieName, Options()); return null; }
