@@ -265,7 +265,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         }
         if (result.State == CheckoutLoadState.NotFound)
         {
-            access.Clear();
+            access.Remove(PublicCheckoutId);
             State = result.State;
             Checkout = null;
             Message = "Esta reserva não está disponível ou já expirou.";
@@ -299,7 +299,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         Message = result.Message ?? (result.State == CheckoutLoadState.NotFound ? "Esta reserva não está disponível ou já expirou." : null);
         if (result.State == CheckoutLoadState.NotFound)
         {
-            access.Clear();
+            access.Remove(PublicCheckoutId);
         }
         if (Checkout is not null)
         {

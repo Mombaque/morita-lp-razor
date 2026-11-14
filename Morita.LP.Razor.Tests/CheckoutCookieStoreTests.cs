@@ -72,6 +72,87 @@ public sealed class CheckoutCookieStoreTests
     }
 
     [Fact]
+    public void Access_cookie_keeps_earlier_checkouts_and_survives_a_lookup_for_another_checkout()
+    {
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var first = AccessCheckout();
+        var second = AccessCheckout();
+        var context = new DefaultHttpContext();
+        Assert.True(Access(provider, context).Write(first, new string('a', 32)));
+        context = NextRequest(context, CheckoutAccessCookieStore.CookieName);
+        Assert.True(Access(provider, context).Write(second, new string('b', 32)));
+        context = NextRequest(context, CheckoutAccessCookieStore.CookieName);
+
+        var store = Access(provider, context);
+        Assert.Null(store.Read(Guid.NewGuid()));
+        Assert.Equal(new string('a', 32), store.Read(first.PublicCheckoutId)?.Token);
+        Assert.Equal(new string('b', 32), store.Read(second.PublicCheckoutId)?.Token);
+        Assert.Empty(context.Response.Headers.SetCookie.ToString());
+    }
+
+    [Fact]
+    public void Access_cookie_reads_a_single_checkout_cookie_written_before_it_kept_several()
+    {
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var checkoutId = Guid.NewGuid();
+        var context = new DefaultHttpContext();
+        context.Request.Headers.Cookie = $"{CheckoutAccessCookieStore.CookieName}={Protect(provider, new { Version = 1, PublicCheckoutId = checkoutId, Token = new string('v', 32), IssuedAt = Now, AccessExpiresAt = Now.AddDays(1) })}";
+
+        Assert.Equal(new string('v', 32), Access(provider, context).Read(checkoutId)?.Token);
+
+        var next = AccessCheckout();
+        Assert.True(Access(provider, context).Write(next, new string('n', 32)));
+        context = NextRequest(context, CheckoutAccessCookieStore.CookieName);
+        Assert.Equal(new string('v', 32), Access(provider, context).Read(checkoutId)?.Token);
+        Assert.Equal(new string('n', 32), Access(provider, context).Read(next.PublicCheckoutId)?.Token);
+    }
+
+    [Fact]
+    public void Access_cookie_keeps_the_newest_checkouts_and_removes_one_without_the_others()
+    {
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var checkouts = new[] { AccessCheckout(), AccessCheckout(), AccessCheckout(), AccessCheckout() };
+        var context = new DefaultHttpContext();
+        foreach (var checkout in checkouts)
+        {
+            Assert.True(Access(provider, context).Write(checkout, new string('t', 200)));
+            Assert.True(CookieValue(context, CheckoutAccessCookieStore.CookieName).Length <= CheckoutAccessCookieStore.MaxProtectedBytes);
+            context = NextRequest(context, CheckoutAccessCookieStore.CookieName);
+        }
+
+        Assert.Null(Access(provider, context).Read(checkouts[0].PublicCheckoutId));
+        Assert.All(checkouts[1..], checkout => Assert.NotNull(Access(provider, context).Read(checkout.PublicCheckoutId)));
+
+        Access(provider, context).Remove(checkouts[2].PublicCheckoutId);
+        context = NextRequest(context, CheckoutAccessCookieStore.CookieName);
+        Assert.Null(Access(provider, context).Read(checkouts[2].PublicCheckoutId));
+        Assert.NotNull(Access(provider, context).Read(checkouts[1].PublicCheckoutId));
+        Assert.NotNull(Access(provider, context).Read(checkouts[3].PublicCheckoutId));
+    }
+
+    [Fact]
+    public void Payment_attempt_and_order_cookies_survive_a_lookup_for_another_id()
+    {
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var context = new DefaultHttpContext();
+        var checkoutId = Guid.NewGuid();
+        var attempt = new PaymentAttemptCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment("Production"), new FixedTimeProvider(Now)).Ensure(checkoutId);
+        context = NextRequest(context, PaymentAttemptCookieStore.CookieName);
+        var attempts = new PaymentAttemptCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment("Production"), new FixedTimeProvider(Now));
+        Assert.Null(attempts.Read(Guid.NewGuid()));
+        Assert.Equal(attempt, attempts.Read(checkoutId));
+        Assert.Empty(context.Response.Headers.SetCookie.ToString());
+
+        context = new DefaultHttpContext();
+        Assert.True(new OrderAccessCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment("Production"), new FixedTimeProvider(Now)).Write("MF-0123456789ABCDEF", new string('t', 32)));
+        context = NextRequest(context, OrderAccessCookieStore.CookieName);
+        var orders = new OrderAccessCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment("Production"), new FixedTimeProvider(Now));
+        Assert.Null(orders.Read("MF-FEDCBA9876543210"));
+        Assert.NotNull(orders.Read("MF-0123456789ABCDEF"));
+        Assert.Empty(context.Response.Headers.SetCookie.ToString());
+    }
+
+    [Fact]
     public void Payment_attempt_is_stable_and_bound_to_checkout()
     {
         var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
@@ -122,6 +203,14 @@ public sealed class CheckoutCookieStoreTests
     private static CheckoutDraftCookieStore Draft(IDataProtectionProvider provider, HttpContext context, string environment = "Development") => new(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(environment), new FixedTimeProvider(Now));
     private static CheckoutAccessCookieStore Access(IDataProtectionProvider provider, HttpContext context, string environment = "Development") => new(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(environment), new FixedTimeProvider(Now));
     private static string CookieValue(HttpContext context, string name) => context.Response.Headers.SetCookie.ToString().Split(';', 2)[0].Split('=', 2)[1];
+    // The next request from the same browser carries the cookie the previous response set.
+    private static DefaultHttpContext NextRequest(HttpContext previous, string name)
+    {
+        var next = new DefaultHttpContext();
+        next.Request.Headers.Cookie = $"{name}={CookieValue(previous, name)}";
+        return next;
+    }
+    private static CheckoutResponse AccessCheckout() => new() { PublicCheckoutId = Guid.NewGuid(), ExpiresAt = Now.AddMinutes(30), AccessExpiresAt = Now.AddDays(30), Currency = "BRL", Total = 10, MerchandiseTotal = 10, Pickup = Pickup(), Lines = [new CheckoutLine { PublicOfferId = Guid.NewGuid(), Quantity = 1, UnitPrice = 10, LineTotal = 10 }] };
     private static string Protect(IDataProtectionProvider provider, object value) => provider.CreateProtector("Morita.LP.Razor.CheckoutAccess.v1").Protect(JsonSerializer.Serialize(value));
     private static PickupSnapshot Pickup() => new() { PublicPickupId = Guid.NewGuid(), DisplayName = "Loja", Address = new() { Street = "Rua", Number = "1", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" } };
 
