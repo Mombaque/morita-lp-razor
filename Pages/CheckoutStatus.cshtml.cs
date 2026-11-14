@@ -23,6 +23,12 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
     public bool EmbeddedPayments => PaymentClient is not null;
     public bool CanEnterCard => EmbeddedPayments && CardAvailable && Checkout?.Status is ("active" or "paymentpending")
         && (Payment is null || Payment.Status is ("failed" or "cancelled" or "expired"));
+    // A finished checkout can be rebuilt once its payment can no longer turn into an order: never started, failed,
+    // cancelled, expired, or being refunded because it arrived after the reservation ended.
+    public bool CanRestoreCheckout => Checkout?.Status is "expired" or "cancelled" && PaymentAllowsRestore(PaymentState, Payment);
+    private static bool PaymentAllowsRestore(PaymentLoadState state, PixPayment? payment) =>
+        state == PaymentLoadState.NotFound && payment is null ||
+        state == PaymentLoadState.Success && payment?.Status is "expired" or "failed" or "cancelled" or "refundpending" or "refunded";
     [BindProperty(SupportsGet = true)] public Guid PublicCheckoutId { get; set; }
     [BindProperty(SupportsGet = true)] public OnlinePaymentMethod PaymentMethod { get; set; } = OnlinePaymentMethod.Pix;
 
@@ -136,8 +142,7 @@ public sealed class CheckoutStatusModel(ICheckoutClient client, ICheckoutAccessC
         }
 
         var paymentResult = await client.GetPaymentAsync(PublicCheckoutId, credential.Token, cancellationToken);
-        if (paymentResult.State != PaymentLoadState.NotFound &&
-            (paymentResult.State != PaymentLoadState.Success || paymentResult.Payment is { Status: not ("expired" or "failed" or "cancelled") }))
+        if (!PaymentAllowsRestore(paymentResult.State, paymentResult.Payment))
         {
             await LoadOwnedAsync(cancellationToken);
             Message = "Este checkout não pode ser refeito porque o pagamento ainda pode ser processado.";

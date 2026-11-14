@@ -706,6 +706,59 @@ public sealed class CheckoutStatusPageTests
         Assert.Contains("Refazer com estes itens", html);
     }
 
+    [Theory]
+    [InlineData("refundpending")]
+    [InlineData("refunded")]
+    public async Task Expired_checkout_with_a_late_payment_being_refunded_can_be_restored(string paymentStatus)
+    {
+        var id = Guid.NewGuid();
+        var checkout = Checkout(id, "expired");
+        var api = new FakeCheckout
+        {
+            Checkout = checkout,
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = paymentStatus, Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1) })
+        };
+        var cart = new FakeCart();
+        var page = Create(id, api, new FakeOrderAccess(), cart);
+
+        var redirect = Assert.IsType<RedirectToPageResult>(await page.OnPostRestoreCheckoutAsync(CancellationToken.None));
+
+        Assert.Equal("/Checkout", redirect.PageName);
+        Assert.Equal(checkout.Lines.Select(line => new CartLine(line.PublicOfferId, line.Quantity, line.UnitPrice)), cart.ReplacedLines);
+    }
+
+    [Fact]
+    public async Task Expired_checkout_with_a_payment_still_in_flight_waits_instead_of_offering_restore()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "expired"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "processing", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(5) })
+        };
+
+        var html = await RenderStatusAsync(id, api);
+
+        Assert.DoesNotContain("Refazer com estes itens", html);
+        Assert.Contains("data-checkout=\"restore-waiting\"", html);
+    }
+
+    [Fact]
+    public async Task Refund_pending_checkout_offers_to_restore_its_items()
+    {
+        var id = Guid.NewGuid();
+        var api = new FakeCheckout
+        {
+            Checkout = Checkout(id, "expired"),
+            Payment = new(PaymentLoadState.Success, new PixPayment { Status = "refundpending", Amount = 10, Currency = "BRL", ExpiresAt = DateTimeOffset.UtcNow.AddDays(-1) })
+        };
+
+        var html = await RenderStatusAsync(id, api);
+
+        Assert.Contains("Refazer com estes itens", html);
+        Assert.DoesNotContain("restore-waiting", html);
+    }
+
     private static async Task<string> RenderStatusAsync(Guid id, FakeCheckout api)
     {
         using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder => builder.ConfigureTestServices(services =>
