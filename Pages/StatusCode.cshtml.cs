@@ -8,7 +8,7 @@ namespace Morita.LP.Razor.Pages;
 public sealed class StatusCodeModel : PageModel
 {
     public int Code { get; private set; }
-    public bool NotFound => Code == StatusCodes.Status404NotFound;
+    public bool IsNotFound => Code == StatusCodes.Status404NotFound;
 
     public IActionResult OnGet(int code)
     {
