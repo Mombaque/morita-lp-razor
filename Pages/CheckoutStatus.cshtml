@@ -142,7 +142,17 @@
             @await Html.PartialAsync("_CheckoutPaymentFlow", Model)
         }
 
-        @if (Model.Checkout.Status is "expired" or "cancelled")
+        @if (Model.Checkout.Status is "expired" or "cancelled" && !Model.CanRestoreCheckout)
+        {
+            <section class="checkout-next-step" aria-labelledby="restart-checkout-heading" data-checkout="restore-waiting">
+                <div>
+                    <p class="checkout-card-kicker">03 // Próximo passo</p>
+                    <h2 id="restart-checkout-heading">Aguardando o pagamento</h2>
+                    <p>Ainda estamos confirmando o pagamento desta reserva. Atualize esta página em alguns minutos; se ele não for concluído, você poderá refazer o checkout com estes itens.</p>
+                </div>
+            </section>
+        }
+        @if (Model.CanRestoreCheckout)
         {
             <section class="checkout-next-step" aria-labelledby="restart-checkout-heading">
                 <div>

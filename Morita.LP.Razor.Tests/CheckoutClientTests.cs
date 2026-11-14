@@ -48,6 +48,30 @@ public sealed class CheckoutClientTests
         }
     }
 
+    [Theory]
+    [InlineData("""[{"key":"Fulfillment","message":"A cotação de frete expirou. Calcule o frete novamente."}]""", "A cotação de frete expirou. Calcule o frete novamente.")]
+    [InlineData("""{"title":"One or more validation errors occurred."}""", "Não foi possível reservar os itens com os dados atuais.")]
+    [InlineData("""[{"message":""}]""", "Não foi possível reservar os itens com os dados atuais.")]
+    public async Task Checkout_rejection_shows_the_api_explanation_when_it_sends_one(string body, string expected)
+    {
+        using var handler = new RecordingHandler(HttpStatusCode.UnprocessableEntity, body);
+
+        var result = await Create(handler).CreateAsync(new([], new CheckoutContact(), new CheckoutFulfillment("pickup", Guid.NewGuid())), new string('i', 32), new string('a', 32));
+
+        Assert.Equal(CheckoutLoadState.Validation, result.State);
+        Assert.Equal(expected, result.Message);
+    }
+
+    [Fact]
+    public async Task Checkout_rejection_ignores_an_overlong_api_message()
+    {
+        using var handler = new RecordingHandler(HttpStatusCode.UnprocessableEntity, $$"""[{"message":"{{new string('x', 301)}}"}]""");
+
+        var result = await Create(handler).CreateAsync(new([], new CheckoutContact(), new CheckoutFulfillment("pickup", Guid.NewGuid())), new string('i', 32), new string('a', 32));
+
+        Assert.Equal("Não foi possível reservar os itens com os dados atuais.", result.Message);
+    }
+
     [Fact]
     public async Task Create_maps_a_valid_authoritative_response_and_requires_the_requested_pickup()
     {
@@ -480,6 +504,7 @@ public sealed class CheckoutClientTests
     private sealed class RecordingHandler(string response) : HttpMessageHandler
     {
         public RecordingHandler(HttpStatusCode status) : this("") { Status = status; }
+        public RecordingHandler(HttpStatusCode status, string response) : this(response) { Status = status; }
         private HttpStatusCode Status { get; set; } = HttpStatusCode.OK;
         public HttpRequestMessage? Request { get; private set; }
         public string Body { get; private set; } = "";

@@ -24,6 +24,7 @@ public sealed class CheckoutModel(
     IStoreInfoClient? storeInfo = null) : PageModel
 {
     private const string IncompleteProfileMessage = "Complete seu nome e telefone em Minha conta antes de continuar.";
+    public const string AvailabilityChangedMessage = "A disponibilidade dos itens mudou. Ajuste as quantidades no carrinho antes de tentar novamente.";
     private bool CustomerAccountsEnabled => storefrontOptions?.Value.CustomerAccountsEnabled ?? true;
     public CartState Cart { get; private set; } = new(DateTimeOffset.UtcNow, []);
     public CatalogQuoteResult Quote { get; private set; } = CatalogQuoteResult.Unavailable();
@@ -117,6 +118,7 @@ public sealed class CheckoutModel(
             if (ErrorState == CheckoutLoadState.Validation && string.Equals(AccountMessage, IncompleteProfileMessage, StringComparison.Ordinal)) return CompleteProfileRedirect();
             return Page();
         }
+        if (Quote.State == CatalogLoadState.Partial) return AvailabilityChangedRedirect();
         if (!HasAvailableFulfillment)
         {
             ErrorState = CheckoutLoadState.Unavailable;
@@ -179,6 +181,8 @@ public sealed class CheckoutModel(
         if (Empty) { ErrorState = CheckoutLoadState.Validation; ErrorMessage = "Seu carrinho está vazio."; return Page(); }
         if (!rateLimiter.TryConsume(ClientIdentityResolver.Resolve(HttpContext, HttpContext.RequestServices.GetRequiredService<IHostEnvironment>()), "checkout-create")) { ErrorState = CheckoutLoadState.RateLimited; ErrorMessage = "Muitas tentativas. Aguarde um pouco."; await LoadQuoteAsync(cancellationToken); return Page(); }
         await LoadQuoteAsync(cancellationToken);
+        // Someone else reserved the last units after this page loaded: the cart is where quantities can be fixed.
+        if (Quote.State == CatalogLoadState.Partial) return AvailabilityChangedRedirect();
         ValidateFulfillment();
         ValidateDocument();
         if (!ModelState.IsValid || !CanSubmit) { ErrorState = !CanSubmit && Quote.State == CatalogLoadState.Unavailable ? CheckoutLoadState.Unavailable : CheckoutLoadState.Validation; ErrorMessage ??= !ModelState.IsValid ? "Confira os campos destacados abaixo." : FulfillmentMethod == "shipping" ? "Calcule o frete e escolha uma opção de entrega." : "Os itens do carrinho não estão disponíveis para reserva."; if (FulfillmentMethod == "shipping") await LoadShippingQuotesAsync(cancellationToken); return Page(); }
@@ -235,11 +239,7 @@ public sealed class CheckoutModel(
             if (result.State == CheckoutLoadState.Validation)
             {
                 await LoadQuoteAsync(cancellationToken);
-                if (Quote.State == CatalogLoadState.Partial)
-                {
-                    TempData["CartMessage"] = "A disponibilidade dos itens mudou. Ajuste as quantidades no carrinho antes de tentar novamente.";
-                    return RedirectToPage("/Cart");
-                }
+                if (Quote.State == CatalogLoadState.Partial) return AvailabilityChangedRedirect();
             }
             if (FulfillmentMethod == "shipping") { PublicShippingQuoteId = null; await LoadShippingQuotesAsync(cancellationToken); }
         }
@@ -321,6 +321,11 @@ public sealed class CheckoutModel(
         if (defaultResult.Value) return;
         if (defaultResult.State == AccountLoadState.Unauthorized) accountCookies.Clear();
         TempData["CheckoutAccountMessage"] = "Reserva criada. O endereço foi salvo, mas não foi possível defini-lo como padrão.";
+    }
+    private RedirectToPageResult AvailabilityChangedRedirect()
+    {
+        if (TempData is { } tempData) tempData["CartMessage"] = AvailabilityChangedMessage;
+        return RedirectToPage("/Cart");
     }
     private IActionResult QuoteShippingResult() => IsQuoteFragmentRequest ? Partial("_CheckoutShippingQuote", this) : Page();
     private bool AccountWasUnauthorized() => ErrorState == CheckoutLoadState.Unauthorized;

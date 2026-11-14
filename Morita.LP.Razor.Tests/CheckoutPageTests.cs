@@ -991,6 +991,45 @@ public sealed class CheckoutPageTests
     }
 
     [Fact]
+    public async Task Stock_lost_before_submission_redirects_to_cart_without_creating_a_checkout()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var partial = Quote(offer, 1, "insufficient");
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, catalog: new StubCatalog(partial));
+        page.TempData = new TempDataDictionary(context, new TestTempDataProvider());
+        page.Contact = new() { Name = "Customer", Email = "customer@example.com", Phone = "15999999999" };
+
+        var redirect = Assert.IsType<RedirectToPageResult>(await page.OnPostAsync(CancellationToken.None));
+
+        Assert.Equal("/Cart", redirect.PageName);
+        Assert.Equal(CheckoutModel.AvailabilityChangedMessage, page.TempData["CartMessage"]?.ToString());
+        Assert.Empty(api.Requests);
+        Assert.Equal(0, cart.ClearCalls);
+    }
+
+    [Fact]
+    public async Task Opening_checkout_with_unavailable_items_redirects_to_cart()
+    {
+        var offer = Guid.NewGuid();
+        var cart = new TestCart(new(DateTimeOffset.UtcNow, [new(offer, 1)]));
+        var api = new RecordingCheckout();
+        var context = new DefaultHttpContext { RequestServices = Services() };
+        var provider = DataProtectionProvider.Create(Directory.CreateTempSubdirectory(), c => c.SetApplicationName("Morita.LP.Razor"));
+        var page = CreatePage(context, cart, api, new CheckoutDraftCookieStore(new HttpContextAccessor { HttpContext = context }, provider, new TestEnvironment(), TimeProvider.System), offer, catalog: new StubCatalog(Quote(offer, 1, "insufficient")));
+        page.TempData = new TempDataDictionary(context, new TestTempDataProvider());
+        api.Configuration = new(CheckoutLoadState.Success, new() { PickupEnabled = false, ShippingEnabled = true, Currency = "BRL" });
+
+        var redirect = Assert.IsType<RedirectToPageResult>(await page.OnGetAsync(CancellationToken.None));
+
+        Assert.Equal("/Cart", redirect.PageName);
+        Assert.Equal(CheckoutModel.AvailabilityChangedMessage, page.TempData["CartMessage"]?.ToString());
+    }
+
+    [Fact]
     public async Task Validation_with_still_successful_quote_stays_on_checkout()
     {
         var offer = Guid.NewGuid();
