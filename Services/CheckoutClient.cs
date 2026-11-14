@@ -260,7 +260,8 @@ public sealed class CheckoutClient(
             using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
             if (response.StatusCode == HttpStatusCode.Unauthorized) return new(response.StatusCode, CheckoutLoadState.Unauthorized, default, "Sua sessão expirou. O checkout continuará como convidado.");
             if (response.StatusCode == HttpStatusCode.NoContent) return new(response.StatusCode, CheckoutLoadState.Success, default, null);
-            if (response.StatusCode == HttpStatusCode.UnprocessableEntity) return new(response.StatusCode, CheckoutLoadState.Validation, default, "Não foi possível reservar os itens com os dados atuais.");
+            // The API explains a rejection (expired freight quote, paused store, missing stock); show it when it sends one.
+            if (response.StatusCode == HttpStatusCode.UnprocessableEntity) return new(response.StatusCode, CheckoutLoadState.Validation, default, await FirstNotificationAsync(response, timeout.Token) ?? "Não foi possível reservar os itens com os dados atuais.");
             if (response.StatusCode == HttpStatusCode.Conflict) return new(response.StatusCode, CheckoutLoadState.Conflict, default, "A tentativa de checkout mudou. Tente novamente.");
             if (response.StatusCode == HttpStatusCode.NotFound) return new(response.StatusCode, CheckoutLoadState.NotFound, default, "Esta reserva não está disponível.");
             if (response.StatusCode == (HttpStatusCode)429) return new(response.StatusCode, CheckoutLoadState.RateLimited, default, "Muitas tentativas. Aguarde um pouco.");
@@ -272,6 +273,18 @@ public sealed class CheckoutClient(
         catch (OperationCanceledException) when (!callerToken.IsCancellationRequested) { logger.LogWarning("Checkout API request timed out"); return new(null, CheckoutLoadState.Timeout, default, "A confirmação demorou. Seus dados foram preservados; tente novamente."); }
         catch (HttpRequestException exception) { logger.LogWarning(exception, "Checkout API unavailable"); return new(null, CheckoutLoadState.Unavailable, default, "Não foi possível acessar o serviço. Tente novamente."); }
         catch (JsonException exception) { logger.LogWarning(exception, "Checkout API response malformed"); return new(null, CheckoutLoadState.Malformed, default, "A resposta do serviço não pôde ser validada."); }
+    }
+
+    private static async Task<string?> FirstNotificationAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var notifications = await response.Content.ReadFromJsonAsync<List<NotificationDto?>>(JsonOptions, cancellationToken);
+            var message = notifications?.Select(item => item?.Message?.Trim()).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            return message is { Length: <= 300 } ? message : null;
+        }
+        catch (JsonException) { return null; }
+        catch (NotSupportedException) { return null; }
     }
 
     private static PaymentClientConfiguration? MapPaymentClient(PaymentClientDto? x)
@@ -348,6 +361,7 @@ public sealed class CheckoutClient(
     private sealed class ResponseDto { public Guid PublicCheckoutId { get; set; } public string? Status { get; set; } public DateTimeOffset ExpiresAt { get; set; } public DateTimeOffset AccessExpiresAt { get; set; } public List<LineDto>? Lines { get; set; } public decimal MerchandiseTotal { get; set; } public decimal DiscountTotal { get; set; } public decimal FreightTotal { get; set; } public decimal Total { get; set; } public string? Currency { get; set; } public string? FulfillmentMethod { get; set; } public PickupDto? Pickup { get; set; } public ShippingDto? Shipping { get; set; } public ContactDto? Contact { get; set; } }
     private sealed class LineDto { public Guid PublicOfferId { get; set; } public int Quantity { get; set; } public string? Presentation { get; set; } public string? ImageUrl { get; set; } public decimal UnitPrice { get; set; } public decimal LineTotal { get; set; } }
     private sealed class PaymentDto { public string? Status { get; set; } public OnlinePaymentMethod? Method { get; set; } public decimal Amount { get; set; } public string? Currency { get; set; } public DateTimeOffset ExpiresAt { get; set; } public string? PixCopyPaste { get; set; } public string? QrCodePngBase64 { get; set; } public string? CheckoutUrl { get; set; } public string? PublicOrderNumber { get; set; } public string? CheckoutMode { get; set; } public ChallengeDto? Challenge { get; set; } public int? Installments { get; set; } public string? FailureReason { get; set; } }
+    private sealed class NotificationDto { public string? Message { get; set; } }
     private sealed class PostalCodeDto { public string? Street { get; set; } public string? Neighborhood { get; set; } public string? City { get; set; } public string? State { get; set; } }
     private sealed class ShippingQuoteRequestDto { public List<LineRequestDto> Lines { get; set; } = []; public string DestinationPostalCode { get; set; } = ""; }
     private sealed class ShippingQuoteDto { public DateTimeOffset ExpiresAt { get; set; } public string? Currency { get; set; } public List<ShippingQuoteOptionDto>? Options { get; set; } }
