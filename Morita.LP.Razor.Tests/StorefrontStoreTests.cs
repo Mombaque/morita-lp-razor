@@ -20,7 +20,7 @@ public sealed class StorefrontStoreTests
         LegalName = "Morita Artigos Esportivos LTDA",
         Cnpj = "11.222.333/0001-81",
         ContactEmail = "contato@morita.test",
-        Address = new StorefrontStoreAddress { Street = "Rua Coronel Nogueira Padilha", Number = "429", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000-000" }
+        Address = new StorefrontStoreAddress { Street = "Rua Coronel Nogueira Padilha", Number = "429", Neighborhood = "Centro", City = "Sorocaba", State = "SP", PostalCode = "18000000" }
     };
 
     [Fact]
@@ -60,6 +60,8 @@ public sealed class StorefrontStoreTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Contains("data-checkout=\"paused\"", html);
         Assert.Contains(StorefrontStore.DefaultCheckoutPausedMessage, html);
+        Assert.Contains("<h1>Compras pausadas</h1>", html);
+        Assert.DoesNotContain("Como você quer receber?", html);
     }
 
     [Fact]

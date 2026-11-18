@@ -35,7 +35,16 @@ public sealed class StorefrontStoreAddress
         {
             var street = string.Join(", ", new[] { Street, Number, Complement }.Where(part => !string.IsNullOrWhiteSpace(part)));
             var city = string.Join(" - ", new[] { City, State }.Where(part => !string.IsNullOrWhiteSpace(part)));
-            return string.Join(" · ", new[] { street, Neighborhood, city, PostalCode }.Where(part => !string.IsNullOrWhiteSpace(part)));
+            return string.Join(" · ", new[] { street, Neighborhood, city, FormattedPostalCode }.Where(part => !string.IsNullOrWhiteSpace(part)));
+        }
+    }
+
+    public string FormattedPostalCode
+    {
+        get
+        {
+            var digits = new string(PostalCode.Where(char.IsAsciiDigit).ToArray());
+            return digits.Length == 8 ? $"{digits[..5]}-{digits[5..]}" : PostalCode.Trim();
         }
     }
 }
